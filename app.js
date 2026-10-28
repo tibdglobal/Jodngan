@@ -498,7 +498,15 @@ function row(task, t) {
   if (!meta.length) m.remove();
   body.onclick = () => openEdit(task);
 
-  el.append(chk, body);
+  // ปุ่มแก้ไขที่เห็นชัด กดง่าย
+  const editBtn = document.createElement('button');
+  editBtn.className = 'edit-btn';
+  editBtn.type = 'button';
+  editBtn.setAttribute('aria-label', 'แก้ไข ' + task.title);
+  editBtn.innerHTML = '<span aria-hidden="true">✏️</span><span class="edit-txt">แก้ไข</span>';
+  editBtn.onclick = () => openEdit(task);
+
+  el.append(chk, body, editBtn);
   return el;
 }
 

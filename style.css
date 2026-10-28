@@ -181,6 +181,14 @@ mark { background: var(--accent-soft); color: inherit; border-radius: 3px; paddi
 .item.done .title { color: var(--muted); text-decoration: line-through; }
 .meta { display: block; font-size: 13px; color: var(--muted); }
 .meta .late { color: var(--warn); }
+.edit-btn {
+  flex: none; display: flex; align-items: center; gap: 4px;
+  min-height: 36px; padding: 0 10px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg);
+  font-size: 13px; color: var(--muted);
+}
+.edit-btn:active { background: var(--accent-soft); color: var(--accent); }
+@media (hover: hover) { .edit-btn:hover { border-color: var(--accent); color: var(--accent); } }
 .empty { text-align: center; color: var(--muted); padding: 48px 0; }
 
 /* ---------- ปฏิทิน ---------- */
