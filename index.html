@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>จดงาน</title>
+  <meta name="theme-color" content="#0f766e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="จดงาน">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>จดงาน</h1>
+      <p id="today" class="sub"></p>
+    </div>
+    <div class="top-actions">
+      <button id="btnView" class="icon-btn" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง">📅</button>
+      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
+      <button id="btnSettings" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button>
+    </div>
+  </header>
+
+  <form id="quick" class="quick" autocomplete="off">
+    <input id="quickInput" type="text" placeholder="เช่น พรุ่งนี้ 10:00 ส่งรายงาน #บริษัทA" enterkeyhint="done">
+    <button type="submit" class="add-btn" aria-label="เพิ่ม">＋</button>
+  </form>
+
+  <nav id="chips" class="chips" aria-label="กรองตามโปรเจ็ค"></nav>
+
+  <div id="status" class="status" hidden></div>
+
+  <main id="list"></main>
+
+  <!-- แก้ไขงาน -->
+  <dialog id="editDlg">
+    <form id="editForm" method="dialog">
+      <h2 id="editTitle">งาน</h2>
+      <label>ชื่องาน
+        <input name="title" required>
+      </label>
+      <div class="row">
+        <label>วันที่
+          <input name="date" type="date">
+        </label>
+        <label>เวลา
+          <input name="time" type="time">
+        </label>
+      </div>
+      <label>โปรเจ็ค / บริษัท
+        <input name="project" list="projectList" placeholder="ไม่ระบุ">
+        <datalist id="projectList"></datalist>
+      </label>
+      <label class="check">
+        <input name="remind" type="checkbox"> เตือนทาง LINE ตามเวลา
+      </label>
+      <label>โน้ต
+        <textarea name="note" rows="3"></textarea>
+      </label>
+      <div class="dlg-actions">
+        <button type="button" id="btnDelete" class="danger">ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnCancel" class="ghost">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ตั้งค่า -->
+  <dialog id="setDlg">
+    <form id="setForm" method="dialog">
+      <h2>ตั้งค่าการเชื่อมต่อ</h2>
+      <label>Web app URL (จาก Apps Script)
+        <input name="url" type="url" placeholder="https://script.google.com/macros/s/.../exec" required>
+      </label>
+      <label>API key
+        <input name="key" required>
+      </label>
+      <p class="hint">ค่าทั้งสองได้จากขั้นตอนติดตั้งใน README เก็บไว้ในเครื่องนี้เท่านั้น ต้องตั้งครั้งเดียวต่อเครื่อง</p>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button type="button" id="btnSetCancel" class="ghost">ปิด</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
