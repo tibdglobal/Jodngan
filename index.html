@@ -22,7 +22,6 @@
       <p id="today" class="sub"></p>
     </div>
     <div class="top-actions">
-      <button id="btnSearch" class="icon-btn" title="ค้นหา" aria-label="ค้นหา">🔍</button>
       <button id="btnMeet" class="icon-btn" title="ดึงประชุมจาก Calendar" aria-label="ดึงประชุม">👥</button>
       <button id="btnView" class="icon-btn" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง">📅</button>
       <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
@@ -53,12 +52,11 @@
     </div>
   </div>
 
-  <div id="searchBar" class="search" hidden>
-    <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน โน้ต หรือโปรเจ็ค" enterkeyhint="search">
-    <button id="btnSearchClose" class="ghost-btn" type="button">ปิด</button>
-  </div>
-
   <nav id="chips" class="chips" aria-label="กรองตามโปรเจ็ค"></nav>
+
+  <div class="search">
+    <input id="searchInput" type="search" placeholder="🔍 ค้นหางาน โน้ต หรือโปรเจ็ค" enterkeyhint="search" aria-label="ค้นหา">
+  </div>
 
   <div id="status" class="status" hidden></div>
 

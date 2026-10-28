@@ -268,14 +268,12 @@ function renderSearch(view, t) {
   });
 }
 
-const searchBar = $('#searchBar'), searchInput = $('#searchInput');
-$('#btnSearch').onclick = () => {
-  searchBar.hidden = !searchBar.hidden;
-  if (!searchBar.hidden) searchInput.focus();
-  else { query = ''; searchInput.value = ''; render(); }
-};
-$('#btnSearchClose').onclick = () => { searchBar.hidden = true; query = ''; searchInput.value = ''; render(); };
+// ช่องค้นหาแสดงตลอด พิมพ์แล้วกรองทันที (กด Esc หรือ × เพื่อล้าง)
+const searchInput = $('#searchInput');
 searchInput.addEventListener('input', () => { query = searchInput.value.trim(); render(); });
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { searchInput.value = ''; query = ''; render(); }
+});
 
 /* ---------- ดึงประชุมจาก Google Calendar ---------- */
 const meetDlg = $('#meetDlg'), meetForm = $('#meetForm'), meetList = $('#meetList');
@@ -354,7 +352,8 @@ meetForm.addEventListener('submit', async () => {
   if (known) project = known.name;
   showStatus('กำลังเพิ่มประชุม…');
   try {
-    const { tasks: added } = await api('import', { events: pick, skip, project });
+    const { tasks: added } = await api('import', { meetings: pick, skip, project });
+    if (!Array.isArray(added)) throw new Error('ระบบหลังบ้านยังเป็นเวอร์ชันเก่า');
     tasks.push(...added);
     LS.set('tasks', tasks);
     showStatus('');

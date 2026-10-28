@@ -102,11 +102,12 @@ dialog select {
 .dots i.soft { background: transparent; border: 1.5px solid var(--accent); width: 5px; height: 5px; }
 .dots i.soft.late { border-color: var(--warn); }
 
-.search { display: flex; gap: 8px; margin: -4px 0 12px; }
+.search { display: flex; margin: 2px 0 4px; }
 .search input {
-  flex: 1; min-width: 0; padding: 10px 14px; border-radius: var(--radius);
-  border: 1px solid var(--accent); background: var(--card); outline: none;
+  flex: 1; min-width: 0; padding: 8px 12px; border-radius: 10px; font-size: 15px;
+  border: 1px solid transparent; background: var(--line); outline: none;
 }
+.search input:focus { border-color: var(--accent); background: var(--card); }
 .ghost-btn { border: 0; background: none; color: var(--muted); padding: 0 6px; }
 mark { background: var(--accent-soft); color: inherit; border-radius: 3px; padding: 0 1px; }
 
