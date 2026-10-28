@@ -74,18 +74,19 @@ function softDate(word) {
   return { date: ymd(new Date(now.getFullYear(), now.getMonth() + 1 + plus, 0)), due: 'month' };
 }
 
-/* กำหนดส่งที่ใช้จริง: งานแบบ "ก่อนงานอื่น" ใช้วันของงานนั้น */
+/* "ก่อนงาน…": dep = ชื่องานที่พิมพ์เอง, date = วันของงานนั้น
+   (ข้อมูลเก่าที่ dep เป็น id ของงานในระบบ ยังอ่านได้) */
 const SOFT = { week: 1, month: 1, before: 1 };
 const depOf = t => t.due === 'before' && t.dep ? tasks.find(x => x.id === t.dep) : null;
+const depName = t => { const d = depOf(t); return d ? d.title : (t.dep || ''); };
 function effDate(t) {
-  if (t.due === 'before') { const d = depOf(t); return d ? (d.date || '') : ''; }
+  if (t.due === 'before') { if (t.date) return t.date; const d = depOf(t); return d ? (d.date || '') : ''; }
   return t.date || '';
 }
 function dueText(t) {
   const d = effDate(t);
   if (t.due === 'before') {
-    const dep = depOf(t);
-    return 'ก่อน: ' + (dep ? dep.title : '(งานถูกลบแล้ว)') + (d ? ` (${short(d)})` : '');
+    return 'ก่อน' + (depName(t) ? ': ' + depName(t) : 'งาน') + (d ? ` (${dayName(d)} ${short(d)})` : '');
   }
   if (t.due === 'week' || t.due === 'month') return `ภายใน ${dayName(d)} ${short(d)}`;
   return '';
@@ -501,15 +502,18 @@ function row(task, t) {
   return el;
 }
 
-/* รายการงานค้างให้เลือกเป็น "ก่อนงาน…" */
-function fillDeps(select, excludeId, selected) {
-  const open = tasks.filter(x => x.done !== '1' && x.id !== excludeId).sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
-  select.innerHTML = '';
-  const first = new Option(open.length ? '— เลือกงาน —' : '(ยังไม่มีงานอื่น)', '');
-  select.add(first);
-  for (const x of open) {
+/* ชื่องานที่มีอยู่ ให้เลือกได้ตอนพิมพ์ "ก่อนงาน…" (พิมพ์ชื่อใหม่เองก็ได้) */
+let depChoices = [];
+function fillDeps(excludeId) {
+  depChoices = tasks.filter(x => x.done !== '1' && x.id !== excludeId).sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
+  const dl = $('#depList');
+  dl.innerHTML = '';
+  for (const x of depChoices) {
+    const o = document.createElement('option');
+    o.value = x.title;
     const d = effDate(x);
-    select.add(new Option((d ? short(d) + ' · ' : '') + x.title, x.id, false, x.id === selected));
+    if (d) o.label = `${dayName(d)} ${short(d)}`;
+    dl.appendChild(o);
   }
 }
 
@@ -531,12 +535,12 @@ function kindOf(t) {
 function updateEditDue() {
   const f = editForm.elements, k = eKind;
   eWhen.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === k));
-  const showDate = k === 'date' || k === 'week' || k === 'month';
+  const showDate = k === 'date' || k === 'week' || k === 'month' || k === 'before';
   const showTime = k === 'today' || k === 'tomorrow' || k === 'date';
   $('#eDateRow').hidden = !showDate && !showTime;
   f.date.closest('label').hidden = !showDate;
   $('#eTimeWrap').hidden = !showTime;
-  $('#eDateLabel').textContent = k === 'week' || k === 'month' ? 'ภายในวันที่' : 'วันที่';
+  $('#eDateLabel').textContent = k === 'week' || k === 'month' ? 'ภายในวันที่' : k === 'before' ? 'วันที่ของงานนั้น' : 'วันที่';
   $('#eDepRow').hidden = k !== 'before';
   $('#ePreRow').hidden = !PRE_KINDS[k];
   f.remind.closest('label').hidden = !showTime || !f.time.value;
@@ -553,8 +557,14 @@ eWhen.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
   // ตั้งค่าเริ่มต้นให้ช่องที่เกี่ยวข้อง (ยังไม่บันทึกจนกด ยืนยัน/บันทึก)
   if (eKind === 'week' || eKind === 'month') f.date.value = softDate(eKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date;
   if (eKind === 'date' && !f.date.value) f.date.value = mode === 'cal' ? selDay : today();
-  if (eKind === 'before') fillDeps(f.dep, isNew ? null : editing.id, f.dep.value);
+  if (eKind === 'before') { fillDeps(isNew ? null : editing.id); if (!f.dep.value) f.dep.focus(); }
   updateEditDue();
+});
+// เลือกชื่องานที่มีอยู่แล้ว = เติมวันของงานนั้นให้ (แก้ได้)
+editForm.elements.dep.addEventListener('change', () => {
+  const f = editForm.elements;
+  const hit = depChoices.find(x => x.title === f.dep.value.trim());
+  if (hit && effDate(hit)) f.date.value = effDate(hit);
 });
 editForm.elements.time.addEventListener('input', () => {
   editForm.elements.remind.checked = !!editForm.elements.time.value;
@@ -576,7 +586,9 @@ function openEdit(task, creating) {
   f.project.value = task.project || '';
   setPre(task.pre);
   eKind = task.kind ?? kindOf(task);
-  fillDeps(f.dep, isNew ? null : task.id, task.dep);
+  fillDeps(isNew ? null : task.id);
+  f.dep.value = task.due === 'before' ? depName(task) : '';
+  if (task.due === 'before' && !task.date) f.date.value = effDate(task);   // ข้อมูลเก่าที่ผูกกับงานในระบบ
   updateEditDue();
   editDlg.showModal();
   if (isNew && !task.kind) eWhen.querySelector('[data-k]').focus();
@@ -610,7 +622,7 @@ editForm.addEventListener('submit', () => {
     case 'date':     date = date || today(); break;
     case 'week':
     case 'month':    due = eKind; date = date || softDate(eKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date; time = ''; break;
-    case 'before':   dep = f.dep.value; due = dep ? 'before' : ''; date = ''; time = ''; break;
+    case 'before':   dep = f.dep.value.trim(); due = dep || date ? 'before' : ''; time = ''; break;
     default:         date = ''; time = '';   // ไม่แน่ใจ / ยังไม่เลือก
   }
   const v = f.project.value.trim().replace(/^#/, '');

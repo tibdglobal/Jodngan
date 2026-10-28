@@ -63,6 +63,10 @@
           <button type="button" data-k="unsure">ไม่แน่ใจ</button>
         </div>
       </div>
+      <label id="eDepRow">ต้องเสร็จก่อนงานอะไร
+        <input name="dep" list="depList" placeholder="พิมพ์ชื่องาน เช่น งานสัมมนา" autocomplete="off">
+        <datalist id="depList"></datalist>
+      </label>
       <div class="row" id="eDateRow">
         <label><span id="eDateLabel">วันที่</span>
           <input name="date" type="date">
@@ -71,9 +75,6 @@
           <input name="time" type="time">
         </label>
       </div>
-      <label id="eDepRow">ต้องเสร็จก่อนงาน
-        <select name="dep"></select>
-      </label>
       <div class="field" id="ePreRow">
         <span class="field-label">เตือนล่วงหน้ากี่วัน (เลือกได้หลายอัน · รวมในสรุปตอนเช้าทาง LINE)</span>
         <div class="when-chips wrap pre-chips" id="ePre">
