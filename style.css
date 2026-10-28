@@ -25,6 +25,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg);
@@ -45,6 +46,10 @@ button { cursor: pointer; }
 h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.01em; }
 .sub { margin: 0; color: var(--muted); font-size: 14px; }
 .top-actions { display: flex; gap: 6px; }
+@media (max-width: 420px) {
+  .top-actions { gap: 4px; }
+  .top-actions .icon-btn { width: 36px; height: 36px; font-size: 16px; }
+}
 .icon-btn {
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--line); background: var(--card);
@@ -70,6 +75,53 @@ h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.01em; }
   background: var(--accent); color: #fff; font-size: 22px;
 }
 @media (prefers-color-scheme: dark) { .add-btn { color: #0b1f1d; } }
+
+.when { margin: -4px 0 12px; }
+.when-chips {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 -16px; padding: 0 16px 2px;
+}
+.when-chips::-webkit-scrollbar { display: none; }
+.when-chips button {
+  flex: none; padding: 6px 12px; border-radius: 999px; font-size: 14px; white-space: nowrap;
+  border: 1px dashed var(--line); background: transparent; color: var(--muted);
+}
+.when-chips button.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.when-extra { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.when-extra:not(:has(:not([hidden]))) { display: none; }
+.when-extra input, .when-extra select {
+  padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text);
+}
+.when-extra select { flex: 1; min-width: 0; }
+dialog select {
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text);
+}
+.nm.soft { border: 1px dashed currentColor; background: transparent !important; }
+.dots i.soft { background: transparent; border: 1.5px solid var(--accent); width: 5px; height: 5px; }
+.dots i.soft.late { border-color: var(--warn); }
+
+.search { display: flex; gap: 8px; margin: -4px 0 12px; }
+.search input {
+  flex: 1; min-width: 0; padding: 10px 14px; border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--card); outline: none;
+}
+.ghost-btn { border: 0; background: none; color: var(--muted); padding: 0 6px; }
+mark { background: var(--accent-soft); color: inherit; border-radius: 3px; padding: 0 1px; }
+
+.hint.warn { color: var(--warn); }
+.meet-list { display: grid; gap: 4px; max-height: 50vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.meet-day { font-size: 13px; font-weight: 600; color: var(--muted); margin: 8px 0 2px; }
+.meet {
+  display: flex !important; grid-template-columns: none; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--text) !important;
+}
+.meet input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.meet .t { display: block; font-size: 15px; }
+.meet .s { display: block; font-size: 13px; color: var(--muted); }
+.meet.added { opacity: .55; }
+.meet .badge { font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; }
 
 .chips {
   display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;

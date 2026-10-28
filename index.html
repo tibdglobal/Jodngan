@@ -22,6 +22,8 @@
       <p id="today" class="sub"></p>
     </div>
     <div class="top-actions">
+      <button id="btnSearch" class="icon-btn" title="ค้นหา" aria-label="ค้นหา">🔍</button>
+      <button id="btnMeet" class="icon-btn" title="ดึงประชุมจาก Calendar" aria-label="ดึงประชุม">👥</button>
       <button id="btnView" class="icon-btn" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง">📅</button>
       <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
       <button id="btnSettings" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button>
@@ -32,6 +34,29 @@
     <input id="quickInput" type="text" placeholder="เช่น พรุ่งนี้ 10:00 ส่งรายงาน #บริษัทA" enterkeyhint="done">
     <button type="submit" class="add-btn" aria-label="เพิ่ม">＋</button>
   </form>
+
+  <!-- เลือกว่าเมื่อไหร่ (โผล่เมื่อเริ่มพิมพ์งาน) -->
+  <div id="when" class="when" hidden>
+    <div class="when-chips" aria-label="กำหนดเมื่อไหร่">
+      <button type="button" data-k="today">วันนี้</button>
+      <button type="button" data-k="tomorrow">พรุ่งนี้</button>
+      <button type="button" data-k="date">📅 เลือกวัน</button>
+      <button type="button" data-k="week">ภายในสัปดาห์นี้</button>
+      <button type="button" data-k="month">ภายในเดือนนี้</button>
+      <button type="button" data-k="before">ก่อนงาน…</button>
+      <button type="button" data-k="unsure">ไม่แน่ใจ</button>
+    </div>
+    <div class="when-extra">
+      <input type="date" id="qDate" aria-label="วันที่" hidden>
+      <input type="time" id="qTime" aria-label="เวลา (ใส่ = เตือนทาง LINE)" hidden>
+      <select id="qDep" aria-label="ต้องเสร็จก่อนงานไหน" hidden></select>
+    </div>
+  </div>
+
+  <div id="searchBar" class="search" hidden>
+    <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน โน้ต หรือโปรเจ็ค" enterkeyhint="search">
+    <button id="btnSearchClose" class="ghost-btn" type="button">ปิด</button>
+  </div>
 
   <nav id="chips" class="chips" aria-label="กรองตามโปรเจ็ค"></nav>
 
@@ -46,14 +71,26 @@
       <label>ชื่องาน
         <input name="title" required>
       </label>
-      <div class="row">
-        <label>วันที่
+      <label>กำหนด
+        <select name="due">
+          <option value="">วันที่แน่นอน</option>
+          <option value="week">ภายในสัปดาห์นี้</option>
+          <option value="month">ภายในเดือนนี้</option>
+          <option value="before">ก่อนงานอื่น</option>
+          <option value="unsure">ไม่แน่ใจ / ยังไม่กำหนด</option>
+        </select>
+      </label>
+      <div class="row" id="eDateRow">
+        <label><span id="eDateLabel">วันที่</span>
           <input name="date" type="date">
         </label>
-        <label>เวลา
+        <label id="eTimeWrap">เวลา
           <input name="time" type="time">
         </label>
       </div>
+      <label id="eDepRow">ต้องเสร็จก่อนงาน
+        <select name="dep"></select>
+      </label>
       <label>โปรเจ็ค / บริษัท
         <input name="project" list="projectList" placeholder="ไม่ระบุ">
         <datalist id="projectList"></datalist>
@@ -69,6 +106,23 @@
         <span class="spacer"></span>
         <button type="button" id="btnCancel" class="ghost">ยกเลิก</button>
         <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ดึงประชุมจาก Google Calendar -->
+  <dialog id="meetDlg">
+    <form id="meetForm" method="dialog">
+      <h2>ประชุมจาก Calendar</h2>
+      <p class="hint">14 วันข้างหน้า ติ๊กอันที่จะเข้า แล้วจะเพิ่มเป็นงานพร้อมเตือนทาง LINE</p>
+      <div id="meetList" class="meet-list"></div>
+      <label>ใส่โปรเจ็ค (ไม่บังคับ)
+        <input name="project" list="projectList" placeholder="ไม่ระบุ">
+      </label>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button type="button" id="btnMeetCancel" class="ghost">ปิด</button>
+        <button type="submit" id="btnMeetAdd" class="primary">เพิ่มเป็นงาน</button>
       </div>
     </form>
   </dialog>

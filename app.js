@@ -12,6 +12,7 @@ let editing = null;
 let filter = LS.get('filter', '');   // '' = ทั้งหมด, NONE = ไม่มีโปรเจ็ค, อื่นๆ = ชื่อโปรเจ็ค
 const NONE = '\u0000none';
 let mode = LS.get('mode', 'list');   // 'list' | 'cal'
+let query = '';                       // คำค้นหา
 let calMonth, selDay;                 // ตั้งค่าหลังมีฟังก์ชันวันที่
 const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
 
@@ -33,6 +34,14 @@ function parseQuick(text) {
   const t = today();
   // #แท็ก ที่ไหนก็ได้ = โปรเจ็ค/บริษัท
   s = s.replace(/(^|\s)#(\S+)/, (all, sp, name) => { project = name; return sp; }).replace(/\s{2,}/g, ' ').trim();
+  // ช่วงเวลาคร่าวๆ / ไม่แน่ใจ
+  if ((m = s.match(/^(?:ภายใน)?(สัปดาห์นี้|อาทิตย์นี้|สัปดาห์หน้า|อาทิตย์หน้า|เดือนนี้|เดือนหน้า)\s*/))) {
+    const r = softDate(m[1]);
+    return { title: s.slice(m[0].length).trim(), date: r.date, time: '', project, due: r.due, typedDate: true };
+  }
+  if ((m = s.match(/^(ไม่แน่ใจ|ยังไม่รู้|สักวัน)\s*/))) {
+    return { title: s.slice(m[0].length).trim(), date: '', time: '', project, due: '', typedDate: true };
+  }
   if ((m = s.match(/^(วันนี้|พรุ่งนี้|มะรืน)\s*/))) {
     date = addDays(t, { 'วันนี้': 0, 'พรุ่งนี้': 1, 'มะรืน': 2 }[m[1]]);
     s = s.slice(m[0].length);
@@ -51,7 +60,35 @@ function parseQuick(text) {
   }
   const typedDate = !!date;
   if (time && !date) date = t;
-  return { title: s.trim(), date, time, project, typedDate };
+  return { title: s.trim(), date, time, project, due: '', typedDate };
+}
+
+/* วันสุดท้ายของสัปดาห์ (อาทิตย์) หรือเดือน — คำว่า "หน้า" = ถัดไป */
+function softDate(word) {
+  const now = new Date();
+  if (/สัปดาห์|อาทิตย์/.test(word)) {
+    const toSun = (7 - now.getDay()) % 7 + (/หน้า/.test(word) ? 7 : 0);
+    return { date: addDays(today(), toSun), due: 'week' };
+  }
+  const plus = /หน้า/.test(word) ? 1 : 0;
+  return { date: ymd(new Date(now.getFullYear(), now.getMonth() + 1 + plus, 0)), due: 'month' };
+}
+
+/* กำหนดส่งที่ใช้จริง: งานแบบ "ก่อนงานอื่น" ใช้วันของงานนั้น */
+const SOFT = { week: 1, month: 1, before: 1 };
+const depOf = t => t.due === 'before' && t.dep ? tasks.find(x => x.id === t.dep) : null;
+function effDate(t) {
+  if (t.due === 'before') { const d = depOf(t); return d ? (d.date || '') : ''; }
+  return t.date || '';
+}
+function dueText(t) {
+  const d = effDate(t);
+  if (t.due === 'before') {
+    const dep = depOf(t);
+    return 'ก่อน: ' + (dep ? dep.title : '(งานถูกลบแล้ว)') + (d ? ` (${short(d)})` : '');
+  }
+  if (t.due === 'week' || t.due === 'month') return `ภายใน ${dayName(d)} ${short(d)}`;
+  return '';
 }
 
 /* ---------- API ---------- */
@@ -108,7 +145,7 @@ async function save(action, task) {
 }
 
 /* ---------- แสดงผล ---------- */
-const whenKey = t => (t.date || '9999-99-99') + (t.time || '99:99');
+const whenKey = t => (effDate(t) || '9999-99-99') + (t.time || '99:99');
 
 /* รายชื่อโปรเจ็คที่มีอยู่ (ชื่อแรกที่เจอเป็นตัวสะกดหลัก) + จำนวนงานค้าง */
 function projects() {
@@ -155,17 +192,20 @@ function render() {
     : tasks.filter(x => same(x.project, filter));
   $('#btnView').textContent = mode === 'cal' ? '☰' : '📅';
   $('#btnView').title = mode === 'cal' ? 'ดูแบบรายการ' : 'ดูแบบปฏิทิน';
+  if (query) { renderSearch(view, t); return; }
   if (mode === 'cal') { renderCal(view, t); return; }
 
   const open = view.filter(x => x.done !== '1').sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
   const done = view.filter(x => x.done === '1').sort((a, b) => (b.updated || '') < (a.updated || '') ? -1 : 1).slice(0, 15);
 
+  const E = x => effDate(x), soft = x => !!SOFT[x.due];
   const groups = [
-    ['เลยกำหนด', 'overdue', open.filter(x => x.date && x.date < t)],
-    ['วันนี้', '', open.filter(x => x.date === t)],
-    ['พรุ่งนี้', '', open.filter(x => x.date === tmr)],
-    ['ถัดไป', '', open.filter(x => x.date > tmr)],
-    ['ไม่ระบุวัน', '', open.filter(x => !x.date)],
+    ['เลยกำหนด', 'overdue', open.filter(x => E(x) && E(x) < t)],
+    ['วันนี้', '', open.filter(x => !soft(x) && E(x) === t)],
+    ['พรุ่งนี้', '', open.filter(x => !soft(x) && E(x) === tmr)],
+    ['ภายในช่วงเวลา', '', open.filter(x => soft(x) && E(x) >= t)],
+    ['ถัดไป', '', open.filter(x => !soft(x) && E(x) > tmr)],
+    ['ยังไม่กำหนดวัน', '', open.filter(x => !E(x))],
     ['เสร็จแล้ว', '', done],
   ];
 
@@ -188,6 +228,142 @@ function render() {
   }
 }
 
+/* ---------- ค้นหา ---------- */
+function renderSearch(view, t) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = view.filter(x => {
+    const hay = [x.title, x.note, x.project].join(' ').toLowerCase();
+    return words.every(w => hay.includes(w));
+  }).sort((a, b) => (a.done === '1') - (b.done === '1') || (whenKey(a) < whenKey(b) ? -1 : 1));
+
+  const list = $('#list');
+  list.innerHTML = '';
+  const sec = document.createElement('section');
+  sec.className = 'group';
+  sec.innerHTML = '<h3></h3><div class="items"></div>';
+  sec.querySelector('h3').textContent = `ผลการค้นหา · ${hits.length}` + (filter ? ' (ในโปรเจ็คที่เลือก)' : '');
+  const box = sec.querySelector('.items');
+  if (hits.length) hits.slice(0, 100).forEach(x => box.appendChild(row(x, t)));
+  else box.innerHTML = '<p class="day-empty">ไม่พบงานที่ตรงกับคำค้น</p>';
+  list.appendChild(sec);
+
+  // ไฮไลต์คำที่ค้นในชื่องาน
+  box.querySelectorAll('.title').forEach(el => {
+    const tag = el.querySelector('.tag');
+    const text = el.lastChild && el.lastChild.nodeType === 3 ? el.lastChild : null;
+    if (!text) return;
+    const src = text.textContent, low = src.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let i = 0;
+    while (i < src.length) {
+      let best = -1, len = 0;
+      for (const w of words) { const p = low.indexOf(w, i); if (p > -1 && (best < 0 || p < best)) { best = p; len = w.length; } }
+      if (best < 0) { frag.append(src.slice(i)); break; }
+      frag.append(src.slice(i, best));
+      const mk = document.createElement('mark'); mk.textContent = src.slice(best, best + len); frag.append(mk);
+      i = best + len;
+    }
+    text.replaceWith(frag);
+    if (tag) el.prepend(tag);
+  });
+}
+
+const searchBar = $('#searchBar'), searchInput = $('#searchInput');
+$('#btnSearch').onclick = () => {
+  searchBar.hidden = !searchBar.hidden;
+  if (!searchBar.hidden) searchInput.focus();
+  else { query = ''; searchInput.value = ''; render(); }
+};
+$('#btnSearchClose').onclick = () => { searchBar.hidden = true; query = ''; searchInput.value = ''; render(); };
+searchInput.addEventListener('input', () => { query = searchInput.value.trim(); render(); });
+
+/* ---------- ดึงประชุมจาก Google Calendar ---------- */
+const meetDlg = $('#meetDlg'), meetForm = $('#meetForm'), meetList = $('#meetList');
+let meetEvents = [];
+
+$('#btnMeet').onclick = async () => {
+  meetList.innerHTML = '<p class="hint">กำลังดึงนัดจาก Calendar…</p>';
+  meetForm.elements.project.value = filter && filter !== NONE ? filter : '';
+  $('#btnMeetAdd').disabled = true;
+  meetDlg.showModal();
+  try {
+    const { events, missing } = await api('events');
+    meetEvents = events;
+    renderMeetings();
+    if (missing && missing.length) {
+      const p = document.createElement('p');
+      p.className = 'hint warn';
+      p.textContent = 'ยังดึงปฏิทินนี้ไม่ได้ (ต้องแชร์ให้บัญชีระบบก่อน): ' + missing.join(', ');
+      meetList.prepend(p);
+    }
+  } catch (e) {
+    meetList.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = 'ดึงไม่สำเร็จ: ' + e.message;
+    meetList.appendChild(p);
+  }
+};
+
+function renderMeetings() {
+  meetList.innerHTML = '';
+  if (!meetEvents.length) {
+    meetList.innerHTML = '<p class="hint">ไม่มีนัดประชุมใน 14 วันข้างหน้า</p>';
+    return;
+  }
+  let lastDay = '';
+  meetEvents.forEach((ev, i) => {
+    if (ev.date !== lastDay) {
+      lastDay = ev.date;
+      const h = document.createElement('div');
+      h.className = 'meet-day';
+      h.textContent = `${dayName(ev.date)} ${short(ev.date)}` + (ev.date === today() ? ' · วันนี้' : '');
+      meetList.appendChild(h);
+    }
+    const lab = document.createElement('label');
+    lab.className = 'meet' + (ev.imported ? ' added' : '');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.i = i;
+    // ตอบรับ/เป็นเจ้าของนัด = ติ๊กไว้ก่อน ยกเว้นเคยกดไม่เข้าแล้ว
+    cb.checked = ev.imported || (!ev.skipped && (ev.status === 'YES' || ev.status === 'OWNER'));
+    cb.disabled = ev.imported;
+    const txt = document.createElement('span');
+    txt.innerHTML = '<span class="t"></span><span class="s"></span>';
+    txt.querySelector('.t').textContent = ev.title;
+    if (ev.imported) {
+      const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'เพิ่มแล้ว';
+      txt.querySelector('.t').append(b);
+    }
+    const st = { YES: 'ตอบรับแล้ว', MAYBE: 'อาจจะ', INVITED: 'ยังไม่ตอบ', OWNER: 'นัดของคุณ' }[ev.status] || '';
+    txt.querySelector('.s').textContent = [`${ev.time}–${ev.end}`, ev.location, st, ev.cal && '📆 ' + ev.cal].filter(Boolean).join(' · ');
+    lab.append(cb, txt);
+    meetList.appendChild(lab);
+  });
+  $('#btnMeetAdd').disabled = false;
+}
+
+$('#btnMeetCancel').onclick = () => meetDlg.close();
+meetForm.addEventListener('submit', async () => {
+  const boxes = [...meetList.querySelectorAll('input[type=checkbox]:not(:disabled)')];
+  const pick = boxes.filter(b => b.checked).map(b => meetEvents[b.dataset.i]);
+  const skip = boxes.filter(b => !b.checked).map(b => meetEvents[b.dataset.i].key);
+  if (!pick.length && !skip.length) return;
+  let project = meetForm.elements.project.value.trim().replace(/^#/, '');
+  const known = projects().find(x => same(x.name, project));
+  if (known) project = known.name;
+  showStatus('กำลังเพิ่มประชุม…');
+  try {
+    const { tasks: added } = await api('import', { events: pick, skip, project });
+    tasks.push(...added);
+    LS.set('tasks', tasks);
+    showStatus('');
+    render();
+  } catch (e) {
+    showStatus('เพิ่มประชุมไม่สำเร็จ: ' + e.message);
+  }
+});
+
 /* ---------- ปฏิทิน ---------- */
 function renderCal(view, t) {
   const [y, m] = calMonth.split('-').map(Number);
@@ -196,7 +372,7 @@ function renderCal(view, t) {
   const weeks = Math.ceil((first.getDay() + new Date(y, m, 0).getDate()) / 7);
 
   const byDay = {};
-  for (const x of view) if (x.date) (byDay[x.date] = byDay[x.date] || []).push(x);
+  for (const x of view) { const d = effDate(x); if (d) (byDay[d] = byDay[d] || []).push(x); }
   for (const k in byDay) byDay[k].sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
 
   const list = $('#list');
@@ -240,7 +416,7 @@ function renderCal(view, t) {
     const names = document.createElement('span');
     names.className = 'names';
     items.forEach((x, j) => {
-      const st = x.done === '1' ? 'done' : key < t ? 'late' : 'open';
+      const st = (x.done === '1' ? 'done' : key < t ? 'late' : 'open') + (SOFT[x.due] ? ' soft' : '');
       if (j < 4) {
         const dot = document.createElement('i');
         dot.className = st;
@@ -249,7 +425,7 @@ function renderCal(view, t) {
       if (j < 3) {
         const n = document.createElement('span');
         n.className = 'nm ' + st;
-        n.textContent = (x.time ? x.time + ' ' : '') + x.title;
+        n.textContent = (SOFT[x.due] ? '≤ ' : x.time ? x.time + ' ' : '') + x.title;
         names.appendChild(n);
       }
     });
@@ -278,11 +454,11 @@ function renderCal(view, t) {
   else box.innerHTML = '<p class="day-empty">ไม่มีงาน พิมพ์ด้านบนเพื่อเพิ่มงานวันนี้</p>';
   list.appendChild(sec);
 
-  const undated = view.filter(x => !x.date && x.done !== '1').length;
+  const undated = view.filter(x => !effDate(x) && x.done !== '1').length;
   if (undated) {
     const p = document.createElement('p');
     p.className = 'cal-note';
-    p.textContent = `ไม่ระบุวัน ${undated} งาน (ดูได้ในมุมมองรายการ)`;
+    p.textContent = `ยังไม่กำหนดวัน ${undated} งาน (ดูได้ในมุมมองรายการ) · ≤ = ภายในวันนั้น`;
     list.appendChild(p);
   }
 }
@@ -300,11 +476,14 @@ function row(task, t) {
   const body = document.createElement('button');
   body.className = 'body';
   const meta = [];
-  if (task.date && task.date !== t) meta.push(`${dayName(task.date)} ${short(task.date)}`);
-  if (task.time) meta.push(task.time);
+  const ed = effDate(task);
+  if (SOFT[task.due]) meta.push(dueText(task));
+  else if (ed && ed !== t) meta.push(`${dayName(ed)} ${short(ed)}`);
+  if (task.time && !SOFT[task.due]) meta.push(task.time);
   if (task.remind === '1' && task.time) meta.push('🔔');
   if (task.note) meta.push('📝');
-  const late = task.done !== '1' && task.date && task.date < t;
+  if (task.source) meta.push('👥');
+  const late = task.done !== '1' && ed && ed < t;
   body.innerHTML = `<span class="title"></span><span class="meta${late ? ' late' : ''}"></span>`;
   body.querySelector('.title').textContent = task.title;
   if (task.project && !filter) {   // ดูรวมทุกโปรเจ็ค = แสดงป้ายโปรเจ็ค
@@ -322,25 +501,79 @@ function row(task, t) {
   return el;
 }
 
+/* รายการงานค้างให้เลือกเป็น "ก่อนงาน…" */
+function fillDeps(select, excludeId, selected) {
+  const open = tasks.filter(x => x.done !== '1' && x.id !== excludeId).sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
+  select.innerHTML = '';
+  const first = new Option(open.length ? '— เลือกงาน —' : '(ยังไม่มีงานอื่น)', '');
+  select.add(first);
+  for (const x of open) {
+    const d = effDate(x);
+    select.add(new Option((d ? short(d) + ' · ' : '') + x.title, x.id, false, x.id === selected));
+  }
+}
+
 /* ---------- เพิ่มงานเร็ว ---------- */
+const qInput = $('#quickInput'), whenBox = $('#when');
+const qDate = $('#qDate'), qTime = $('#qTime'), qDep = $('#qDep');
+let qKind = '';
+
+function updateWhen() {
+  whenBox.hidden = !qInput.value.trim();
+  whenBox.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === qKind));
+  qDate.hidden = qKind !== 'date';
+  qTime.hidden = !['today', 'tomorrow', 'date'].includes(qKind);
+  qDep.hidden = qKind !== 'before';
+}
+whenBox.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+  qKind = qKind === b.dataset.k ? '' : b.dataset.k;
+  if (qKind === 'before') fillDeps(qDep, null, qDep.value);
+  if (qKind === 'date' && !qDate.value) qDate.value = mode === 'cal' ? selDay : today();
+  updateWhen();
+});
+qInput.addEventListener('input', updateWhen);
+
 $('#quick').addEventListener('submit', e => {
   e.preventDefault();
-  const input = $('#quickInput');
-  const p = parseQuick(input.value);
+  const p = parseQuick(qInput.value);
   if (!p.title) return;
-  const now = new Date().toISOString();
+  let { date, time, due } = p, dep = '';
+  if (!p.typedDate) {   // ไม่ได้พิมพ์วันเอง = ใช้ที่เลือกจากปุ่ม
+    const tm = qTime.value || p.time;
+    switch (qKind) {
+      case 'today':    date = today(); time = tm; break;
+      case 'tomorrow': date = addDays(today(), 1); time = tm; break;
+      case 'date':     date = qDate.value || today(); time = tm; break;
+      case 'week':
+      case 'month':    ({ date, due } = softDate(qKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้')); time = ''; break;
+      case 'before':   dep = qDep.value; due = dep ? 'before' : ''; date = ''; time = ''; break;
+      case 'unsure':   date = ''; time = ''; break;
+      default:         if (mode === 'cal') date = selDay;   // หน้าปฏิทิน = วันที่เลือกไว้
+    }
+  }
   // ไม่ได้พิมพ์ #แท็ก แต่กำลังดูโปรเจ็คไหนอยู่ = ใส่โปรเจ็คนั้นให้
-  // อยู่หน้าปฏิทินแล้วไม่ได้พิมพ์วัน = ใส่วันที่เลือกไว้
-  if (mode === 'cal' && !p.typedDate) p.date = selDay;
   let project = p.project || (filter && filter !== NONE ? filter : '');
   const known = projects().find(x => same(x.name, project));
   if (known) project = known.name;   // ใช้ตัวสะกดเดิม
-  save('add', { id: uid(), title: p.title, note: '', date: p.date, time: p.time, remind: p.time ? '1' : '', done: '', project, created: now, updated: now });
-  input.value = '';
+  const now = new Date().toISOString();
+  save('add', { id: uid(), title: p.title, note: '', date, time, remind: time ? '1' : '', done: '', project, due: due || '', dep, created: now, updated: now });
+  qInput.value = ''; qKind = ''; qDate.value = ''; qTime.value = '';
+  updateWhen();
 });
 
 /* ---------- แก้ไข ---------- */
 const editDlg = $('#editDlg'), editForm = $('#editForm');
+
+function updateEditDue(fromUser) {
+  const f = editForm.elements, k = f.due.value;
+  if (fromUser && (k === 'week' || k === 'month')) f.date.value = softDate(k === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date;
+  $('#eDateRow').hidden = k === 'before' || k === 'unsure';
+  $('#eTimeWrap').hidden = k !== '';
+  $('#eDateLabel').textContent = k === 'week' || k === 'month' ? 'ภายในวันที่' : 'วันที่';
+  $('#eDepRow').hidden = k !== 'before';
+  f.remind.closest('label').hidden = k !== '';
+}
+editForm.elements.due.addEventListener('change', () => updateEditDue(true));
 
 function openEdit(task) {
   editing = task;
@@ -351,19 +584,24 @@ function openEdit(task) {
   f.remind.checked = task.remind === '1';
   f.note.value = task.note || '';
   f.project.value = task.project || '';
+  f.due.value = task.due || (task.date ? '' : 'unsure');
+  fillDeps(f.dep, task.id, task.dep);
+  updateEditDue(false);
   editDlg.showModal();
 }
 
 editForm.addEventListener('submit', () => {
   if (!editing) return;
   const f = editForm.elements;
-  let date = f.date.value;
-  const time = f.time.value;
-  if (time && !date) date = today();
+  let due = f.due.value, date = f.date.value, time = f.time.value, dep = '';
+  if (due === 'unsure') { due = ''; date = ''; time = ''; }
+  else if (due === 'week' || due === 'month') { date = date || softDate(due === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date; time = ''; }
+  else if (due === 'before') { dep = f.dep.value; if (!dep) due = ''; date = ''; time = ''; }
+  else if (time && !date) date = today();
   save('update', {
     id: editing.id,
     title: f.title.value.trim() || editing.title,
-    date, time,
+    date, time, due, dep,
     remind: f.remind.checked && time ? '1' : '',
     note: f.note.value,
     project: (() => {
