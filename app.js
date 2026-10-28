@@ -518,7 +518,6 @@ const qDate = $('#qDate'), qTime = $('#qTime'), qDep = $('#qDep');
 let qKind = '';
 
 function updateWhen() {
-  whenBox.hidden = !qInput.value.trim();
   whenBox.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === qKind));
   qDate.hidden = qKind !== 'date';
   qTime.hidden = !['today', 'tomorrow', 'date'].includes(qKind);

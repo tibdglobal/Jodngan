@@ -30,12 +30,12 @@
   </header>
 
   <form id="quick" class="quick" autocomplete="off">
-    <input id="quickInput" type="text" placeholder="เช่น พรุ่งนี้ 10:00 ส่งรายงาน #บริษัทA" enterkeyhint="done">
+    <input id="quickInput" type="text" placeholder="พิมพ์รายละเอียดงาน แล้วเลือกเมื่อไหร่ด้านล่าง" enterkeyhint="done">
     <button type="submit" class="add-btn" aria-label="เพิ่ม">＋</button>
   </form>
 
-  <!-- เลือกว่าเมื่อไหร่ (โผล่เมื่อเริ่มพิมพ์งาน) -->
-  <div id="when" class="when" hidden>
+  <!-- เลือกว่าเมื่อไหร่ (แสดงตลอด) -->
+  <div id="when" class="when">
     <div class="when-chips" aria-label="กำหนดเมื่อไหร่">
       <button type="button" data-k="today">วันนี้</button>
       <button type="button" data-k="tomorrow">พรุ่งนี้</button>
