@@ -76,11 +76,11 @@ h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.01em; }
 }
 @media (prefers-color-scheme: dark) { .add-btn { color: #0b1f1d; } }
 
-.when { margin: -4px 0 12px; }
-.when-chips::before {
-  content: 'เมื่อไหร่'; flex: none; align-self: center;
-  font-size: 13px; color: var(--muted); margin-right: 2px;
-}
+.field { display: grid; gap: 6px; }
+.pre-chips button { min-width: 40px; text-align: center; }
+.field-label { font-size: 14px; color: var(--muted); }
+.when-chips.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+dialog textarea[name=title] { font-size: 16px; resize: vertical; }
 .when-chips {
   display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
   margin: 0 -16px; padding: 0 16px 2px;

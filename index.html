@@ -30,27 +30,9 @@
   </header>
 
   <form id="quick" class="quick" autocomplete="off">
-    <input id="quickInput" type="text" placeholder="พิมพ์รายละเอียดงาน แล้วเลือกเมื่อไหร่ด้านล่าง" enterkeyhint="done">
+    <input id="quickInput" type="text" placeholder="พิมพ์รายละเอียดงาน แล้วกด ＋" enterkeyhint="next">
     <button type="submit" class="add-btn" aria-label="เพิ่ม">＋</button>
   </form>
-
-  <!-- เลือกว่าเมื่อไหร่ (แสดงตลอด) -->
-  <div id="when" class="when">
-    <div class="when-chips" aria-label="กำหนดเมื่อไหร่">
-      <button type="button" data-k="today">วันนี้</button>
-      <button type="button" data-k="tomorrow">พรุ่งนี้</button>
-      <button type="button" data-k="date">📅 เลือกวัน</button>
-      <button type="button" data-k="week">ภายในสัปดาห์นี้</button>
-      <button type="button" data-k="month">ภายในเดือนนี้</button>
-      <button type="button" data-k="before">ก่อนงาน…</button>
-      <button type="button" data-k="unsure">ไม่แน่ใจ</button>
-    </div>
-    <div class="when-extra">
-      <input type="date" id="qDate" aria-label="วันที่" hidden>
-      <input type="time" id="qTime" aria-label="เวลา (ใส่ = เตือนทาง LINE)" hidden>
-      <select id="qDep" aria-label="ต้องเสร็จก่อนงานไหน" hidden></select>
-    </div>
-  </div>
 
   <nav id="chips" class="chips" aria-label="กรองตามโปรเจ็ค"></nav>
 
@@ -66,18 +48,21 @@
   <dialog id="editDlg">
     <form id="editForm" method="dialog">
       <h2 id="editTitle">งาน</h2>
-      <label>ชื่องาน
-        <input name="title" required>
+      <label>รายละเอียดงาน
+        <textarea name="title" rows="2" required></textarea>
       </label>
-      <label>กำหนด
-        <select name="due">
-          <option value="">วันที่แน่นอน</option>
-          <option value="week">ภายในสัปดาห์นี้</option>
-          <option value="month">ภายในเดือนนี้</option>
-          <option value="before">ก่อนงานอื่น</option>
-          <option value="unsure">ไม่แน่ใจ / ยังไม่กำหนด</option>
-        </select>
-      </label>
+      <div class="field">
+        <span class="field-label">เมื่อไหร่</span>
+        <div class="when-chips wrap" id="eWhen">
+          <button type="button" data-k="today">วันนี้</button>
+          <button type="button" data-k="tomorrow">พรุ่งนี้</button>
+          <button type="button" data-k="date">📅 เลือกวัน</button>
+          <button type="button" data-k="week">ภายในสัปดาห์นี้</button>
+          <button type="button" data-k="month">ภายในเดือนนี้</button>
+          <button type="button" data-k="before">ก่อนงาน…</button>
+          <button type="button" data-k="unsure">ไม่แน่ใจ</button>
+        </div>
+      </div>
       <div class="row" id="eDateRow">
         <label><span id="eDateLabel">วันที่</span>
           <input name="date" type="date">
@@ -89,6 +74,18 @@
       <label id="eDepRow">ต้องเสร็จก่อนงาน
         <select name="dep"></select>
       </label>
+      <div class="field" id="ePreRow">
+        <span class="field-label">เตือนล่วงหน้ากี่วัน (เลือกได้หลายอัน · รวมในสรุปตอนเช้าทาง LINE)</span>
+        <div class="when-chips wrap pre-chips" id="ePre">
+          <button type="button" data-d="1">1 วัน</button>
+          <button type="button" data-d="2">2 วัน</button>
+          <button type="button" data-d="3">3 วัน</button>
+          <button type="button" data-d="4">4 วัน</button>
+          <button type="button" data-d="5">5 วัน</button>
+          <button type="button" data-d="6">6 วัน</button>
+          <button type="button" data-d="7">7 วัน</button>
+        </div>
+      </div>
       <label>โปรเจ็ค / บริษัท
         <input name="project" list="projectList" placeholder="ไม่ระบุ">
         <datalist id="projectList"></datalist>
@@ -103,7 +100,7 @@
         <button type="button" id="btnDelete" class="danger">ลบ</button>
         <span class="spacer"></span>
         <button type="button" id="btnCancel" class="ghost">ยกเลิก</button>
-        <button type="submit" class="primary">บันทึก</button>
+        <button type="submit" class="primary" id="btnSave">บันทึก</button>
       </div>
     </form>
   </dialog>

@@ -480,6 +480,7 @@ function row(task, t) {
   else if (ed && ed !== t) meta.push(`${dayName(ed)} ${short(ed)}`);
   if (task.time && !SOFT[task.due]) meta.push(task.time);
   if (task.remind === '1' && task.time) meta.push('🔔');
+  if (task.pre) meta.push('⏳' + task.pre.split(',').join('/') + ' วัน');
   if (task.note) meta.push('📝');
   if (task.source) meta.push('👥');
   const late = task.done !== '1' && ed && ed < t;
@@ -512,108 +513,128 @@ function fillDeps(select, excludeId, selected) {
   }
 }
 
-/* ---------- เพิ่มงานเร็ว ---------- */
-const qInput = $('#quickInput'), whenBox = $('#when');
-const qDate = $('#qDate'), qTime = $('#qTime'), qDep = $('#qDep');
-let qKind = '';
+/* ---------- เพิ่ม / แก้ไขงาน (หน้าต่างเดียวกัน กดยืนยันถึงบันทึก) ---------- */
+const qInput = $('#quickInput');
+const editDlg = $('#editDlg'), editForm = $('#editForm'), eWhen = $('#eWhen');
+let eKind = '';          // today | tomorrow | date | week | month | before | unsure
+let isNew = false;
 
-function updateWhen() {
-  whenBox.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === qKind));
-  qDate.hidden = qKind !== 'date';
-  qTime.hidden = !['today', 'tomorrow', 'date'].includes(qKind);
-  qDep.hidden = qKind !== 'before';
+/* งาน → ปุ่มที่ควรถูกเลือก */
+function kindOf(t) {
+  if (t.due === 'week' || t.due === 'month' || t.due === 'before') return t.due;
+  if (!t.date) return 'unsure';
+  if (t.date === today()) return 'today';
+  if (t.date === addDays(today(), 1)) return 'tomorrow';
+  return 'date';
 }
-whenBox.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
-  qKind = qKind === b.dataset.k ? '' : b.dataset.k;
-  if (qKind === 'before') fillDeps(qDep, null, qDep.value);
-  if (qKind === 'date' && !qDate.value) qDate.value = mode === 'cal' ? selDay : today();
-  updateWhen();
-});
-qInput.addEventListener('input', updateWhen);
 
-$('#quick').addEventListener('submit', e => {
-  e.preventDefault();
-  const p = parseQuick(qInput.value);
-  if (!p.title) return;
-  let { date, time, due } = p, dep = '';
-  if (!p.typedDate) {   // ไม่ได้พิมพ์วันเอง = ใช้ที่เลือกจากปุ่ม
-    const tm = qTime.value || p.time;
-    switch (qKind) {
-      case 'today':    date = today(); time = tm; break;
-      case 'tomorrow': date = addDays(today(), 1); time = tm; break;
-      case 'date':     date = qDate.value || today(); time = tm; break;
-      case 'week':
-      case 'month':    ({ date, due } = softDate(qKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้')); time = ''; break;
-      case 'before':   dep = qDep.value; due = dep ? 'before' : ''; date = ''; time = ''; break;
-      case 'unsure':   date = ''; time = ''; break;
-      default:         if (mode === 'cal') date = selDay;   // หน้าปฏิทิน = วันที่เลือกไว้
-    }
-  }
-  // ไม่ได้พิมพ์ #แท็ก แต่กำลังดูโปรเจ็คไหนอยู่ = ใส่โปรเจ็คนั้นให้
-  let project = p.project || (filter && filter !== NONE ? filter : '');
-  const known = projects().find(x => same(x.name, project));
-  if (known) project = known.name;   // ใช้ตัวสะกดเดิม
-  const now = new Date().toISOString();
-  save('add', { id: uid(), title: p.title, note: '', date, time, remind: time ? '1' : '', done: '', project, due: due || '', dep, created: now, updated: now });
-  qInput.value = ''; qKind = ''; qDate.value = ''; qTime.value = '';
-  updateWhen();
-});
-
-/* ---------- แก้ไข ---------- */
-const editDlg = $('#editDlg'), editForm = $('#editForm');
-
-function updateEditDue(fromUser) {
-  const f = editForm.elements, k = f.due.value;
-  if (fromUser && (k === 'week' || k === 'month')) f.date.value = softDate(k === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date;
-  $('#eDateRow').hidden = k === 'before' || k === 'unsure';
-  $('#eTimeWrap').hidden = k !== '';
+function updateEditDue() {
+  const f = editForm.elements, k = eKind;
+  eWhen.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+  const showDate = k === 'date' || k === 'week' || k === 'month';
+  const showTime = k === 'today' || k === 'tomorrow' || k === 'date';
+  $('#eDateRow').hidden = !showDate && !showTime;
+  f.date.closest('label').hidden = !showDate;
+  $('#eTimeWrap').hidden = !showTime;
   $('#eDateLabel').textContent = k === 'week' || k === 'month' ? 'ภายในวันที่' : 'วันที่';
   $('#eDepRow').hidden = k !== 'before';
-  f.remind.closest('label').hidden = k !== '';
+  $('#ePreRow').hidden = !PRE_KINDS[k];
+  f.remind.closest('label').hidden = !showTime || !f.time.value;
 }
-editForm.elements.due.addEventListener('change', () => updateEditDue(true));
+const PRE_KINDS = { date: 1, week: 1, month: 1, before: 1 };   // แบบที่ตั้งเตือนล่วงหน้าได้
+const ePre = $('#ePre');
+ePre.querySelectorAll('[data-d]').forEach(b => b.onclick = () => b.classList.toggle('on'));
+const setPre = s => { const v = String(s || '').split(','); ePre.querySelectorAll('[data-d]').forEach(b => b.classList.toggle('on', v.includes(b.dataset.d))); };
+const getPre = () => [...ePre.querySelectorAll('.on')].map(b => +b.dataset.d).sort((a, b) => b - a).join(',');
 
-function openEdit(task) {
+eWhen.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+  const f = editForm.elements;
+  eKind = b.dataset.k;
+  // ตั้งค่าเริ่มต้นให้ช่องที่เกี่ยวข้อง (ยังไม่บันทึกจนกด ยืนยัน/บันทึก)
+  if (eKind === 'week' || eKind === 'month') f.date.value = softDate(eKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date;
+  if (eKind === 'date' && !f.date.value) f.date.value = mode === 'cal' ? selDay : today();
+  if (eKind === 'before') fillDeps(f.dep, isNew ? null : editing.id, f.dep.value);
+  updateEditDue();
+});
+editForm.elements.time.addEventListener('input', () => {
+  editForm.elements.remind.checked = !!editForm.elements.time.value;
+  updateEditDue();
+});
+
+function openEdit(task, creating) {
+  isNew = !!creating;
   editing = task;
   const f = editForm.elements;
+  $('#editTitle').textContent = isNew ? 'งานใหม่' : 'แก้ไขงาน';
+  $('#btnSave').textContent = isNew ? 'ยืนยัน' : 'บันทึก';
+  $('#btnDelete').hidden = isNew;
   f.title.value = task.title || '';
   f.date.value = task.date || '';
   f.time.value = task.time || '';
-  f.remind.checked = task.remind === '1';
+  f.remind.checked = task.remind === '1' || (isNew && !!task.time);
   f.note.value = task.note || '';
   f.project.value = task.project || '';
-  f.due.value = task.due || (task.date ? '' : 'unsure');
-  fillDeps(f.dep, task.id, task.dep);
-  updateEditDue(false);
+  setPre(task.pre);
+  eKind = task.kind ?? kindOf(task);
+  fillDeps(f.dep, isNew ? null : task.id, task.dep);
+  updateEditDue();
   editDlg.showModal();
+  if (isNew && !task.kind) eWhen.querySelector('[data-k]').focus();
 }
+
+/* พิมพ์แล้วกด ＋ = เปิดหน้าต่างงานใหม่ (ยังไม่บันทึก) */
+$('#quick').addEventListener('submit', e => {
+  e.preventDefault();
+  const p = parseQuick(qInput.value);
+  if (!p.title) { qInput.focus(); return; }
+  // ไม่ได้พิมพ์ #แท็ก แต่กำลังดูโปรเจ็คไหนอยู่ = ใส่โปรเจ็คนั้นให้
+  let project = p.project || (filter && filter !== NONE ? filter : '');
+  const known = projects().find(x => same(x.name, project));
+  if (known) project = known.name;
+  const draft = { title: p.title, date: p.date, time: p.time, due: p.due || '', project, note: '' };
+  if (!p.typedDate && !p.time) {
+    // ไม่ได้พิมพ์วันมา: หน้าปฏิทิน = วันที่เลือกไว้, หน้าอื่น = ยังไม่เลือก
+    if (mode === 'cal') { draft.date = selDay; }
+    else draft.kind = '';
+  }
+  openEdit(draft, true);
+});
 
 editForm.addEventListener('submit', () => {
   if (!editing) return;
   const f = editForm.elements;
-  let due = f.due.value, date = f.date.value, time = f.time.value, dep = '';
-  if (due === 'unsure') { due = ''; date = ''; time = ''; }
-  else if (due === 'week' || due === 'month') { date = date || softDate(due === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date; time = ''; }
-  else if (due === 'before') { dep = f.dep.value; if (!dep) due = ''; date = ''; time = ''; }
-  else if (time && !date) date = today();
-  save('update', {
-    id: editing.id,
+  let date = f.date.value, time = f.time.value, due = '', dep = '';
+  switch (eKind) {
+    case 'today':    date = today(); break;
+    case 'tomorrow': date = addDays(today(), 1); break;
+    case 'date':     date = date || today(); break;
+    case 'week':
+    case 'month':    due = eKind; date = date || softDate(eKind === 'week' ? 'สัปดาห์นี้' : 'เดือนนี้').date; time = ''; break;
+    case 'before':   dep = f.dep.value; due = dep ? 'before' : ''; date = ''; time = ''; break;
+    default:         date = ''; time = '';   // ไม่แน่ใจ / ยังไม่เลือก
+  }
+  const v = f.project.value.trim().replace(/^#/, '');
+  const known = projects().find(x => same(x.name, v));
+  const pre = PRE_KINDS[eKind] ? getPre() : '';
+  const fields = {
     title: f.title.value.trim() || editing.title,
-    date, time, due, dep,
+    date, time, due, dep, pre,
     remind: f.remind.checked && time ? '1' : '',
     note: f.note.value,
-    project: (() => {
-      const v = f.project.value.trim().replace(/^#/, '');
-      const known = projects().find(x => same(x.name, v));
-      return known ? known.name : v;
-    })(),
+    project: known ? known.name : v,
     updated: new Date().toISOString(),
-  });
+  };
+  if (isNew) {
+    save('add', { id: uid(), done: '', created: fields.updated, ...fields });
+    qInput.value = '';
+  } else {
+    save('update', { id: editing.id, ...fields });
+  }
   editing = null;
 });
 $('#btnCancel').onclick = () => { editing = null; editDlg.close(); };
 $('#btnDelete').onclick = () => {
-  if (!editing) return;
+  if (!editing || isNew) return;
   if (!confirm('ลบงานนี้?')) return;
   save('delete', { id: editing.id });
   editing = null;
