@@ -29,6 +29,7 @@ let attachKind = '';
 let sumMonth = '';       // เดือนที่ดูในหน้าสรุป (yyyy-mm)
 let fKind = 'all';       // ชนิดหลักฐานที่กรองในคลัง
 const folderUrl = {};    // ลิงก์โฟลเดอร์ Drive ของแต่ละเดือน
+const thumbAsked = {};   // เดือนที่ขอรูปย่อแล้ว
 
 /* ---------- ช่วยเหลือ ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -226,8 +227,15 @@ function renderFilesView(mb) {
     card.className = 'f-card';
     const a = document.createElement('a');
     a.href = f.url; a.target = '_blank'; a.rel = 'noopener'; a.className = 'f-img';
-    if (f.thumb) { const img = document.createElement('img'); img.src = f.thumb; img.alt = ''; img.loading = 'lazy'; a.appendChild(img); }
-    else { const i = document.createElement('span'); i.className = 'f-ico'; i.textContent = f.mime === 'application/pdf' ? 'PDF' : '📄'; a.appendChild(i); }
+    const ico = () => { const i = document.createElement('span'); i.className = 'f-ico'; i.textContent = f.mime === 'application/pdf' ? 'PDF' : '📄'; return i; };
+    // รูปย่อ: ถ้ายังไม่มี (เช่น PDF) ระบบจะขอรูปย่อจาก Google Drive ให้ด้านล่าง
+    const src = f.thumb || '';
+    if (src) {
+      const img = document.createElement('img');
+      img.src = src; img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+      img.onerror = () => img.replaceWith(ico());
+      a.appendChild(img);
+    } else a.appendChild(ico());
     const k = document.createElement('span');
     k.className = 'f-kind';
     k.textContent = (KIND[f.kind] || KIND.other).name;
@@ -249,6 +257,12 @@ function renderFilesView(mb) {
     const sec = section(`📝 ยังไม่มีใบเสร็จ/ใบกำกับ · ${miss.length} รายการ`);
     miss.forEach(b => sec.querySelector('.items').appendChild(row(b)));
     mbox.appendChild(sec);
+  }
+  // ไฟล์ที่ยังไม่มีรูปย่อ (PDF / ส่งจาก LINE) → ให้ระบบทำรูปย่อจาก Drive (ครั้งเดียวต่อเดือน)
+  if (cfg.key && !thumbAsked[sumMonth] && items.some(x => !x.f.thumb)) {
+    const mm = sumMonth;
+    thumbAsked[mm] = true;
+    api('bill_thumbs', { month: mm }).then(r => { (r.bills || []).forEach(upsert); if ((r.bills || []).length) render(); }).catch(() => {});
   }
   // ลิงก์โฟลเดอร์ Drive (ดึงครั้งเดียวต่อเดือน)
   const m = sumMonth, link = $('#fDrive');
