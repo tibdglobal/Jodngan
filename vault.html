@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>รหัสผ่าน · จดงาน</title>
+  <meta name="theme-color" content="#0f766e">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="vault">
+  <header class="top">
+    <div>
+      <a href="./" class="back">‹ งาน</a>
+      <h1>รหัสผ่าน</h1>
+      <p class="sub" id="vSub">เข้ารหัสในเครื่องก่อนบันทึก</p>
+    </div>
+    <div class="top-actions">
+      <button id="btnLock" class="icon-btn" title="ล็อก" aria-label="ล็อก" hidden>🔒</button>
+    </div>
+  </header>
+
+  <div id="status" class="status" hidden></div>
+
+  <!-- ยังไม่เชื่อมเครื่อง -->
+  <section id="vNoLink" class="v-card" hidden>
+    <h2>ยังไม่ได้เชื่อมเครื่องนี้</h2>
+    <p class="hint">กลับไปหน้าหลักแล้วเชื่อมเครื่องก่อน (พิมพ์ <b>ลิงก์</b> ในแชท LINE แล้วเปิดลิงก์ที่ได้)</p>
+    <a href="./" class="btn primary">ไปหน้าหลัก</a>
+  </section>
+
+  <!-- ตั้งรหัสหลักครั้งแรก -->
+  <form id="vSetup" class="v-card" hidden autocomplete="off">
+    <h2>ตั้งรหัสหลัก</h2>
+    <p class="hint">ใช้ปลดล็อกหน้ารหัสผ่านทุกครั้ง ยาวอย่างน้อย 8 ตัว รหัสหลักไม่ถูกส่งไปที่ไหน</p>
+    <label>รหัสหลัก <input type="password" name="p1" minlength="8" required autocomplete="new-password"></label>
+    <label>ยืนยันรหัสหลัก <input type="password" name="p2" minlength="8" required autocomplete="new-password"></label>
+    <p class="warn-box">⚠️ ถ้าลืมรหัสหลัก จะกู้รหัสผ่านที่เก็บไว้ไม่ได้ ควรจดเก็บไว้ในที่ปลอดภัย</p>
+    <button type="submit" class="btn primary">ตั้งรหัสหลัก</button>
+  </form>
+
+  <!-- ปลดล็อก -->
+  <form id="vUnlock" class="v-card" hidden autocomplete="off">
+    <h2>🔒 ล็อกอยู่</h2>
+    <label>รหัสหลัก <input type="password" name="pw" required autocomplete="current-password"></label>
+    <button type="submit" class="btn primary">ปลดล็อก</button>
+  </form>
+
+  <!-- รายการ -->
+  <section id="vMain" hidden>
+    <form id="vQuick" class="quick" autocomplete="off">
+      <input id="vSearch" type="search" placeholder="🔍 ค้นหาชื่อ ผู้ใช้ หรือเว็บ" aria-label="ค้นหา">
+      <button type="button" id="btnAdd" class="add-btn" aria-label="เพิ่มรหัส">＋</button>
+    </form>
+    <nav id="vCats" class="chips" aria-label="หมวด"></nav>
+    <div id="vList"></div>
+  </section>
+
+  <!-- เพิ่ม/แก้ไข -->
+  <dialog id="vDlg">
+    <form id="vForm" method="dialog" autocomplete="off">
+      <h2 id="vDlgTitle">เพิ่มรหัส</h2>
+      <label>ชื่อ (เว็บ/แอป/บัญชี) <input name="name" required placeholder="เช่น Gmail งาน, ธนาคาร…"></label>
+      <label>หมวด
+        <input name="cat" list="vCatList" placeholder="เช่น งาน, ธนาคาร, โซเชียล">
+        <datalist id="vCatList"></datalist>
+      </label>
+      <label>ชื่อผู้ใช้ / อีเมล <input name="user" autocapitalize="off" spellcheck="false"></label>
+      <label>รหัสผ่าน
+        <span class="pw-row">
+          <input name="pass" type="password" autocapitalize="off" spellcheck="false" autocomplete="off">
+          <button type="button" id="btnShow" class="mini">แสดง</button>
+          <button type="button" id="btnGen" class="mini">สุ่ม</button>
+        </span>
+      </label>
+      <label>เว็บไซต์ <input name="url" type="text" inputmode="url" autocapitalize="off" placeholder="https://…"></label>
+      <label>โน้ต <textarea name="note" rows="2"></textarea></label>
+      <div class="dlg-actions">
+        <button type="button" id="btnVDelete" class="danger">ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnVCancel" class="ghost">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="vault.js"></script>
+</body>
+</html>

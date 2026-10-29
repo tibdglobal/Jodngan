@@ -275,3 +275,27 @@ dialog .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .dlg-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 @media (prefers-color-scheme: dark) { .dlg-actions .primary { color: #0b1f1d; } }
 .dlg-actions .danger { color: var(--danger); border-color: transparent; padding-left: 0; }
+
+/* ---------- หน้ารหัสผ่าน ---------- */
+.back { display: inline-block; font-size: 14px; color: var(--accent); text-decoration: none; margin-bottom: 2px; }
+.v-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px; margin-top: 8px; display: grid; gap: 12px;
+}
+.v-card h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.v-card label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.v-card input { padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 16px; }
+.warn-box { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.btn { display: inline-block; text-align: center; text-decoration: none; padding: 11px 16px; border-radius: 10px; border: 1px solid var(--line); background: transparent; font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .btn.primary { color: #0b1f1d; } }
+.v-item .avatar {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent); font-weight: 600;
+}
+.v-acts { flex: none; display: flex; gap: 6px; }
+.v-acts .edit-btn { min-width: 40px; justify-content: center; font-size: 16px; }
+.pw-row { display: flex; gap: 6px; }
+.pw-row input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
+.mini { flex: none; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
+a.icon-btn { text-decoration: none; color: inherit; }

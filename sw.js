@@ -1,6 +1,6 @@
 /* เก็บไฟล์หน้าแอปไว้ในเครื่อง ให้เปิดเร็ว (ข้อมูลงานยังดึงจาก Google Sheet ทุกครั้ง) */
-const CACHE = 'jodngan-v14';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
+const CACHE = 'jodngan-v15';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'vault.html', 'vault.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
