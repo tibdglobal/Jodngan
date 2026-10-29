@@ -6,7 +6,27 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
+// ที่อยู่ระบบหลังบ้าน (ไม่ใช่ความลับ) ตั้งไว้ให้เลย เหลือแค่รหัส ซึ่งได้จากลิงก์ใน LINE
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
 let cfg = LS.get('cfg', { url: '', key: '' });
+if (!cfg.url) cfg.url = DEFAULT_URL;
+
+/* รับรหัสจากลิงก์ส่วนตัว (#k=...) หรือข้อความที่วางมา (ลิงก์ทั้งก้อน / รหัสอย่างเดียว) */
+function keyFrom(text) {
+  const s = String(text || '').trim();
+  const m = s.match(/[#&?]k=([A-Za-z0-9]+)/);
+  if (m) return m[1];
+  return /^[A-Za-z0-9]{16,}$/.test(s) ? s : '';
+}
+let justLinked = false;
+(() => {
+  const k = keyFrom(location.hash);
+  if (!k) return;
+  cfg.key = k;
+  LS.set('cfg', cfg);
+  justLinked = true;
+  history.replaceState(null, '', location.pathname + location.search);   // ลบรหัสออกจากแถบที่อยู่
+})();
 let tasks = LS.get('tasks', []);
 let editing = null;
 let filter = LS.get('filter', '');   // '' = ทั้งหมด, NONE = ไม่มีโปรเจ็ค, อื่นๆ = ชื่อโปรเจ็ค
@@ -108,18 +128,35 @@ async function api(action, payload = {}) {
 
 function showStatus(msg) {
   const el = $('#status');
+  el.classList.toggle('ok', /^✅/.test(msg || ''));
   el.textContent = msg || '';
   el.hidden = !msg;
 }
 
+/* โควตาข้อความ LINE เดือนนี้ */
+function showQuota(q) {
+  const el = $('#quota');
+  if (!q) { el.hidden = true; return; }
+  el.hidden = false;
+  if (!q.limit) { el.textContent = `LINE เดือนนี้ ${q.used} ข้อความ`; el.className = 'quota'; return; }
+  const pct = Math.round(q.used * 100 / q.limit);
+  el.className = 'quota' + (pct >= 80 ? ' warn' : '');
+  el.innerHTML = '<span class="bar"><i></i></span><span class="txt"></span>';
+  el.querySelector('i').style.width = Math.min(pct, 100) + '%';
+  el.querySelector('.txt').textContent = (pct >= 80 ? '⚠️ ' : '') + `LINE ${q.used}/${q.limit}`;
+  el.title = pct >= 80 ? 'โควตาใกล้เต็ม การเตือนอาจส่งไม่ได้ แต่จดงานในแชทยังใช้ได้' : 'ข้อความที่ระบบส่งเตือนเดือนนี้';
+}
+
 async function sync() {
-  if (!cfg.url) { showStatus('ยังไม่ได้เชื่อมต่อ กด ⚙ เพื่อตั้งค่า'); return; }
+  if (!cfg.key) { showStatus('ยังไม่ได้เชื่อมเครื่องนี้: พิมพ์ "ลิงก์" ในแชท LINE แล้วเปิดลิงก์ที่ได้ (หรือวางลิงก์ในหน้า ⚙)'); return; }
   $('#btnSync').classList.add('spin');
   try {
-    const { tasks: remote } = await api('list');
+    const { tasks: remote, quota } = await api('list');
     tasks = remote;
     LS.set('tasks', tasks);
-    showStatus('');
+    showStatus(justLinked ? '✅ เชื่อมเครื่องนี้แล้ว' : '');
+    if (justLinked) { justLinked = false; setTimeout(() => showStatus(''), 4000); }
+    showQuota(quota);
     render();
   } catch (e) {
     showStatus('ดึงข้อมูลไม่สำเร็จ: ' + e.message);
@@ -665,15 +702,31 @@ $('#btnDelete').onclick = () => {
 const setDlg = $('#setDlg'), setForm = $('#setForm');
 $('#btnSettings').onclick = () => {
   setForm.elements.url.value = cfg.url;
-  setForm.elements.key.value = cfg.key;
+  setForm.elements.key.value = '';
+  setForm.elements.key.placeholder = cfg.key ? 'เชื่อมแล้ว (วางลิงก์ใหม่เพื่อเปลี่ยน)' : 'วางลิงก์จาก LINE ที่นี่';
+  $('#setState').textContent = cfg.key ? '✅ เครื่องนี้เชื่อมแล้ว' : 'ยังไม่ได้เชื่อม';
+  $('#btnCopyLink').hidden = !cfg.key;
   setDlg.showModal();
 };
 $('#btnSetCancel').onclick = () => setDlg.close();
-setForm.addEventListener('submit', () => {
-  cfg = { url: setForm.elements.url.value.trim(), key: setForm.elements.key.value.trim() };
+setForm.addEventListener('submit', e => {
+  const raw = setForm.elements.key.value.trim();
+  const k = raw ? keyFrom(raw) : cfg.key;
+  if (raw && !k) { e.preventDefault(); setForm.elements.key.setCustomValidity('ไม่พบรหัสในข้อความนี้'); setForm.elements.key.reportValidity(); return; }
+  cfg = { url: setForm.elements.url.value.trim() || DEFAULT_URL, key: k };
   LS.set('cfg', cfg);
+  if (raw) justLinked = true;
   sync();
 });
+setForm.elements.key.addEventListener('input', () => setForm.elements.key.setCustomValidity(''));
+// คัดลอกลิงก์ไปเปิดในเครื่องอื่น
+$('#btnCopyLink').onclick = async () => {
+  if (!cfg.key) return;
+  const link = location.origin + location.pathname + '#k=' + cfg.key;
+  try { await navigator.clipboard.writeText(link); $('#btnCopyLink').textContent = '✅ คัดลอกแล้ว'; }
+  catch { prompt('คัดลอกลิงก์นี้', link); }
+  setTimeout(() => { $('#btnCopyLink').textContent = '📋 คัดลอกลิงก์สำหรับเครื่องอื่น'; }, 2500);
+};
 
 $('#btnSync').onclick = sync;
 $('#btnView').onclick = () => { mode = mode === 'cal' ? 'list' : 'cal'; LS.set('mode', mode); render(); };

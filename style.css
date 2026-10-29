@@ -46,6 +46,15 @@ button { cursor: pointer; }
 h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.01em; }
 .sub { margin: 0; color: var(--muted); font-size: 14px; }
 .top-actions { display: flex; gap: 6px; }
+.quota { white-space: nowrap; margin: 4px 0 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.quota .bar { width: 48px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.quota .bar i { display: block; height: 100%; background: var(--accent); }
+.quota.warn { color: var(--warn); font-weight: 600; }
+.quota.warn .bar i { background: var(--warn); }
+.wide { width: 100%; padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); background: transparent; }
+.status.ok { color: var(--accent); }
+.adv summary { font-size: 13px; color: var(--muted); cursor: pointer; }
+.adv label { margin-top: 8px; }
 @media (max-width: 420px) {
   .top-actions { gap: 4px; }
   .top-actions .icon-btn { width: 36px; height: 36px; font-size: 16px; }
