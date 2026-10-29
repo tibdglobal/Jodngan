@@ -27,6 +27,8 @@ let editing = null;      // บิลที่เปิดอยู่
 let attachFor = null;    // บิลที่กำลังแนบหลักฐาน
 let attachKind = '';
 let sumMonth = '';       // เดือนที่ดูในหน้าสรุป (yyyy-mm)
+let fKind = 'all';       // ชนิดหลักฐานที่กรองในคลัง
+const folderUrl = {};    // ลิงก์โฟลเดอร์ Drive ของแต่ละเดือน
 
 /* ---------- ช่วยเหลือ ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -115,10 +117,11 @@ function render() {
   $('#vHome').hidden = view !== 'home';
   $('#vList').hidden = view !== 'list';
   $('#vSum').hidden = view !== 'summary';
+  $('#vFiles').hidden = view !== 'files';
   $('#vBack').hidden = view === 'home';
   $('#vToApp').hidden = view !== 'home';
   $('#vSub').hidden = view !== 'home';
-  $('#vTitle').textContent = view === 'home' ? 'เบิกเงิน' : view === 'summary' ? 'สรุปและย้อนหลัง'
+  $('#vTitle').textContent = view === 'home' ? 'เบิกเงิน' : view === 'summary' ? 'สรุปและย้อนหลัง' : view === 'files' ? 'คลังหลักฐาน'
     : tab === 'all' ? 'บิลทั้งหมด' : ST[tab].replace(/^\S+\s/, '');
 
   // ช่องสรุป (ของเดือนที่เลือก)
@@ -142,7 +145,10 @@ function render() {
   $('#goClaim').hidden = !ready.length;
   $('#goClaimN').textContent = `${ready.length} รายการพร้อมเบิก · ${baht(sum(ready))}`;
 
+  const nf = mb.reduce((n, b) => n + (b.files || []).length, 0);
+  $('#goFilesN').textContent = nf ? `${nf} ไฟล์ในเดือนนี้ · รูปใบเสร็จ ใบกำกับภาษี สลิป` : 'ยังไม่มีไฟล์ในเดือนนี้';
   if (view === 'summary') { const sb = $('#vSum'); sb.innerHTML = ''; renderSummary(sb); return; }
+  if (view === 'files') { renderFilesView(mb); return; }
   if (view === 'home') { renderHome(mb); return; }
 
   const box = $('#bList');
@@ -190,11 +196,75 @@ function renderHome(mb) {
   box.appendChild(wrap);
 }
 
+/* ---------- คลังหลักฐาน: ไฟล์ทั้งหมดของเดือน ---------- */
+function renderFilesView(mb) {
+  const items = [];
+  mb.forEach(b => (b.files || []).forEach(f => items.push({ b, f })));
+  items.sort((x, y) => (y.b.date || '').localeCompare(x.b.date || ''));
+  // ปุ่มกรองตามชนิด
+  const nav = $('#fTabs');
+  nav.innerHTML = '';
+  const kinds = [['all', 'ทั้งหมด']].concat(Object.entries(KIND).map(([k, v]) => [k, v.name]));
+  kinds.forEach(([k, name]) => {
+    const n = k === 'all' ? items.length : items.filter(x => x.f.kind === k).length;
+    if (k !== 'all' && !n) return;
+    const c = document.createElement('button');
+    c.className = 'chip' + (fKind === k ? ' on' : '');
+    c.textContent = name;
+    c.dataset.n = n;
+    c.onclick = () => { fKind = k; render(); };
+    nav.appendChild(c);
+  });
+  if (fKind !== 'all' && !items.some(x => x.f.kind === fKind)) fKind = 'all';
+  // ตารางรูป
+  const grid = $('#fGrid');
+  grid.innerHTML = '';
+  const shown = items.filter(x => fKind === 'all' || x.f.kind === fKind);
+  if (!shown.length) grid.innerHTML = '<p class="empty">ยังไม่มีหลักฐานในเดือนนี้</p>';
+  shown.forEach(({ b, f }) => {
+    const card = document.createElement('div');
+    card.className = 'f-card';
+    const a = document.createElement('a');
+    a.href = f.url; a.target = '_blank'; a.rel = 'noopener'; a.className = 'f-img';
+    if (f.thumb) { const img = document.createElement('img'); img.src = f.thumb; img.alt = ''; img.loading = 'lazy'; a.appendChild(img); }
+    else { const i = document.createElement('span'); i.className = 'f-ico'; i.textContent = f.mime === 'application/pdf' ? 'PDF' : '📄'; a.appendChild(i); }
+    const k = document.createElement('span');
+    k.className = 'f-kind';
+    k.textContent = (KIND[f.kind] || KIND.other).name;
+    a.appendChild(k);
+    const cap = document.createElement('button');
+    cap.type = 'button'; cap.className = 'f-cap';
+    cap.innerHTML = '<b></b><span></span>';
+    cap.querySelector('b').textContent = `${short(b.date)} · ${baht(b.amount)}`;
+    cap.querySelector('span').textContent = b.desc || '';
+    cap.onclick = () => openDlg(b);
+    card.append(a, cap);
+    grid.appendChild(card);
+  });
+  // บิลที่ยังไม่มีหลักฐาน
+  const miss = mb.filter(b => !hasProof(b));
+  const mbox = $('#fMissing');
+  mbox.innerHTML = '';
+  if (miss.length) {
+    const sec = section(`📝 ยังไม่มีใบเสร็จ/ใบกำกับ · ${miss.length} รายการ`);
+    miss.forEach(b => sec.querySelector('.items').appendChild(row(b)));
+    mbox.appendChild(sec);
+  }
+  // ลิงก์โฟลเดอร์ Drive (ดึงครั้งเดียวต่อเดือน)
+  const m = sumMonth, link = $('#fDrive');
+  link.hidden = !folderUrl[m];
+  if (folderUrl[m]) link.href = folderUrl[m];
+  else if (items.length && cfg.key) {
+    api('bill_folder', { month: m }).then(r => { folderUrl[m] = r.url; if (view === 'files' && sumMonth === m) { link.href = r.url; link.hidden = false; } }).catch(() => {});
+  }
+}
+
 /* ---------- เปลี่ยนหน้า (ใช้ # เพื่อให้ปุ่มย้อนกลับของมือถือใช้ได้) ---------- */
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('list/')) { view = 'list'; tab = ['draft', 'ready', 'submitted', 'paid', 'all'].includes(h.slice(5)) ? h.slice(5) : 'all'; }
   else if (h === 'summary') view = 'summary';
+  else if (h === 'files') view = 'files';
   else view = 'home';
   render();
   window.scrollTo(0, 0);
@@ -354,6 +424,7 @@ document.querySelectorAll('#bTabs .chip').forEach(c => c.onclick = () => {
 });
 $('#goAll').onclick = () => go('list/all');
 $('#goSum').onclick = () => go('summary');
+$('#goFiles').onclick = () => go('files');
 $('#goClaim').onclick = () => $('#btnClaim').onclick();
 $('#vBack').onclick = () => go('');
 

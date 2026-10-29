@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
 </head>
 <body class="bills">
   <header class="top">
@@ -56,6 +56,7 @@
 
     <div class="h-links">
       <button class="h-link" id="goClaim" hidden><span>📤 สร้างใบเบิก</span><small id="goClaimN"></small><b>›</b></button>
+      <button class="h-link" id="goFiles"><span>🗂 คลังหลักฐาน</span><small id="goFilesN">รูปใบเสร็จ ใบกำกับภาษี สลิป ของเดือนนี้</small><b>›</b></button>
       <button class="h-link" id="goSum"><span>📊 สรุปและดูย้อนหลัง</span><small>ยอดรวม · กราฟ 12 เดือน · แยกหมวด</small><b>›</b></button>
     </div>
 
@@ -78,6 +79,14 @@
     <div id="bBar" class="b-bar" hidden>
       <button id="btnClaim" class="btn primary">สร้างใบเบิก</button>
     </div>
+  </section>
+
+  <!-- ===== หน้าย่อย: คลังหลักฐาน ===== -->
+  <section id="vFiles" hidden>
+    <nav id="fTabs" class="chips" aria-label="ชนิดหลักฐาน"></nav>
+    <div id="fGrid" class="f-grid"></div>
+    <div id="fMissing"></div>
+    <a id="fDrive" class="h-link f-drive" target="_blank" rel="noopener" hidden><span>📁 เปิดโฟลเดอร์เดือนนี้ใน Google Drive</span><small>ดูไฟล์ต้นฉบับ · ดาวน์โหลดทั้งโฟลเดอร์ได้</small><b>›</b></a>
   </section>
 
   <!-- ===== หน้าย่อย: สรุป ===== -->
@@ -179,6 +188,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=20"></script>
+  <script src="bills.js?v=21"></script>
 </body>
 </html>
