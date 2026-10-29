@@ -299,3 +299,60 @@ dialog .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .pw-row input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
 .mini { flex: none; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: transparent; font-size: 13px; }
 a.icon-btn { text-decoration: none; color: inherit; }
+
+/* ---------- หน้าเบิกเงิน ---------- */
+.b-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 12px; }
+.b-tile {
+  display: grid; gap: 2px; text-align: left; padding: 10px 12px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--card);
+}
+.b-tile .lbl { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-tile .amt { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.b-tile .cnt { font-size: 12px; color: var(--muted); }
+.b-tile[data-st="draft"] .amt { color: var(--warn); }
+.b-tile.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+#bTabs .chip::after { content: attr(data-n); color: var(--muted); margin-left: 4px; font-size: 12px; }
+#bTabs .chip.on::after { color: inherit; opacity: .8; }
+.b-item { align-items: flex-start; }
+.b-right { flex: none; display: grid; justify-items: end; gap: 6px; }
+.b-amt { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.b-proofs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.b-proofs .pf { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.b-proofs .pf.slip, .b-proofs .pf.other { background: var(--line); color: var(--muted); }
+.b-proofs .missing { font-size: 12px; color: var(--warn); }
+.edit-btn.strong { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.b-bar {
+  position: sticky; bottom: 0; padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--bg) 30%);
+}
+.b-bar .btn { width: 100%; }
+.b-files { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-files .hint { margin: 0; }
+.b-file { position: relative; }
+.b-file a {
+  display: grid; justify-items: center; gap: 2px; width: 84px; padding: 6px; border-radius: 10px;
+  border: 1px solid var(--line); text-decoration: none; color: var(--muted); font-size: 11px; text-align: center;
+}
+.b-file img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
+.b-file .ficon { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 6px; background: var(--bg); font-weight: 600; color: var(--danger); }
+.b-x {
+  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--card); font-size: 14px; line-height: 1; padding: 0;
+}
+.k-form { padding: 20px; display: grid; gap: 12px; }
+.k-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.k-grid button {
+  display: grid; justify-items: center; gap: 4px; padding: 14px 8px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--bg); font-size: 22px;
+}
+.k-grid button span { font-size: 13px; }
+.k-grid button:active { border-color: var(--accent); background: var(--accent-soft); }
+.wide-dlg { width: min(94vw, 560px); }
+.c-list { display: grid; gap: 4px; max-height: 45vh; overflow-y: auto; }
+.c-list .meet { align-items: center; }
+.c-list .meet > span { flex: 1; min-width: 0; }
+.c-amt { flex: none; font-size: 14px; }
+.c-total { margin: 0; text-align: right; font-size: 15px; }
+.c-actions { display: grid; gap: 6px; }
+.paid-btn { float: right; margin-top: -3px; text-transform: none; letter-spacing: 0; color: var(--accent); }
+@media (max-width: 380px) { .b-tile .amt { font-size: 15px; } }

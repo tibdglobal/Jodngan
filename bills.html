@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>เบิกเงิน · จดงาน</title>
+  <meta name="theme-color" content="#0f766e">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bills">
+  <header class="top">
+    <div>
+      <a href="./" class="back">‹ งาน</a>
+      <h1>เบิกเงิน</h1>
+      <p class="sub">จดไว้ก่อน หลักฐานค่อยตามมา</p>
+    </div>
+    <div class="top-actions">
+      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
+    </div>
+  </header>
+
+  <!-- สรุปยอด (กดเพื่อกรอง) -->
+  <div class="b-tiles" id="tiles">
+    <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+    <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+    <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอเงินคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+  </div>
+
+  <form id="bQuick" class="quick" autocomplete="off">
+    <input id="bInput" type="text" placeholder="เช่น 350 ค่าแท็กซี่ไปหาลูกค้า #บริษัทA" enterkeyhint="done">
+    <button type="submit" class="add-btn" aria-label="จดบิล">＋</button>
+  </form>
+
+  <nav id="bTabs" class="chips" aria-label="สถานะ">
+    <button class="chip" data-st="draft">📝 ขาดหลักฐาน</button>
+    <button class="chip" data-st="ready">📎 พร้อมเบิก</button>
+    <button class="chip" data-st="submitted">📤 ยื่นแล้ว</button>
+    <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
+    <button class="chip" data-st="">ทั้งหมด</button>
+  </nav>
+
+  <div id="status" class="status" hidden></div>
+  <main id="bList"></main>
+
+  <div id="bBar" class="b-bar" hidden>
+    <button id="btnClaim" class="btn primary">สร้างใบเบิก</button>
+  </div>
+
+  <!-- แก้ไขบิล -->
+  <dialog id="bDlg">
+    <form id="bForm" method="dialog" autocomplete="off">
+      <h2 id="bDlgTitle">รายละเอียด</h2>
+      <div class="row">
+        <label>วันที่จ่าย <input name="date" type="date" required></label>
+        <label>จำนวนเงิน (บาท) <input name="amount" inputmode="decimal" required></label>
+      </div>
+      <label>รายละเอียด <input name="desc" required></label>
+      <div class="row">
+        <label>โปรเจ็ค / บริษัท <input name="project" list="bProjList" placeholder="ไม่ระบุ"><datalist id="bProjList"></datalist></label>
+        <label>หมวด <input name="cat" list="bCatList" placeholder="เช่น เดินทาง"><datalist id="bCatList">
+          <option value="เดินทาง"></option><option value="อาหาร/รับรอง"></option><option value="ที่พัก"></option>
+          <option value="อุปกรณ์/วัสดุ"></option><option value="ค่าบริการ"></option><option value="อื่นๆ"></option></datalist></label>
+      </div>
+      <div class="row">
+        <label>จ่ายด้วย
+          <select name="pay"><option value="">-</option><option>เงินสด</option><option>โอน</option><option>บัตรเครดิต</option><option>QR/พร้อมเพย์</option></select>
+        </label>
+        <label>ร้าน / ผู้ขาย <input name="vendor"></label>
+      </div>
+
+      <div class="field">
+        <span class="field-label">หลักฐาน</span>
+        <div id="bFiles" class="b-files"></div>
+        <button type="button" id="btnAttach" class="wide">📎 แนบหลักฐาน</button>
+      </div>
+
+      <label>สถานะ
+        <select name="status">
+          <option value="draft">📝 ขาดหลักฐาน</option>
+          <option value="ready">📎 พร้อมเบิก</option>
+          <option value="submitted">📤 ยื่นเบิกแล้ว</option>
+          <option value="paid">✅ ได้เงินคืนแล้ว</option>
+        </select>
+      </label>
+      <label>โน้ต <textarea name="note" rows="2"></textarea></label>
+      <div class="dlg-actions">
+        <button type="button" id="btnBDelete" class="danger">ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnBCancel" class="ghost">ปิด</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- เลือกชนิดหลักฐาน -->
+  <dialog id="kDlg">
+    <form method="dialog" class="k-form">
+      <h2>แนบหลักฐานอะไร</h2>
+      <p class="hint" id="kFor"></p>
+      <div class="k-grid">
+        <button type="button" data-kind="taxinv">🧾<span>ใบกำกับภาษี</span></button>
+        <button type="button" data-kind="receipt">🧾<span>ใบเสร็จ</span></button>
+        <button type="button" data-kind="slip">📷<span>สลิป / รูปแคป</span></button>
+        <button type="button" data-kind="cert">✍️<span>ใบรับรองแทนใบเสร็จ</span></button>
+        <button type="button" data-kind="other">📄<span>อื่นๆ</span></button>
+      </div>
+      <p class="hint">เลือกแล้วถ่ายรูป หรือเลือกรูป/PDF จากเครื่อง ได้หลายไฟล์</p>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" id="btnKCancel" class="ghost">ยกเลิก</button></div>
+    </form>
+  </dialog>
+  <input type="file" id="bFile" accept="image/*,application/pdf" multiple hidden>
+
+  <!-- ใบเบิก -->
+  <dialog id="cDlg" class="wide-dlg">
+    <form method="dialog" id="cForm">
+      <h2>สร้างใบเบิก</h2>
+      <label>โปรเจ็ค / บริษัท
+        <select id="cProj"></select>
+      </label>
+      <div id="cList" class="c-list"></div>
+      <p class="c-total">รวม <b id="cTotal">฿0</b></p>
+      <div class="c-actions">
+        <button type="button" id="btnPrint" class="wide">🖨 พิมพ์ / บันทึก PDF</button>
+        <button type="button" id="btnCopy" class="wide">📋 คัดลอกตาราง (วางใน Excel/อีเมล)</button>
+      </div>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button type="button" id="btnCCancel" class="ghost">ปิด</button>
+        <button type="button" id="btnSubmitted" class="primary">📤 ยื่นเบิกแล้ว</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="bills.js"></script>
+</body>
+</html>
