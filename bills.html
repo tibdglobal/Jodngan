@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>เบิกเงิน · จดงาน</title>
+  <title>เบิกเงิน · จดครบ</title>
   <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <link rel="manifest" href="manifest.json">
@@ -16,51 +16,69 @@
 <body class="bills">
   <header class="top">
     <div>
-      <a href="./" class="back">‹ งาน</a>
-      <h1>เบิกเงิน</h1>
-      <p class="sub">จดไว้ก่อน หลักฐานค่อยตามมา</p>
+      <a href="./" class="back" id="vToApp">‹ จดครบ</a>
+      <button type="button" class="back back-btn" id="vBack" hidden>‹ หน้าหลักเบิกเงิน</button>
+      <h1 id="vTitle">เบิกเงิน</h1>
+      <p class="sub" id="vSub">จดไว้ก่อน หลักฐานค่อยตามมา</p>
     </div>
     <div class="top-actions">
       <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
     </div>
   </header>
 
-  <!-- เลือกเดือน (เปิดมาที่เดือนปัจจุบัน) -->
+  <!-- เลือกเดือน (เปิดมาที่เดือนปัจจุบัน) ใช้ทุกหน้า -->
   <div class="m-bar">
     <button id="mPrev" class="icon-btn" aria-label="เดือนก่อน">‹</button>
     <button id="mLabel" class="m-label" title="กลับไปเดือนนี้"></button>
     <button id="mNext" class="icon-btn" aria-label="เดือนถัดไป">›</button>
   </div>
   <p class="m-total" id="mTotal"></p>
+  <div id="status" class="status" hidden></div>
   <div id="mOlder" class="m-older" hidden></div>
 
-  <!-- สรุปยอดของเดือนที่เลือก (กดเพื่อกรอง) -->
-  <div class="b-tiles" id="tiles">
-    <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-    <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-    <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอเงินคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-  </div>
+  <!-- ===== หน้าหลักเบิกเงิน ===== -->
+  <section id="vHome">
+    <form id="bQuick" class="quick" autocomplete="off">
+      <input id="bInput" type="text" placeholder="เช่น 350 ค่าแท็กซี่ #บริษัทA" enterkeyhint="done">
+      <button type="button" id="btnSnap" class="add-btn snap" aria-label="ถ่ายรูปใบเสร็จ" title="ถ่ายรูป/เลือกรูปใบเสร็จ">📷</button>
+      <button type="submit" class="add-btn" aria-label="จดบิล">＋</button>
+    </form>
 
-  <form id="bQuick" class="quick" autocomplete="off">
-    <input id="bInput" type="text" placeholder="เช่น 350 ค่าแท็กซี่ #บริษัทA หรือ เมื่อวาน 120 ทางด่วน" enterkeyhint="done">
-    <button type="submit" class="add-btn" aria-label="จดบิล">＋</button>
-  </form>
+    <div class="b-tiles four" id="tiles">
+      <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอเงินคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="paid"><span class="lbl">✅ ได้คืนแล้ว</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+    </div>
 
-  <nav id="bTabs" class="chips" aria-label="สถานะ">
-    <button class="chip" data-st="draft">📝 ขาดหลักฐาน</button>
-    <button class="chip" data-st="ready">📎 พร้อมเบิก</button>
-    <button class="chip" data-st="submitted">📤 ยื่นแล้ว</button>
-    <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
-    <button class="chip" data-st="">ทั้งหมด</button>
-    <button class="chip" data-st="summary">📊 สรุป</button>
-  </nav>
+    <div class="h-links">
+      <button class="h-link" id="goClaim" hidden><span>📤 สร้างใบเบิก</span><small id="goClaimN"></small><b>›</b></button>
+      <button class="h-link" id="goSum"><span>📊 สรุปและดูย้อนหลัง</span><small>ยอดรวม · กราฟ 12 เดือน · แยกหมวด</small><b>›</b></button>
+    </div>
 
-  <div id="status" class="status" hidden></div>
-  <main id="bList"></main>
+    <section class="group">
+      <h3 class="h-recent"><span>ล่าสุดเดือนนี้</span><button class="link-btn" id="goAll">ดูทั้งหมด ›</button></h3>
+      <div id="hRecent"></div>
+    </section>
+  </section>
 
-  <div id="bBar" class="b-bar" hidden>
-    <button id="btnClaim" class="btn primary">สร้างใบเบิก</button>
-  </div>
+  <!-- ===== หน้าย่อย: รายการตามสถานะ ===== -->
+  <section id="vList" hidden>
+    <nav id="bTabs" class="chips" aria-label="สถานะ">
+      <button class="chip" data-st="draft">📝 ขาดหลักฐาน</button>
+      <button class="chip" data-st="ready">📎 พร้อมเบิก</button>
+      <button class="chip" data-st="submitted">📤 ยื่นแล้ว</button>
+      <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
+      <button class="chip" data-st="all">ทั้งหมด</button>
+    </nav>
+    <main id="bList"></main>
+    <div id="bBar" class="b-bar" hidden>
+      <button id="btnClaim" class="btn primary">สร้างใบเบิก</button>
+    </div>
+  </section>
+
+  <!-- ===== หน้าย่อย: สรุป ===== -->
+  <section id="vSum" hidden></section>
 
   <!-- แก้ไขบิล -->
   <dialog id="bDlg">

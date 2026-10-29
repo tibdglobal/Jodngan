@@ -1,4 +1,4 @@
-/* จดงาน — หน้าบ้าน PWA */
+/* จดครบ — หน้าบ้าน PWA */
 
 const $ = s => document.querySelector(s);
 const LS = {
@@ -144,7 +144,7 @@ function showQuota(q) {
   el.innerHTML = '<span class="bar"><i></i></span><span class="txt"></span>';
   el.querySelector('i').style.width = Math.min(pct, 100) + '%';
   el.querySelector('.txt').textContent = (pct >= 80 ? '⚠️ ' : '') + `LINE ${q.used}/${q.limit}`;
-  el.title = pct >= 80 ? 'โควตาใกล้เต็ม การเตือนอาจส่งไม่ได้ แต่จดงานในแชทยังใช้ได้' : 'ข้อความที่ระบบส่งเตือนเดือนนี้';
+  el.title = pct >= 80 ? 'โควตาใกล้เต็ม การเตือนอาจส่งไม่ได้ แต่จดในแชทยังใช้ได้' : 'ข้อความที่ระบบส่งเตือนเดือนนี้';
 }
 
 async function sync() {

@@ -1,4 +1,4 @@
-/* จดงาน — จดบิล / เบิกเงิน */
+/* จดครบ — จดบิล / เบิกเงิน */
 const $ = s => document.querySelector(s);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -20,7 +20,9 @@ const ST = {
 };
 
 let bills = LS.get('bills', []);
-let tab = LS.get('billTab', 'draft');
+let tab = 'all';        // สถานะในหน้าย่อย (all = ทั้งหมด)
+let view = 'home';      // home = หน้าหลักเบิกเงิน | list = รายการ | summary = สรุป
+let snapNew = false;    // กด 📷 = สร้างบิลใหม่จากรูป
 let editing = null;      // บิลที่เปิดอยู่
 let attachFor = null;    // บิลที่กำลังแนบหลักฐาน
 let attachKind = '';
@@ -104,21 +106,30 @@ function render() {
       const b = document.createElement('button');
       b.className = 'mini';
       b.textContent = `${monthShort(m)} ${by[m]}`;
-      b.onclick = () => { sumMonth = m; tab = 'draft'; LS.set('billTab', tab); render(); };
+      b.onclick = () => { sumMonth = m; go('list/draft'); };
       ob.appendChild(b);
     });
   }
+
+  // หน้าไหน
+  $('#vHome').hidden = view !== 'home';
+  $('#vList').hidden = view !== 'list';
+  $('#vSum').hidden = view !== 'summary';
+  $('#vBack').hidden = view === 'home';
+  $('#vToApp').hidden = view !== 'home';
+  $('#vSub').hidden = view !== 'home';
+  $('#vTitle').textContent = view === 'home' ? 'เบิกเงิน' : view === 'summary' ? 'สรุปและย้อนหลัง'
+    : tab === 'all' ? 'บิลทั้งหมด' : ST[tab].replace(/^\S+\s/, '');
 
   // ช่องสรุป (ของเดือนที่เลือก)
   document.querySelectorAll('.b-tile').forEach(t => {
     const list = mb.filter(b => b.status === t.dataset.st);
     t.querySelector('.amt').textContent = baht(sum(list));
     t.querySelector('.cnt').textContent = `${list.length} รายการ`;
-    t.classList.toggle('on', tab === t.dataset.st);
   });
   document.querySelectorAll('#bTabs .chip').forEach(c => {
     c.classList.toggle('on', c.dataset.st === tab);
-    c.dataset.n = c.dataset.st === 'summary' ? '' : c.dataset.st ? mb.filter(b => b.status === c.dataset.st).length : mb.length;
+    c.dataset.n = c.dataset.st === 'all' ? mb.length : mb.filter(b => b.status === c.dataset.st).length;
   });
   // ตัวเลือกโปรเจ็ค
   const projs = [...new Set(bills.map(b => b.project).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
@@ -126,14 +137,17 @@ function render() {
   projs.forEach(p => { const o = document.createElement('option'); o.value = p; $('#bProjList').appendChild(o); });
 
   const ready = bills.filter(b => b.status === 'ready');
-  $('#bBar').hidden = tab !== 'ready' || !ready.length;
+  $('#bBar').hidden = view !== 'list' || tab !== 'ready' || !ready.length;
   $('#btnClaim').textContent = `สร้างใบเบิก (${ready.length} รายการ ${baht(sum(ready))})`;
+  $('#goClaim').hidden = !ready.length;
+  $('#goClaimN').textContent = `${ready.length} รายการพร้อมเบิก · ${baht(sum(ready))}`;
+
+  if (view === 'summary') { const sb = $('#vSum'); sb.innerHTML = ''; renderSummary(sb); return; }
+  if (view === 'home') { renderHome(mb); return; }
 
   const box = $('#bList');
   box.innerHTML = '';
-  if (tab === 'summary') { renderSummary(box); return; }
-
-  const list = mb.filter(b => !tab || b.status === tab)
+  const list = mb.filter(b => tab === 'all' || b.status === tab)
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || ''));
   if (!list.length) {
     const msg = { draft: 'ไม่มีบิลที่ขาดหลักฐานในเดือนนี้ 👍', ready: 'ยังไม่มีบิลที่พร้อมเบิกในเดือนนี้', submitted: 'ไม่มีบิลที่รอเงินคืนในเดือนนี้', paid: 'ยังไม่มีบิลที่ได้เงินแล้วในเดือนนี้' }[tab] || 'ยังไม่มีบิลในเดือนนี้ จดด้านบนได้เลย';
@@ -158,10 +172,35 @@ function render() {
     });
     return;
   }
-  const sec = section(`${tab ? ST[tab] : 'ทั้งหมด'} · ${baht(sum(list))}`);
+  const sec = section(`${tab === 'all' ? 'ทั้งหมด' : ST[tab]} · ${baht(sum(list))}`);
   list.forEach(b => sec.querySelector('.items').appendChild(row(b)));
   box.appendChild(sec);
 }
+
+/* หน้าหลักเบิกเงิน: รายการล่าสุดของเดือน */
+function renderHome(mb) {
+  const box = $('#hRecent');
+  box.innerHTML = '';
+  const list = [...mb].sort((a, b) => (b.created || b.date || '').localeCompare(a.created || a.date || '')).slice(0, 5);
+  $('#goAll').textContent = mb.length > list.length ? `ดูทั้งหมด (${mb.length}) ›` : 'ดูทั้งหมด ›';
+  if (!list.length) { box.innerHTML = '<p class="empty small">ยังไม่มีบิลในเดือนนี้</p>'; return; }
+  const wrap = document.createElement('div');
+  wrap.className = 'items';
+  list.forEach(b => wrap.appendChild(row(b)));
+  box.appendChild(wrap);
+}
+
+/* ---------- เปลี่ยนหน้า (ใช้ # เพื่อให้ปุ่มย้อนกลับของมือถือใช้ได้) ---------- */
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h.startsWith('list/')) { view = 'list'; tab = ['draft', 'ready', 'submitted', 'paid', 'all'].includes(h.slice(5)) ? h.slice(5) : 'all'; }
+  else if (h === 'summary') view = 'summary';
+  else view = 'home';
+  render();
+  window.scrollTo(0, 0);
+}
+function go(h) { if (location.hash.slice(1) === h) route(); else location.hash = h; }
+window.addEventListener('hashchange', route);
 
 /* ---------- สรุป: ยอดรวมทั้งหมด + ย้อนหลัง 12 เดือน + แยกหมวด/บริษัทของเดือนที่เลือก ---------- */
 function renderSummary(box) {
@@ -242,7 +281,7 @@ function row(b) {
   const t = body.querySelector('.title');
   if (b.project) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = b.project; t.appendChild(tag); }
   t.append(b.desc);
-  body.querySelector('.meta').textContent = [short(b.date), b.cat, b.pay, tab ? '' : ST[b.status]].filter(Boolean).join(' · ');
+  body.querySelector('.meta').textContent = [short(b.date), b.cat, b.pay, view === 'list' && tab !== 'all' ? '' : ST[b.status]].filter(Boolean).join(' · ');
   const pf = body.querySelector('.b-proofs');
   if (!(b.files || []).length) pf.innerHTML = '<span class="missing">ยังไม่มีหลักฐาน</span>';
   else (b.files || []).forEach(f => { const s = document.createElement('span'); s.className = 'pf ' + f.kind; s.textContent = KIND[f.kind].icon + ' ' + KIND[f.kind].name; pf.appendChild(s); });
@@ -300,7 +339,6 @@ $('#bQuick').addEventListener('submit', async e => {
   const b = { id: uid(), date: p.date || today(), amount: p.amount ?? 0, desc: p.desc, project: p.project, cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
   input.value = '';
   upsert(b);
-  if (tab !== 'draft' && tab !== '') { tab = 'draft'; LS.set('billTab', tab); }
   if (p.date && p.date.slice(0, 7) !== today().slice(0, 7)) sumMonth = p.date.slice(0, 7);
   render();
   if (p.amount === null) openDlg(b);   // ไม่ได้ใส่จำนวนเงิน = เปิดให้กรอก
@@ -308,12 +346,16 @@ $('#bQuick').addEventListener('submit', async e => {
   catch (err) { showStatus('บันทึกไม่สำเร็จ: ' + err.message); }
 });
 
-/* ---------- แท็บ / ช่องสรุป ---------- */
-document.querySelectorAll('#bTabs .chip, .b-tile').forEach(c => c.onclick = () => {
-  tab = c.dataset.st;
-  LS.set('billTab', tab);
-  render();
+/* ---------- ไปหน้าย่อย ---------- */
+document.querySelectorAll('.b-tile').forEach(c => c.onclick = () => go('list/' + c.dataset.st));
+document.querySelectorAll('#bTabs .chip').forEach(c => c.onclick = () => {
+  history.replaceState(null, '', '#list/' + c.dataset.st);   // สลับแท็บไม่ต้องเก็บประวัติ
+  route();
 });
+$('#goAll').onclick = () => go('list/all');
+$('#goSum').onclick = () => go('summary');
+$('#goClaim').onclick = () => $('#btnClaim').onclick();
+$('#vBack').onclick = () => go('');
 
 /* ---------- แก้ไข ---------- */
 const dlg = $('#bDlg'), form = $('#bForm');
@@ -394,6 +436,15 @@ function askKind(b) {
   kDlg.showModal();
 }
 $('#btnKCancel').onclick = () => kDlg.close();
+
+/* 📷 ถ่าย/เลือกรูปใบเสร็จ → สร้างบิลใหม่ เติมวันที่ ยอด ร้าน จากรูป */
+$('#btnSnap').onclick = () => {
+  snapNew = true;
+  attachFor = null;
+  attachKind = 'auto';
+  $('#bFile').value = '';
+  $('#bFile').click();
+};
 kDlg.querySelectorAll('[data-kind]').forEach(btn => btn.onclick = () => {
   attachKind = btn.dataset.kind;
   kDlg.close();
@@ -403,14 +454,31 @@ kDlg.querySelectorAll('[data-kind]').forEach(btn => btn.onclick = () => {
 
 $('#bFile').addEventListener('change', async e => {
   const files = [...e.target.files];
-  if (!files.length || !attachFor) return;
+  const isSnap = snapNew;
+  snapNew = false;
+  if (!files.length) return;
+  if (isSnap) {
+    // สร้างบิลก่อน (ใช้ข้อความที่พิมพ์ไว้ถ้ามี)
+    const p = parseQuick($('#bInput').value);
+    const now = new Date().toISOString();
+    const nb = { id: uid(), date: p.date || today(), amount: p.amount ?? 0, desc: p.desc || 'รอใส่รายละเอียด', project: p.project,
+      cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
+    nb.typed = !!p.desc;
+    showStatus('กำลังสร้างบิล…', true);
+    try { attachFor = { ...(await api('bill_save', { bill: nb })).bill, typed: nb.typed, typedAmt: p.amount !== null, typedDate: !!p.date }; }
+    catch (err) { showStatus('สร้างบิลไม่สำเร็จ: ' + err.message); return; }
+    $('#bInput').value = '';
+    upsert(attachFor);
+    render();
+  }
+  if (!attachFor) return;
   let found = null;   // วันที่/ยอดที่อ่านได้จากหลักฐาน
   for (let i = 0; i < files.length; i++) {
     showStatus(`กำลังอัปโหลดและอ่านหลักฐาน ${i + 1}/${files.length}…`, true);
     try {
       const prep = await prepare(files[i]);
       const { bill, ocr } = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
-      attachFor = bill;
+      attachFor = { ...bill, typed: attachFor.typed, typedAmt: attachFor.typedAmt, typedDate: attachFor.typedDate };
       upsert(bill);
       if (ocr && (ocr.date || ocr.amount) && !found) found = ocr;
       if (editing && editing.id === bill.id) { editing = bill; renderFiles(); form.elements.status.value = bill.status; }
@@ -422,6 +490,32 @@ $('#bFile').addEventListener('change', async e => {
   }
   showStatus(attachFor.status === 'ready' ? '✅ แนบแล้ว รายการนี้พร้อมเบิก' : '✅ แนบแล้ว', true);
   setTimeout(() => showStatus(''), 3000);
+
+  if (isSnap) {
+    // บิลใหม่จากรูป: เติมสิ่งที่อ่านได้ให้เลย (ยกเว้นที่พิมพ์มาเอง) แล้วเปิดให้ตรวจ
+    const fill = { id: attachFor.id };
+    if (found && found.date && !attachFor.typedDate) fill.date = found.date;
+    if (found && found.amount && !attachFor.typedAmt) fill.amount = found.amount;
+    if (found && found.vendor) { fill.vendor = found.vendor; if (!attachFor.typed) fill.desc = found.vendor; }
+    let b = attachFor;
+    if (Object.keys(fill).length > 1) {
+      b = { ...attachFor, ...fill };
+      upsert(b); render();
+      try { b = (await api('bill_save', { bill: fill })).bill; upsert(b); render(); } catch {}
+    }
+    openDlg(b);
+    const box = $('#bSuggest');
+    box.innerHTML = '';
+    const p1 = document.createElement('p');
+    p1.textContent = found && (found.date || found.amount) ? '🔎 เติมจากใบเสร็จให้แล้ว' : '📷 แนบรูปแล้ว อ่านวันที่/ยอดไม่ได้ กรอกเองได้เลย';
+    const p2 = document.createElement('p');
+    p2.className = 'hint';
+    p2.textContent = 'ตรวจวันที่ ยอด และรายละเอียด แล้วกดบันทึก';
+    box.append(p1, p2);
+    box.hidden = false;
+    if (!attachFor.typed || !found || !found.vendor) setTimeout(() => form.elements.desc.select(), 60);
+    return;
+  }
 
   if (!found) return;
   // ยังไม่ได้ใส่ยอด = เติมให้เลย
@@ -600,9 +694,7 @@ $('#btnSubmitted').onclick = async () => {
   if (!items.length) return;
   cDlg.close();
   await mark(items.map(b => b.id), 'submitted', claimNo());
-  tab = 'submitted';
-  LS.set('billTab', tab);
-  render();
+  go('list/submitted');
 };
 
 async function mark(ids, status, claim) {
@@ -628,7 +720,7 @@ $('#mLabel').onclick = () => { sumMonth = today().slice(0, 7); render(); };
 
 /* ---------- เริ่มต้น ---------- */
 $('#btnSync').onclick = sync;
-render();
+route();
 sync();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

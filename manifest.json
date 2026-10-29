@@ -1,6 +1,6 @@
 {
-  "name": "จดงาน",
-  "short_name": "จดงาน",
+  "name": "จดครบ",
+  "short_name": "จดครบ",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
