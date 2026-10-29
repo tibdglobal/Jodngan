@@ -398,7 +398,11 @@ a.icon-btn { text-decoration: none; color: inherit; }
 
 /* ---------- หน้าหลักเบิกเงิน ---------- */
 .back-btn { border: 0; background: none; padding: 0; cursor: pointer; }
-.quick .snap { background: var(--card); color: var(--text); border: 1px solid var(--line); font-size: 20px; }
+.snap-big { display: flex; align-items: center; gap: 12px; width: 100%; margin: -4px 0 14px; padding: 12px 14px; border: 1.5px dashed var(--accent, #0f766e); border-radius: 14px; background: var(--card); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.snap-big:active { transform: scale(.99); }
+.snap-big .sb-ico { font-size: 26px; line-height: 1; }
+.snap-big b { display: block; font-size: 15px; }
+.snap-big small { display: block; font-size: 12px; opacity: .65; margin-top: 2px; }
 .q-hint { margin: -6px 0 12px; font-size: 12px; }
 .b-tiles.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 600px) { .b-tiles.four { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
