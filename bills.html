@@ -25,7 +25,16 @@
     </div>
   </header>
 
-  <!-- สรุปยอด (กดเพื่อกรอง) -->
+  <!-- เลือกเดือน (เปิดมาที่เดือนปัจจุบัน) -->
+  <div class="m-bar">
+    <button id="mPrev" class="icon-btn" aria-label="เดือนก่อน">‹</button>
+    <button id="mLabel" class="m-label" title="กลับไปเดือนนี้"></button>
+    <button id="mNext" class="icon-btn" aria-label="เดือนถัดไป">›</button>
+  </div>
+  <p class="m-total" id="mTotal"></p>
+  <div id="mOlder" class="m-older" hidden></div>
+
+  <!-- สรุปยอดของเดือนที่เลือก (กดเพื่อกรอง) -->
   <div class="b-tiles" id="tiles">
     <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
     <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
@@ -33,7 +42,7 @@
   </div>
 
   <form id="bQuick" class="quick" autocomplete="off">
-    <input id="bInput" type="text" placeholder="เช่น 350 ค่าแท็กซี่ไปหาลูกค้า #บริษัทA" enterkeyhint="done">
+    <input id="bInput" type="text" placeholder="เช่น 350 ค่าแท็กซี่ #บริษัทA หรือ เมื่อวาน 120 ทางด่วน" enterkeyhint="done">
     <button type="submit" class="add-btn" aria-label="จดบิล">＋</button>
   </form>
 
@@ -43,6 +52,7 @@
     <button class="chip" data-st="submitted">📤 ยื่นแล้ว</button>
     <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
     <button class="chip" data-st="">ทั้งหมด</button>
+    <button class="chip" data-st="summary">📊 สรุป</button>
   </nav>
 
   <div id="status" class="status" hidden></div>
@@ -56,6 +66,7 @@
   <dialog id="bDlg">
     <form id="bForm" method="dialog" autocomplete="off">
       <h2 id="bDlgTitle">รายละเอียด</h2>
+      <div id="bSuggest" class="b-suggest" hidden></div>
       <div class="row">
         <label>วันที่จ่าย <input name="date" type="date" required></label>
         <label>จำนวนเงิน (บาท) <input name="amount" inputmode="decimal" required></label>

@@ -24,6 +24,7 @@ let tab = LS.get('billTab', 'draft');
 let editing = null;      // บิลที่เปิดอยู่
 let attachFor = null;    // บิลที่กำลังแนบหลักฐาน
 let attachKind = '';
+let sumMonth = '';       // เดือนที่ดูในหน้าสรุป (yyyy-mm)
 
 /* ---------- ช่วยเหลือ ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -70,67 +71,158 @@ async function sync() {
 }
 
 /* ---------- แสดงผล ---------- */
+const monthName = m => new Date(m + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+const monthShort = m => new Date(m + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'short' });
+const addMonth = (m, n) => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+const inMonth = (b, m) => (b.date || '').slice(0, 7) === m;
+
 function render() {
-  // ช่องสรุป
+  if (!sumMonth) sumMonth = today().slice(0, 7);
+  const cur = today().slice(0, 7);
+  const mb = bills.filter(b => inMonth(b, sumMonth));
+
+  // แถบเดือน
+  $('#mLabel').textContent = monthName(sumMonth) + (sumMonth === cur ? ' · เดือนนี้' : '');
+  $('#mNext').disabled = sumMonth >= cur;
+  const paidM = mb.filter(b => b.status === 'paid');
+  $('#mTotal').textContent = mb.length
+    ? `จ่ายไป ${baht(sum(mb))} · ${mb.length} รายการ` + (paidM.length ? ` · ได้คืนแล้ว ${baht(sum(paidM))}` : '')
+    : 'ยังไม่มีบิลในเดือนนี้';
+
+  // เดือนอื่นที่ยังขาดหลักฐาน
+  const older = bills.filter(b => b.status === 'draft' && !inMonth(b, sumMonth));
+  const ob = $('#mOlder');
+  ob.innerHTML = '';
+  ob.hidden = !older.length;
+  if (older.length) {
+    const by = {};
+    older.forEach(b => { const m = (b.date || '').slice(0, 7); by[m] = (by[m] || 0) + 1; });
+    const t = document.createElement('span');
+    t.textContent = `📝 เดือนอื่นยังขาดหลักฐาน ${older.length} รายการ:`;
+    ob.appendChild(t);
+    Object.keys(by).sort().reverse().forEach(m => {
+      const b = document.createElement('button');
+      b.className = 'mini';
+      b.textContent = `${monthShort(m)} ${by[m]}`;
+      b.onclick = () => { sumMonth = m; tab = 'draft'; LS.set('billTab', tab); render(); };
+      ob.appendChild(b);
+    });
+  }
+
+  // ช่องสรุป (ของเดือนที่เลือก)
   document.querySelectorAll('.b-tile').forEach(t => {
-    const list = bills.filter(b => b.status === t.dataset.st);
+    const list = mb.filter(b => b.status === t.dataset.st);
     t.querySelector('.amt').textContent = baht(sum(list));
     t.querySelector('.cnt').textContent = `${list.length} รายการ`;
     t.classList.toggle('on', tab === t.dataset.st);
   });
   document.querySelectorAll('#bTabs .chip').forEach(c => {
     c.classList.toggle('on', c.dataset.st === tab);
-    const n = c.dataset.st ? bills.filter(b => b.status === c.dataset.st).length : bills.length;
-    c.dataset.n = n;
+    c.dataset.n = c.dataset.st === 'summary' ? '' : c.dataset.st ? mb.filter(b => b.status === c.dataset.st).length : mb.length;
   });
   // ตัวเลือกโปรเจ็ค
   const projs = [...new Set(bills.map(b => b.project).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
   $('#bProjList').innerHTML = '';
   projs.forEach(p => { const o = document.createElement('option'); o.value = p; $('#bProjList').appendChild(o); });
 
-  const list = bills.filter(b => !tab || b.status === tab)
-    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || ''));
+  const ready = bills.filter(b => b.status === 'ready');
+  $('#bBar').hidden = tab !== 'ready' || !ready.length;
+  $('#btnClaim').textContent = `สร้างใบเบิก (${ready.length} รายการ ${baht(sum(ready))})`;
+
   const box = $('#bList');
   box.innerHTML = '';
+  if (tab === 'summary') { renderSummary(box); return; }
+
+  const list = mb.filter(b => !tab || b.status === tab)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || ''));
   if (!list.length) {
-    const msg = { draft: 'ไม่มีบิลที่ขาดหลักฐาน 👍', ready: 'ยังไม่มีบิลที่พร้อมเบิก', submitted: 'ไม่มีบิลที่รอเงินคืน', paid: 'ยังไม่มีบิลที่ได้เงินแล้ว' }[tab] || 'ยังไม่มีบิล จดด้านบนได้เลย';
+    const msg = { draft: 'ไม่มีบิลที่ขาดหลักฐานในเดือนนี้ 👍', ready: 'ยังไม่มีบิลที่พร้อมเบิกในเดือนนี้', submitted: 'ไม่มีบิลที่รอเงินคืนในเดือนนี้', paid: 'ยังไม่มีบิลที่ได้เงินแล้วในเดือนนี้' }[tab] || 'ยังไม่มีบิลในเดือนนี้ จดด้านบนได้เลย';
     box.innerHTML = `<p class="empty">${msg}</p>`;
+    return;
   }
 
-  // ยื่นแล้ว: จัดกลุ่มตามใบเบิก
-  if (tab === 'submitted' && list.length) {
+  if (tab === 'submitted') {
+    // จัดกลุ่มตามใบเบิก (กด "ได้เงินแล้ว" = ทั้งใบ รวมรายการจากเดือนอื่นในใบเดียวกัน)
     const groups = {};
     list.forEach(b => { (groups[b.claim || 'ไม่ระบุใบเบิก'] = groups[b.claim || 'ไม่ระบุใบเบิก'] || []).push(b); });
     Object.entries(groups).forEach(([claim, items]) => {
-      const sec = section(`${claim} · ${baht(sum(items))}`);
+      const whole = bills.filter(b => b.status === 'submitted' && (b.claim || 'ไม่ระบุใบเบิก') === claim);
+      const sec = section(`${claim} · ${baht(sum(whole))}` + (whole.length > items.length ? ` (รวมเดือนอื่น ${whole.length - items.length})` : ''));
       const btn = document.createElement('button');
       btn.className = 'mini paid-btn';
       btn.textContent = '✅ ได้เงินแล้ว';
-      btn.onclick = () => mark(items.map(b => b.id), 'paid');
+      btn.onclick = () => mark(whole.map(b => b.id), 'paid');
       sec.querySelector('h3').appendChild(btn);
       items.forEach(b => sec.querySelector('.items').appendChild(row(b)));
       box.appendChild(sec);
     });
-  } else if (list.length) {
-    // จัดกลุ่มตามเดือน
-    let last = '', wrap = null;
-    list.forEach(b => {
-      const m = (b.date || '').slice(0, 7);
-      if (m !== last) {
-        last = m;
-        const items = list.filter(x => (x.date || '').slice(0, 7) === m);
-        const label = m ? new Date(m + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : '';
-        const sec = section(`${label} · ${baht(sum(items))}`);
-        box.appendChild(sec);
-        wrap = sec.querySelector('.items');
-      }
-      wrap.appendChild(row(b));
-    });
+    return;
   }
+  const sec = section(`${tab ? ST[tab] : 'ทั้งหมด'} · ${baht(sum(list))}`);
+  list.forEach(b => sec.querySelector('.items').appendChild(row(b)));
+  box.appendChild(sec);
+}
 
-  const ready = bills.filter(b => b.status === 'ready');
-  $('#bBar').hidden = tab !== 'ready' || !ready.length;
-  $('#btnClaim').textContent = `สร้างใบเบิก (${ready.length} รายการ ${baht(sum(ready))})`;
+/* ---------- สรุป: ยอดรวมทั้งหมด + ย้อนหลัง 12 เดือน + แยกหมวด/บริษัทของเดือนที่เลือก ---------- */
+function renderSummary(box) {
+  const by = st => bills.filter(b => b.status === st);
+  const pending = [...by('draft'), ...by('ready'), ...by('submitted')];
+  const all = document.createElement('section');
+  all.className = 's-card';
+  all.innerHTML = '<h3>ยอดรวมทั้งหมด</h3><div class="s-grid"></div>';
+  [['จ่ายไปทั้งหมด', sum(bills), bills.length], ['ได้คืนแล้ว', sum(by('paid')), by('paid').length], ['ยังค้างรับคืน', sum(pending), pending.length]].forEach(([l, v, n], i) => {
+    const d = document.createElement('div');
+    d.className = 's-num' + (i === 2 ? ' warn' : '');
+    d.innerHTML = '<span></span><b></b><small></small>';
+    d.children[0].textContent = l; d.children[1].textContent = baht(v); d.children[2].textContent = `${n} รายการ`;
+    all.querySelector('.s-grid').appendChild(d);
+  });
+  box.appendChild(all);
+
+  // 12 เดือนล่าสุด
+  const cur = today().slice(0, 7);
+  const months = Array.from({ length: 12 }, (_, i) => addMonth(cur, i - 11));
+  const vals = months.map(m => sum(bills.filter(b => inMonth(b, m))));
+  const max = Math.max(...vals, 1);
+  const chart = document.createElement('section');
+  chart.className = 's-card';
+  chart.innerHTML = '<h3>ย้อนหลัง 12 เดือน <small>(กดเพื่อดูเดือนนั้น)</small></h3><div class="s-bars"></div>';
+  months.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.className = 's-bar' + (m === sumMonth ? ' on' : '');
+    b.title = `${monthName(m)} ${baht(vals[i])}`;
+    b.innerHTML = '<span class="v"></span><i></i><span class="m"></span>';
+    b.querySelector('.v').textContent = vals[i] ? (vals[i] >= 1000 ? (vals[i] / 1000).toFixed(vals[i] >= 10000 ? 0 : 1) + 'k' : Math.round(vals[i])) : '';
+    b.querySelector('i').style.height = Math.max(vals[i] ? 4 : 0, Math.round(vals[i] / max * 100)) + '%';
+    b.querySelector('.m').textContent = monthShort(m);
+    b.onclick = () => { sumMonth = m; render(); };
+    chart.querySelector('.s-bars').appendChild(b);
+  });
+  box.appendChild(chart);
+
+  // แยกหมวด / บริษัท ของเดือนที่เลือก
+  const mb = bills.filter(b => inMonth(b, sumMonth));
+  [['แยกตามหมวด', 'cat', 'ไม่ระบุหมวด'], ['แยกตามโปรเจ็ค/บริษัท', 'project', 'ไม่ระบุ']].forEach(([title, key, none]) => {
+    const g = {};
+    mb.forEach(b => { const k = b[key] || none; g[k] = (g[k] || 0) + Number(b.amount || 0); });
+    const rows = Object.entries(g).sort((a, b) => b[1] - a[1]);
+    const sec = document.createElement('section');
+    sec.className = 's-card';
+    sec.innerHTML = '<h3></h3>';
+    sec.querySelector('h3').textContent = `${title} · ${monthName(sumMonth)}`;
+    if (!rows.length) { sec.insertAdjacentHTML('beforeend', '<p class="hint">ยังไม่มีบิลในเดือนนี้</p>'); box.appendChild(sec); return; }
+    const top = rows[0][1] || 1;
+    rows.forEach(([k, v]) => {
+      const r = document.createElement('div');
+      r.className = 's-row';
+      r.innerHTML = '<span class="k"></span><span class="track"><i></i></span><b></b>';
+      r.querySelector('.k').textContent = k;
+      r.querySelector('i').style.width = Math.round(v / top * 100) + '%';
+      r.querySelector('b').textContent = baht(v);
+      sec.appendChild(r);
+    });
+    box.appendChild(sec);
+  });
 }
 
 function section(title) {
@@ -176,11 +268,27 @@ function row(b) {
 
 /* ---------- จดเร็ว ---------- */
 function parseQuick(text) {
-  let s = text.trim(), project = '', amount = null, m;
+  let s = text.trim(), project = '', amount = null, date = '', m;
   s = s.replace(/(^|\s)#(\S+)/, (a, sp, name) => { project = name; return sp; }).trim();
+  // วันที่นำหน้า: วันนี้ / เมื่อวาน / เมื่อวานซืน / 28/10
+  if ((m = s.match(/^(วันนี้|เมื่อวานซืน|เมื่อวาน)\s+/))) {
+    const back = { 'วันนี้': 0, 'เมื่อวาน': 1, 'เมื่อวานซืน': 2 }[m[1]];
+    const d = new Date(); d.setDate(d.getDate() - back); date = ymd(d);
+    s = s.slice(m[0].length);
+  } else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+/))) {
+    const dd = +m[1], mm = +m[2];
+    if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) {
+      let y = m[3] ? +m[3] : new Date().getFullYear();
+      if (y > 2400) y -= 543; else if (y < 100) y = y >= 50 ? 2500 + y - 543 : 2000 + y;
+      let c = `${y}-${pad(mm)}-${pad(dd)}`;
+      if (!m[3] && c > today()) c = `${y - 1}-${pad(mm)}-${pad(dd)}`;   // ไม่ใส่ปี + อยู่ในอนาคต = ปีที่แล้ว
+      date = c;
+      s = s.slice(m[0].length);
+    }
+  }
   if ((m = s.match(/^([\d,]+(?:\.\d{1,2})?)\s*(?:บาท|บ\.?)?\s+/))) { amount = m[1]; s = s.slice(m[0].length); }
   else if ((m = s.match(/\s+([\d,]+(?:\.\d{1,2})?)\s*(?:บาท|บ\.?)?$/))) { amount = m[1]; s = s.slice(0, m.index); }
-  return { amount: amount ? Number(amount.replace(/,/g, '')) : null, desc: s.trim(), project };
+  return { amount: amount ? Number(amount.replace(/,/g, '')) : null, desc: s.trim(), project, date };
 }
 
 $('#bQuick').addEventListener('submit', async e => {
@@ -189,10 +297,11 @@ $('#bQuick').addEventListener('submit', async e => {
   const p = parseQuick(input.value);
   if (!p.desc) return;
   const now = new Date().toISOString();
-  const b = { id: uid(), date: today(), amount: p.amount ?? 0, desc: p.desc, project: p.project, cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
+  const b = { id: uid(), date: p.date || today(), amount: p.amount ?? 0, desc: p.desc, project: p.project, cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
   input.value = '';
   upsert(b);
   if (tab !== 'draft' && tab !== '') { tab = 'draft'; LS.set('billTab', tab); }
+  if (p.date && p.date.slice(0, 7) !== today().slice(0, 7)) sumMonth = p.date.slice(0, 7);
   render();
   if (p.amount === null) openDlg(b);   // ไม่ได้ใส่จำนวนเงิน = เปิดให้กรอก
   try { upsert((await api('bill_save', { bill: b })).bill); render(); }
@@ -213,6 +322,7 @@ function openDlg(b) {
   const f = form.elements;
   ['date', 'amount', 'desc', 'project', 'cat', 'pay', 'vendor', 'note', 'status'].forEach(k => { f[k].value = b[k] ?? ''; });
   if (!Number(b.amount)) f.amount.value = '';
+  $('#bSuggest').hidden = true;
   renderFiles();
   if (!dlg.open) dlg.showModal();
   if (!Number(b.amount)) setTimeout(() => f.amount.focus(), 50);
@@ -294,13 +404,15 @@ kDlg.querySelectorAll('[data-kind]').forEach(btn => btn.onclick = () => {
 $('#bFile').addEventListener('change', async e => {
   const files = [...e.target.files];
   if (!files.length || !attachFor) return;
+  let found = null;   // วันที่/ยอดที่อ่านได้จากหลักฐาน
   for (let i = 0; i < files.length; i++) {
-    showStatus(`กำลังอัปโหลด ${i + 1}/${files.length}…`, true);
+    showStatus(`กำลังอัปโหลดและอ่านหลักฐาน ${i + 1}/${files.length}…`, true);
     try {
       const prep = await prepare(files[i]);
-      const { bill } = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
+      const { bill, ocr } = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
       attachFor = bill;
       upsert(bill);
+      if (ocr && (ocr.date || ocr.amount) && !found) found = ocr;
       if (editing && editing.id === bill.id) { editing = bill; renderFiles(); form.elements.status.value = bill.status; }
       render();
     } catch (err) {
@@ -310,7 +422,61 @@ $('#bFile').addEventListener('change', async e => {
   }
   showStatus(attachFor.status === 'ready' ? '✅ แนบแล้ว รายการนี้พร้อมเบิก' : '✅ แนบแล้ว', true);
   setTimeout(() => showStatus(''), 3000);
+
+  if (!found) return;
+  // ยังไม่ได้ใส่ยอด = เติมให้เลย
+  if (found.amount && !Number(attachFor.amount)) {
+    const b = { ...attachFor, amount: found.amount };
+    upsert(b); render();
+    try { upsert((await api('bill_save', { bill: { id: b.id, amount: b.amount } })).bill); } catch {}
+    attachFor = b;
+    found.amountFilled = true;
+  }
+  const diffDate = found.date && found.date !== attachFor.date;
+  const diffAmt = found.amount && Number(found.amount) !== Number(attachFor.amount);
+  if (diffDate || diffAmt || found.amountFilled) {
+    if (!editing || editing.id !== attachFor.id) openDlg(attachFor);
+    showSuggest(found, diffDate, diffAmt);
+  }
 });
+
+/* แสดงสิ่งที่อ่านได้จากหลักฐาน ให้กดใช้ค่า (ยังไม่บันทึกจนกด บันทึก) */
+function showSuggest(ocr, diffDate, diffAmt) {
+  const box = $('#bSuggest');
+  box.innerHTML = '';
+  const title = document.createElement('p');
+  title.textContent = '🔎 อ่านจากหลักฐาน';
+  box.appendChild(title);
+  const f = form.elements;
+  if (ocr.amountFilled) {
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = `เติมยอด ${baht(ocr.amount)} ให้แล้ว (แก้ได้)`;
+    box.appendChild(p);
+  }
+  const btns = document.createElement('div');
+  btns.className = 'b-sg-btns';
+  if (diffDate) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mini';
+    b.textContent = `ใช้วันที่ ${short(ocr.date)}/${String(+ocr.date.slice(0, 4) + 543).slice(2)}`;
+    b.onclick = () => { f.date.value = ocr.date; b.disabled = true; b.textContent = '✓ ' + b.textContent; };
+    btns.appendChild(b);
+  }
+  if (diffAmt && !ocr.amountFilled) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mini';
+    b.textContent = `ใช้ยอด ${baht(ocr.amount)}`;
+    b.onclick = () => { f.amount.value = ocr.amount; b.disabled = true; b.textContent = '✓ ' + b.textContent; };
+    btns.appendChild(b);
+  }
+  if (btns.children.length) box.appendChild(btns);
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = 'ตรวจให้ถูกก่อนกดบันทึก (อ่านอัตโนมัติอาจผิดได้)';
+  box.appendChild(note);
+  box.hidden = false;
+}
 
 /* ย่อรูปก่อนส่ง (ประหยัดเน็ตและพื้นที่) + ทำรูปเล็กไว้แสดงในแอป */
 async function prepare(file) {
@@ -454,6 +620,11 @@ async function mark(ids, status, claim) {
     render();
   } catch (e) { showStatus('อัปเดตไม่สำเร็จ: ' + e.message); }
 }
+
+/* ---------- เลือกเดือน ---------- */
+$('#mPrev').onclick = () => { sumMonth = addMonth(sumMonth, -1); render(); };
+$('#mNext').onclick = () => { if (sumMonth < today().slice(0, 7)) { sumMonth = addMonth(sumMonth, 1); render(); } };
+$('#mLabel').onclick = () => { sumMonth = today().slice(0, 7); render(); };
 
 /* ---------- เริ่มต้น ---------- */
 $('#btnSync').onclick = sync;
