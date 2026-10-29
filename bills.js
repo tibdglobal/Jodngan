@@ -366,9 +366,34 @@ function openDlg(b) {
   if (!Number(b.amount)) f.amount.value = '';
   $('#bSuggest').hidden = true;
   renderFiles();
+  renderCats();
   if (!dlg.open) dlg.showModal();
   if (!Number(b.amount)) setTimeout(() => f.amount.focus(), 50);
 }
+/* หมวด: แตะเลือก หรือพิมพ์เอง (หมวดที่พิมพ์เองจะขึ้นเป็นปุ่มให้ครั้งต่อไป) */
+const BASE_CATS = ['เดินทาง', 'อาหาร/รับรอง', 'ค่าห้องประชุม', 'ที่พัก', 'อุปกรณ์/วัสดุ', 'ค่าบริการ', 'อื่นๆ'];
+function syncCats() {
+  const v = form.elements.cat.value.trim();
+  $('#bCats').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.textContent === v));
+}
+function renderCats() {
+  const box = $('#bCats'), inp = form.elements.cat;
+  const used = [...new Set(bills.map(b => String(b.cat || '').trim()).filter(Boolean))];
+  const all = BASE_CATS.concat(used.filter(c => !BASE_CATS.includes(c)));
+  const cur = inp.value.trim();
+  if (cur && !all.includes(cur)) all.push(cur);
+  box.innerHTML = '';
+  all.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = c;
+    b.onclick = () => { inp.value = inp.value.trim() === c ? '' : c; syncCats(); };
+    box.appendChild(b);
+  });
+  syncCats();
+}
+form.elements.cat.addEventListener('input', syncCats);
+
 function renderFiles() {
   const box = $('#bFiles');
   box.innerHTML = '';
@@ -457,26 +482,14 @@ $('#bFile').addEventListener('change', async e => {
   const isSnap = snapNew;
   snapNew = false;
   if (!files.length) return;
-  if (isSnap) {
-    // สร้างบิลก่อน (ใช้ข้อความที่พิมพ์ไว้ถ้ามี)
-    const p = parseQuick($('#bInput').value);
-    const now = new Date().toISOString();
-    const nb = { id: uid(), date: p.date || today(), amount: p.amount ?? 0, desc: p.desc || 'รอใส่รายละเอียด', project: p.project,
-      cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
-    nb.typed = !!p.desc;
-    showStatus('กำลังสร้างบิล…', true);
-    try { attachFor = { ...(await api('bill_save', { bill: nb })).bill, typed: nb.typed, typedAmt: p.amount !== null, typedDate: !!p.date }; }
-    catch (err) { showStatus('สร้างบิลไม่สำเร็จ: ' + err.message); return; }
-    $('#bInput').value = '';
-    upsert(attachFor);
-    render();
-  }
+  if (isSnap) { snapBill(files[0]); return; }
   if (!attachFor) return;
   let found = null;   // วันที่/ยอดที่อ่านได้จากหลักฐาน
   for (let i = 0; i < files.length; i++) {
     showStatus(`กำลังอัปโหลดและอ่านหลักฐาน ${i + 1}/${files.length}…`, true);
     try {
       const prep = await prepare(files[i]);
+      busyStart(prep.thumb, files.length > 1 ? `ไฟล์ ${i + 1}/${files.length}` : '');
       const { bill, ocr } = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
       attachFor = { ...bill, typed: attachFor.typed, typedAmt: attachFor.typedAmt, typedDate: attachFor.typedDate };
       upsert(bill);
@@ -484,38 +497,14 @@ $('#bFile').addEventListener('change', async e => {
       if (editing && editing.id === bill.id) { editing = bill; renderFiles(); form.elements.status.value = bill.status; }
       render();
     } catch (err) {
+      busyEnd();
       showStatus('อัปโหลดไม่สำเร็จ: ' + err.message);
       return;
     }
   }
+  busyEnd();
   showStatus(attachFor.status === 'ready' ? '✅ แนบแล้ว รายการนี้พร้อมเบิก' : '✅ แนบแล้ว', true);
   setTimeout(() => showStatus(''), 3000);
-
-  if (isSnap) {
-    // บิลใหม่จากรูป: เติมสิ่งที่อ่านได้ให้เลย (ยกเว้นที่พิมพ์มาเอง) แล้วเปิดให้ตรวจ
-    const fill = { id: attachFor.id };
-    if (found && found.date && !attachFor.typedDate) fill.date = found.date;
-    if (found && found.amount && !attachFor.typedAmt) fill.amount = found.amount;
-    if (found && found.vendor) { fill.vendor = found.vendor; if (!attachFor.typed) fill.desc = found.vendor; }
-    let b = attachFor;
-    if (Object.keys(fill).length > 1) {
-      b = { ...attachFor, ...fill };
-      upsert(b); render();
-      try { b = (await api('bill_save', { bill: fill })).bill; upsert(b); render(); } catch {}
-    }
-    openDlg(b);
-    const box = $('#bSuggest');
-    box.innerHTML = '';
-    const p1 = document.createElement('p');
-    p1.textContent = found && (found.date || found.amount) ? '🔎 เติมจากใบเสร็จให้แล้ว' : '📷 แนบรูปแล้ว อ่านวันที่/ยอดไม่ได้ กรอกเองได้เลย';
-    const p2 = document.createElement('p');
-    p2.className = 'hint';
-    p2.textContent = 'ตรวจวันที่ ยอด และรายละเอียด แล้วกดบันทึก';
-    box.append(p1, p2);
-    box.hidden = false;
-    if (!attachFor.typed || !found || !found.vendor) setTimeout(() => form.elements.desc.select(), 60);
-    return;
-  }
 
   if (!found) return;
   // ยังไม่ได้ใส่ยอด = เติมให้เลย
@@ -533,6 +522,56 @@ $('#bFile').addEventListener('change', async e => {
     showSuggest(found, diffDate, diffAmt);
   }
 });
+
+/* ---------- หน้าจอ "กำลังอ่านใบเสร็จ" ---------- */
+let busyTick = null;
+function busyStart(img, extra) {
+  const t0 = Date.now();
+  $('#busyImg').hidden = !img;
+  if (img) $('#busyImg').src = img;
+  const steps = [[0, 'กำลังส่งรูป…'], [2, 'กำลังอ่านใบเสร็จ…'], [6, 'กำลังหายอดเงิน วันที่ ชื่อร้าน…'], [14, 'ใกล้เสร็จแล้ว…']];
+  const tick = () => {
+    const sec = Math.floor((Date.now() - t0) / 1000);
+    $('#busyMsg').textContent = steps.filter(x => sec >= x[0]).pop()[1];
+    $('#busySub').textContent = [extra, sec + ' วินาที · ปกติใช้ราว 5–10 วินาที'].filter(Boolean).join(' · ');
+  };
+  clearInterval(busyTick);
+  tick();
+  busyTick = setInterval(tick, 500);
+  $('#busy').hidden = false;
+}
+function busyEnd() { clearInterval(busyTick); busyTick = null; $('#busy').hidden = true; }
+
+/* 📷 บิลใหม่จากรูป: ส่งครั้งเดียว ระบบสร้างบิล เก็บไฟล์ อ่านข้อมูล แล้วเปิดให้ตรวจ */
+async function snapBill(file) {
+  const p = parseQuick($('#bInput').value);
+  let prep;
+  try { prep = await prepare(file); } catch (err) { showStatus(err.message); return; }
+  busyStart(prep.thumb);
+  const t = { id: uid(), project: p.project };
+  if (p.desc) t.desc = p.desc;
+  if (p.amount !== null) t.amount = p.amount;
+  if (p.date) t.date = p.date;
+  let res;
+  try { res = await api('bill_snap', { bill: t, ...prep }); }
+  catch (err) { busyEnd(); showStatus('อ่านใบเสร็จไม่สำเร็จ: ' + err.message); return; }
+  busyEnd();
+  $('#bInput').value = '';
+  const b = res.bill, ocr = res.ocr || {};
+  upsert(b); render();
+  openDlg(b);
+  const box = $('#bSuggest');
+  box.innerHTML = '';
+  const got = [ocr.date && 'วันที่', ocr.amount && 'ยอดเงิน', ocr.vendor && 'ชื่อร้าน', ocr.cat && 'หมวด'].filter(Boolean);
+  const p1 = document.createElement('p');
+  p1.textContent = got.length ? '🔎 อ่านได้: ' + got.join(' · ') : '📷 แนบรูปแล้ว แต่อ่านข้อมูลไม่ได้ กรอกเองได้เลย';
+  const p2 = document.createElement('p');
+  p2.className = 'hint';
+  p2.textContent = got.length ? 'ตรวจให้ถูกก่อนกดบันทึก (อ่านอัตโนมัติอาจผิดได้)' : 'รูปชัด ไม่เอียง เห็นทั้งใบ จะอ่านได้ดีขึ้น';
+  box.append(p1, p2);
+  box.hidden = false;
+  if (!ocr.amount && !p.amount) setTimeout(() => form.elements.amount.focus(), 60);
+}
 
 /* แสดงสิ่งที่อ่านได้จากหลักฐาน ให้กดใช้ค่า (ยังไม่บันทึกจนกด บันทึก) */
 function showSuggest(ocr, diffDate, diffAmt) {

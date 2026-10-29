@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=19">
+  <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body class="bills">
   <header class="top">
@@ -95,9 +95,10 @@
       <label>รายละเอียด <input name="desc" required></label>
       <div class="row">
         <label>โปรเจ็ค / บริษัท <input name="project" list="bProjList" placeholder="ไม่ระบุ"><datalist id="bProjList"></datalist></label>
-        <label>หมวด <input name="cat" list="bCatList" placeholder="เช่น เดินทาง"><datalist id="bCatList">
-          <option value="เดินทาง"></option><option value="อาหาร/รับรอง"></option><option value="ที่พัก"></option>
-          <option value="อุปกรณ์/วัสดุ"></option><option value="ค่าบริการ"></option><option value="อื่นๆ"></option></datalist></label>
+      </div>
+      <div class="field">
+        <label>หมวด <input name="cat" placeholder="แตะเลือกด้านล่าง หรือพิมพ์หมวดเอง"></label>
+        <div id="bCats" class="when-chips wrap"></div>
       </div>
       <div class="row">
         <label>จ่ายด้วย
@@ -146,6 +147,15 @@
       <div class="dlg-actions"><span class="spacer"></span><button type="button" id="btnKCancel" class="ghost">ยกเลิก</button></div>
     </form>
   </dialog>
+  <!-- กำลังอ่านใบเสร็จ -->
+  <div id="busy" class="busy" hidden role="status" aria-live="polite">
+    <div class="busy-card">
+      <img id="busyImg" alt="" hidden>
+      <div class="spin"></div>
+      <b id="busyMsg">กำลังอ่านใบเสร็จ…</b>
+      <small id="busySub"></small>
+    </div>
+  </div>
   <input type="file" id="bFile" accept="image/*,application/pdf" multiple hidden>
 
   <!-- ใบเบิก -->
@@ -169,6 +179,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=19"></script>
+  <script src="bills.js?v=20"></script>
 </body>
 </html>
