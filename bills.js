@@ -39,7 +39,7 @@ const short = s => { if (!s) return ''; const [, m, d] = s.split('-'); return `$
 const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sum = list => list.reduce((s, b) => s + Number(b.amount || 0), 0);
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[-.]/g, '');
-const hasProof = b => (b.files || []).some(f => ['taxinv', 'receipt', 'cert'].includes(f.kind));
+const hasProof = b => (b.files || []).length > 0;   // แนบไฟล์อะไรก็ได้ (รวมสลิป) = มีหลักฐานแล้ว
 
 async function api(action, payload = {}) {
   const res = await fetch(cfg.url, { method: 'POST', body: JSON.stringify({ action, key: cfg.key, ...payload }), redirect: 'follow' });
@@ -254,7 +254,7 @@ function renderFilesView(mb) {
   const mbox = $('#fMissing');
   mbox.innerHTML = '';
   if (miss.length) {
-    const sec = section(`📝 ยังไม่มีใบเสร็จ/ใบกำกับ · ${miss.length} รายการ`);
+    const sec = section(`📝 ยังไม่มีหลักฐาน · ${miss.length} รายการ`);
     miss.forEach(b => sec.querySelector('.items').appendChild(row(b)));
     mbox.appendChild(sec);
   }
@@ -552,7 +552,7 @@ function renderSteps() {
     b.querySelector('small').textContent = i <= idx && when ? short(when) : (st === 'submitted' && i === idx && editing.claim ? editing.claim : '');
     b.onclick = async () => {
       if (st === cur) return;
-      if (st === 'ready' && !hasProof(editing)) { alert('ต้องแนบใบเสร็จ / ใบกำกับภาษี / ใบรับรองแทนใบเสร็จ ก่อน ถึงจะพร้อมเบิก'); return; }
+      if (st === 'ready' && !hasProof(editing)) { alert('ต้องแนบหลักฐานก่อน (ใบเสร็จ ใบกำกับภาษี หรือสลิปก็ได้) ถึงจะพร้อมเบิก'); return; }
       const id = editing.id;
       form.elements.status.value = st;
       editing = { ...editing, status: st };
