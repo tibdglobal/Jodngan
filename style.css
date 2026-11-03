@@ -326,19 +326,36 @@ a.icon-btn { text-decoration: none; color: inherit; }
   background: linear-gradient(transparent, var(--bg) 30%);
 }
 .b-bar .btn { width: 100%; }
-.b-files { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-files { display: grid; gap: 8px; }
 .b-files .hint { margin: 0; }
-.b-file { position: relative; }
-.b-file a {
-  display: grid; justify-items: center; gap: 2px; width: 84px; padding: 6px; border-radius: 10px;
-  border: 1px solid var(--line); text-decoration: none; color: var(--muted); font-size: 11px; text-align: center;
-}
-.b-file img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; }
-.b-file .ficon { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 6px; background: var(--bg); font-weight: 600; color: var(--danger); }
+.b-file { position: relative; display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.bf-thumb { flex: none; display: block; text-decoration: none; }
+.b-file img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block; }
+.b-file .ficon { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 8px; background: var(--bg); font-weight: 600; color: var(--danger); }
+.bf-info { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.bf-kind { font: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); max-width: 100%; }
+.bf-open { font-size: 12px; color: var(--accent); }
 .b-x {
-  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%;
-  border: 1px solid var(--line); background: var(--card); font-size: 14px; line-height: 1; padding: 0;
+  flex: none; width: 30px; height: 30px; border-radius: 50%; margin-right: 2px;
+  border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 16px; line-height: 1; padding: 0;
 }
+#btnAttach small { font-weight: 400; opacity: .7; }
+/* ขั้นสถานะ */
+.b-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.b-step { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.b-step .ic { font-size: 18px; filter: grayscale(1); opacity: .6; }
+.b-step small { font-size: 10.5px; min-height: 13px; }
+.b-step.done { color: var(--text); }
+.b-step.done .ic { filter: none; opacity: 1; }
+.b-step.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.b-step.on .ic { filter: none; opacity: 1; }
+.step-submitted { border-color: #16a34a !important; color: #15803d !important; background: #dcfce7 !important; }
+/* แถบแจ้ง + ยกเลิก */
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 12px 10px 16px; border-radius: 12px;
+  background: #1f2937; color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: 14px; }
+.toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast button { flex: none; border: 0; background: none; color: #5eead4; font: inherit; font-weight: 600; cursor: pointer; padding: 4px; }
 .k-form { padding: 20px; display: grid; gap: 12px; }
 .k-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .k-grid button {

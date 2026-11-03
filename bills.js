@@ -16,7 +16,7 @@ const KIND = {
   other: { icon: '📄', name: 'อื่นๆ' },
 };
 const ST = {
-  draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ยื่นแล้ว', paid: '✅ ได้เงินแล้ว',
+  draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ส่งเบิกแล้ว', paid: '✅ ได้เงินแล้ว',
 };
 
 let bills = LS.get('bills', []);
@@ -172,7 +172,7 @@ function render() {
       const btn = document.createElement('button');
       btn.className = 'mini paid-btn';
       btn.textContent = '✅ ได้เงินแล้ว';
-      btn.onclick = () => mark(whole.map(b => b.id), 'paid');
+      btn.onclick = () => quickMark(whole, 'paid');
       sec.querySelector('h3').appendChild(btn);
       items.forEach(b => sec.querySelector('.items').appendChild(row(b)));
       box.appendChild(sec);
@@ -377,12 +377,16 @@ function row(b) {
   amt.className = 'b-amt';
   amt.textContent = baht(b.amount);
   right.appendChild(amt);
-  if (b.status === 'draft' || b.status === 'ready') {
+  // ปุ่มขั้นถัดไป: ขาดหลักฐาน → แนบ | พร้อมเบิก → ส่งเบิกแล้ว | ส่งเบิกแล้ว → ได้เงินแล้ว
+  const next = { draft: ['📎 แนบ', () => askKind(b)],
+    ready: ['📤 ส่งเบิกแล้ว', () => quickMark([b], 'submitted')],
+    submitted: ['✅ ได้เงินแล้ว', () => quickMark([b], 'paid')] }[b.status];
+  if (next) {
     const at = document.createElement('button');
-    at.className = 'edit-btn' + (b.status === 'draft' ? ' strong' : '');
+    at.className = 'edit-btn strong step-' + b.status;
     at.type = 'button';
-    at.textContent = '📎 แนบ';
-    at.onclick = () => askKind(b);
+    at.textContent = next[0];
+    at.onclick = next[1];
     right.appendChild(at);
   }
   el.append(body, right);
@@ -452,6 +456,7 @@ function openDlg(b) {
   $('#bSuggest').hidden = true;
   renderFiles();
   renderCats();
+  renderSteps();
   if (!dlg.open) dlg.showModal();
   if (!Number(b.amount)) setTimeout(() => f.amount.focus(), 50);
 }
@@ -483,30 +488,83 @@ function renderFiles() {
   const box = $('#bFiles');
   box.innerHTML = '';
   const files = (editing && editing.files) || [];
+  $('#bFilesLbl').textContent = files.length ? `หลักฐาน · ${files.length} ไฟล์` : 'หลักฐาน';
+  $('#btnAttach').innerHTML = files.length ? '＋ เพิ่มหลักฐานอีก <small>(แนบได้หลายไฟล์)</small>' : '📎 แนบหลักฐาน <small>(แนบได้หลายไฟล์)</small>';
   if (!files.length) { box.innerHTML = '<p class="hint">ยังไม่มี แนบได้ทีหลัง</p>'; return; }
   files.forEach(f => {
     const a = document.createElement('div');
     a.className = 'b-file';
     const link = document.createElement('a');
-    link.href = f.url; link.target = '_blank'; link.rel = 'noopener';
+    link.href = f.url; link.target = '_blank'; link.rel = 'noopener'; link.className = 'bf-thumb';
     if (f.thumb) { const img = document.createElement('img'); img.src = f.thumb; img.alt = ''; link.appendChild(img); }
     else { const i = document.createElement('span'); i.className = 'ficon'; i.textContent = f.mime === 'application/pdf' ? 'PDF' : '📄'; link.appendChild(i); }
-    const cap = document.createElement('span');
-    cap.textContent = KIND[f.kind].name;
-    link.appendChild(cap);
+    // ชนิดหลักฐาน: เปลี่ยนได้ทีละไฟล์
+    const sel = document.createElement('select');
+    sel.className = 'bf-kind';
+    sel.setAttribute('aria-label', 'ชนิดหลักฐาน');
+    Object.entries(KIND).forEach(([k, v]) => sel.add(new Option(v.icon + ' ' + v.name, k)));
+    sel.value = KIND[f.kind] ? f.kind : 'other';
+    sel.onchange = async () => {
+      const id = editing.id;
+      f.kind = sel.value;
+      try {
+        const { bill } = await api('bill_filekind', { id, fileId: f.id, kind: sel.value });
+        upsert(bill);
+        if (editing && editing.id === id) { editing = bill; form.elements.status.value = bill.status; renderSteps(); renderFiles(); }
+        render();
+      } catch (e) { showStatus('เปลี่ยนชนิดไม่สำเร็จ: ' + e.message); }
+    };
+    const open = document.createElement('a');
+    open.href = f.url; open.target = '_blank'; open.rel = 'noopener'; open.className = 'bf-open'; open.textContent = 'เปิดดู';
+    const info = document.createElement('div');
+    info.className = 'bf-info';
+    info.append(sel, open);
     const x = document.createElement('button');
     x.type = 'button'; x.className = 'b-x'; x.textContent = '×'; x.setAttribute('aria-label', 'เอาหลักฐานนี้ออก');
     x.onclick = async () => {
       if (!confirm('เอาหลักฐานนี้ออก? (ไฟล์จะไปอยู่ถังขยะของ Google Drive)')) return;
       try {
         const { bill } = await api('bill_unfile', { id: editing.id, fileId: f.id });
-        editing = bill; upsert(bill); renderFiles(); form.elements.status.value = bill.status; render();
+        editing = bill; upsert(bill); renderFiles(); form.elements.status.value = bill.status; renderSteps(); render();
       } catch (e) { showStatus('เอาออกไม่สำเร็จ: ' + e.message); }
     };
-    a.append(link, x);
+    a.append(link, info, x);
     box.appendChild(a);
   });
 }
+
+/* สถานะในหน้ารายละเอียด: แตะขั้นที่ต้องการ (มีผลทันที) */
+const STEPS = [['draft', '📝', 'ขาดหลักฐาน'], ['ready', '📎', 'พร้อมเบิก'], ['submitted', '📤', 'ส่งเบิกแล้ว'], ['paid', '✅', 'ได้เงินแล้ว']];
+function renderSteps() {
+  const box = $('#bSteps');
+  box.innerHTML = '';
+  if (!editing) return;
+  const cur = form.elements.status.value || editing.status;
+  const idx = STEPS.findIndex(x => x[0] === cur);
+  STEPS.forEach(([st, ic, name], i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'b-step' + (i < idx ? ' done' : '') + (i === idx ? ' on' : '');
+    const when = st === 'submitted' ? editing.submitted : st === 'paid' ? editing.paid : '';
+    b.innerHTML = '<span class="ic"></span><span class="nm"></span><small></small>';
+    b.querySelector('.ic').textContent = ic;
+    b.querySelector('.nm').textContent = name;
+    b.querySelector('small').textContent = i <= idx && when ? short(when) : (st === 'submitted' && i === idx && editing.claim ? editing.claim : '');
+    b.onclick = async () => {
+      if (st === cur) return;
+      if (st === 'ready' && !hasProof(editing)) { alert('ต้องแนบใบเสร็จ / ใบกำกับภาษี / ใบรับรองแทนใบเสร็จ ก่อน ถึงจะพร้อมเบิก'); return; }
+      const id = editing.id;
+      form.elements.status.value = st;
+      editing = { ...editing, status: st };
+      renderSteps();
+      await quickMark([bills.find(x => x.id === id) || editing], st, true);
+      const nb = bills.find(x => x.id === id);
+      if (nb && editing && editing.id === id) { editing = { ...editing, status: nb.status, submitted: nb.submitted, paid: nb.paid, claim: nb.claim }; form.elements.status.value = nb.status; renderSteps(); }
+    };
+    box.appendChild(b);
+  });
+}
+
 form.addEventListener('submit', async () => {
   if (!editing) return;
   const f = form.elements;
@@ -817,9 +875,32 @@ $('#btnSubmitted').onclick = async () => {
   const items = claimItems();
   if (!items.length) return;
   cDlg.close();
-  await mark(items.map(b => b.id), 'submitted', claimNo());
   go('list/submitted');
+  await quickMark(items, 'submitted');
 };
+
+/* เปลี่ยนสถานะแบบแตะเดียว + ปุ่มยกเลิก (ย้อนกลับได้ 6 วินาที) */
+let toastTimer = null;
+function toast(msg, undo) {
+  $('#toastMsg').textContent = msg;
+  $('#toastUndo').hidden = !undo;
+  $('#toastUndo').onclick = () => { $('#toast').hidden = true; if (undo) undo(); };
+  $('#toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 6000);
+}
+async function quickMark(list, status, quiet) {
+  const prev = list.map(b => [b.id, b.status]);
+  const label = { draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ส่งเบิกแล้ว', paid: '✅ ได้เงินแล้ว' }[status];
+  const what = list.length === 1 ? (list[0].desc || 'รายการนี้') : `${list.length} รายการ`;
+  if (!quiet) toast(`${label} · ${what}`, async () => {
+    // ย้อนกลับ: แยกตามสถานะเดิม
+    const by = {};
+    prev.forEach(([id, st]) => { (by[st] = by[st] || []).push(id); });
+    for (const st of Object.keys(by)) await mark(by[st], st, st === 'submitted' ? claimNo() : '');
+  });
+  await mark(list.map(b => b.id), status, status === 'submitted' ? claimNo() : '');
+}
 
 async function mark(ids, status, claim) {
   ids.forEach(id => {
@@ -827,6 +908,9 @@ async function mark(ids, status, claim) {
     if (!b) return;
     b.status = status;
     if (claim) b.claim = claim;
+    if (status === 'submitted') { b.submitted = today(); b.paid = ''; }
+    if (status === 'paid') b.paid = today();
+    if (status === 'ready' || status === 'draft') { b.submitted = ''; b.paid = ''; b.claim = ''; }
   });
   LS.set('bills', bills);
   render();

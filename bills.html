@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=22">
+  <link rel="stylesheet" href="style.css?v=23">
 </head>
 <body class="bills">
   <header class="top">
@@ -71,7 +71,7 @@
     <nav id="bTabs" class="chips" aria-label="สถานะ">
       <button class="chip" data-st="draft">📝 ขาดหลักฐาน</button>
       <button class="chip" data-st="ready">📎 พร้อมเบิก</button>
-      <button class="chip" data-st="submitted">📤 ยื่นแล้ว</button>
+      <button class="chip" data-st="submitted">📤 ส่งเบิกแล้ว</button>
       <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
       <button class="chip" data-st="all">ทั้งหมด</button>
     </nav>
@@ -117,19 +117,21 @@
       </div>
 
       <div class="field">
-        <span class="field-label">หลักฐาน</span>
+        <span class="field-label" id="bFilesLbl">หลักฐาน</span>
         <div id="bFiles" class="b-files"></div>
-        <button type="button" id="btnAttach" class="wide">📎 แนบหลักฐาน</button>
+        <button type="button" id="btnAttach" class="wide">＋ เพิ่มหลักฐาน <small>(แนบได้หลายไฟล์)</small></button>
       </div>
 
-      <label>สถานะ
-        <select name="status">
+      <div class="field">
+        <span class="field-label">สถานะ <small class="hint">แตะเพื่อเปลี่ยน</small></span>
+        <div id="bSteps" class="b-steps"></div>
+        <select name="status" hidden>
           <option value="draft">📝 ขาดหลักฐาน</option>
           <option value="ready">📎 พร้อมเบิก</option>
-          <option value="submitted">📤 ยื่นเบิกแล้ว</option>
+          <option value="submitted">📤 ส่งเบิกแล้ว</option>
           <option value="paid">✅ ได้เงินคืนแล้ว</option>
         </select>
-      </label>
+      </div>
       <label>โน้ต <textarea name="note" rows="2"></textarea></label>
       <div class="dlg-actions">
         <button type="button" id="btnBDelete" class="danger">ลบ</button>
@@ -165,6 +167,7 @@
       <small id="busySub"></small>
     </div>
   </div>
+  <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo">↩ ยกเลิก</button></div>
   <input type="file" id="bFile" accept="image/*,application/pdf" multiple hidden>
 
   <!-- ใบเบิก -->
@@ -183,11 +186,11 @@
       <div class="dlg-actions">
         <span class="spacer"></span>
         <button type="button" id="btnCCancel" class="ghost">ปิด</button>
-        <button type="button" id="btnSubmitted" class="primary">📤 ยื่นเบิกแล้ว</button>
+        <button type="button" id="btnSubmitted" class="primary">📤 ส่งเบิกแล้ว</button>
       </div>
     </form>
   </dialog>
 
-  <script src="bills.js?v=22"></script>
+  <script src="bills.js?v=23"></script>
 </body>
 </html>
