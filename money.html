@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=33">
+  <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body class="money">
   <header class="top">
@@ -41,6 +41,12 @@
 
   <!-- จดเร็ว -->
   <div class="seg mo-type" id="qType"><button type="button" data-v="out">💸 รายจ่าย</button><button type="button" data-v="in">💰 รายรับ</button></div>
+  <div class="mo-date" id="qDateRow">
+    <span>วันที่</span>
+    <button type="button" id="qdToday">วันนี้</button>
+    <button type="button" id="qdYest">เมื่อวาน</button>
+    <label class="pickl" id="qdPick">📅 <span id="qdPickLbl">เลือกวัน</span><input type="date" id="qdInput" aria-label="เลือกวันที่จะจด"></label>
+  </div>
   <form id="mQuick" class="quick" autocomplete="off">
     <input id="mInput" type="text" placeholder="เช่น 120 ข้าวมันไก่" enterkeyhint="done">
     <button type="submit" class="add-btn" aria-label="จด">＋</button>
@@ -96,6 +102,6 @@
   <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo">↩ ยกเลิก</button></div>
   <input type="file" id="mFile" accept="image/*,application/pdf" hidden>
 
-  <script src="money.js?v=33"></script>
+  <script src="money.js?v=34"></script>
 </body>
 </html>

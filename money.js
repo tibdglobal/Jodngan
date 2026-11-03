@@ -10,20 +10,23 @@ if (!cfg.url) cfg.url = DEFAULT_URL;
 
 /* หมวด + ไอคอน */
 const CATS = {
-  out: [['อาหาร', '🍚'], ['เครื่องดื่ม/กาแฟ', '☕'], ['เดินทาง', '🚗'], ['ช้อปปิ้ง', '🛍'], ['บ้าน/ที่พัก', '🏠'], ['ค่าน้ำไฟ/โทรศัพท์', '💡'],
-    ['สุขภาพ', '💊'], ['บันเทิง/ท่องเที่ยว', '🎬'], ['ครอบครัว/ให้', '🎁'], ['การศึกษา', '📚'], ['อื่นๆ', '📦']],
+  out: [['อาหาร', '🍚'], ['เครื่องดื่ม/กาแฟ', '☕'], ['เดินทาง', '🚗'], ['ค่าเช่าห้อง', '🔑'], ['เสื้อผ้า', '👕'], ['ออกกำลังกาย', '🏃'], ['อุปกรณ์กีฬา', '🏸'],
+    ['ช้อปปิ้ง', '🛍'], ['บ้าน/ที่พัก', '🏠'], ['ค่าน้ำไฟ/โทรศัพท์', '💡'], ['สุขภาพ', '💊'], ['บันเทิง/ท่องเที่ยว', '🎬'], ['การศึกษา', '📚'], ['อื่นๆ', '📦']],
   in: [['เงินเดือน', '💼'], ['โบนัส', '🎉'], ['งานเสริม/ฟรีแลนซ์', '🧑‍💻'], ['ขายของ', '🏷'], ['ดอกเบี้ย/ปันผล', '📈'], ['ได้เงินคืน', '↩️'], ['อื่นๆ', '💰']],
 };
 const KW = {
   out: [['อาหาร', /ข้าว|ก๋วยเตี๋ยว|อาหาร|กับข้าว|ส้มตำ|หมูกระทะ|ชาบู|บุฟเฟ่|line\s*man|grab\s*food|foodpanda|robinhood|ขนม|มื้อ|kfc|mcdonald|เซเว่น|7-?eleven|ตลาด/i],
     ['เครื่องดื่ม/กาแฟ', /กาแฟ|ชานม|ชาไข่มุก|coffee|cafe|café|คาเฟ่|starbucks|amazon|อเมซอน|น้ำดื่ม|เครื่องดื่ม|เบียร์/i],
     ['เดินทาง', /grab|bolt|แท็กซี่|taxi|bts|mrt|รถไฟ|รถเมล์|วิน|น้ำมัน|ปตท|ptt|บางจาก|shell|ทางด่วน|easy\s*pass|จอดรถ|ตั๋ว|เครื่องบิน/i],
-    ['ช้อปปิ้ง', /shopee|lazada|tiktok|เสื้อ|กางเกง|รองเท้า|กระเป๋า|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s*c|บิ๊กซี|makro|แม็คโคร|uniqlo|ikea/i],
-    ['บ้าน/ที่พัก', /ค่าเช่า|ค่าห้อง|คอนโด|หอพัก|ส่วนกลาง|ผ่อนบ้าน/i],
+    ['ค่าเช่าห้อง', /ค่าเช่า|ค่าห้อง|เช่าห้อง|คอนโด|หอพัก|อพาร์ท|ส่วนกลาง/i],
+    ['เสื้อผ้า', /เสื้อ|กางเกง|กระโปรง|ชุด|รองเท้า|ถุงเท้า|uniqlo|h&m|zara/i],
+    ['อุปกรณ์กีฬา', /อุปกรณ์กีฬา|ไม้แบด|ลูกแบด|ลูกขนไก่|ไม้เทนนิส|ลูกบอล|ฟุตบอล|ดัมเบล|เสื่อโยคะ|จักรยาน|decathlon|super\s*sports|กีฬา/i],
+    ['ออกกำลังกาย', /ฟิตเนส|fitness|gym|ยิม|วิ่ง|ว่ายน้ำ|สระ|โยคะ|yoga|มวย|แบด|ค่าสนาม|ค่าคอร์ท|เทรนเนอร์|ปั่นจักรยาน|ออกกำลัง/i],
+    ['ช้อปปิ้ง', /shopee|lazada|tiktok|กระเป๋า|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s*c|บิ๊กซี|makro|แม็คโคร|ikea/i],
+    ['บ้าน/ที่พัก', /ผ่อนบ้าน|ของใช้ในบ้าน|เฟอร์นิเจอร์|ซ่อมบ้าน/i],
     ['ค่าน้ำไฟ/โทรศัพท์', /ค่าไฟ|ค่าน้ำ|ค่าเน็ต|อินเทอร์เน็ต|internet|wifi|ais|true|dtac|ค่าโทร|มือถือ/i],
-    ['สุขภาพ', /ยา|หมอ|คลินิก|โรงพยาบาล|ทำฟัน|ฟิตเนส|gym/i],
+    ['สุขภาพ', /ยา|หมอ|คลินิก|โรงพยาบาล|ทำฟัน/i],
     ['บันเทิง/ท่องเที่ยว', /หนัง|netflix|spotify|youtube|disney|เกม|game|คอนเสิร์ต|เที่ยว|โรงแรม|hotel|agoda/i],
-    ['ครอบครัว/ให้', /แม่|พ่อ|ทำบุญ|บริจาค|ซอง|ของขวัญ|วันเกิด/i],
     ['การศึกษา', /หนังสือ|คอร์ส|course|เรียน|ค่าเทอม/i]],
   in: [['เงินเดือน', /เงินเดือน|salary/i], ['โบนัส', /โบนัส|bonus/i], ['งานเสริม/ฟรีแลนซ์', /ฟรีแลนซ์|freelance|งานเสริม|ค่าจ้าง|ค่าแรง/i],
     ['ขายของ', /ขาย|ออเดอร์/i], ['ดอกเบี้ย/ปันผล', /ดอกเบี้ย|ปันผล/i], ['ได้เงินคืน', /คืน|refund|cashback/i]],
@@ -36,6 +39,7 @@ let view = LS.get('moneyView', 'list');
 let qType = 'out', qCat = '';
 let editing = null;
 let calDay = '';
+let qDate = '';   // วันที่ที่จะจด (ว่าง = วันนี้)
 
 /* ---------- ช่วยเหลือ ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -99,6 +103,7 @@ function render() {
   // จดเร็ว
   $('#qType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === qType));
   $('#mInput').placeholder = qType === 'in' ? 'เช่น 25000 เงินเดือน' : 'เช่น 120 ข้าวมันไก่';
+  renderQDate();
   renderQCats();
   // มุมมอง
   $('#vTabs').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === view));
@@ -174,7 +179,7 @@ function renderCal(mm) {
     const b = document.createElement('button');
     b.className = 'day mo-dayc' + (ds === today() ? ' today' : '') + (ds === calDay ? ' sel' : '');
     b.innerHTML = `<span class="num">${d}</span>${i ? `<small class="in">+${short$(i)}</small>` : ''}${o ? `<small class="out">-${short$(o)}</small>` : ''}`;
-    b.onclick = () => { calDay = ds; renderCal(mm); };
+    b.onclick = () => { calDay = ds; qDate = ds === today() ? '' : (ds > today() ? '' : ds); renderQDate(); renderCal(mm); };
     grid.appendChild(b);
   }
   cal.appendChild(grid);
@@ -257,11 +262,12 @@ $('#mQuick').addEventListener('submit', async e => {
   if (p.amount === null) { showStatus('ใส่จำนวนเงินด้วย เช่น 120 ข้าว'); return; }
   showStatus('');
   const now = new Date().toISOString();
-  const x = { id: uid(), type: p.type, date: p.date || (month === today().slice(0, 7) ? today() : `${month}-01`), amount: String(p.amount),
+  const x = { id: uid(), type: p.type, date: p.date || qDate || today(), amount: String(p.amount),
     note: p.note || qCat || (p.type === 'in' ? 'รายรับ' : 'รายจ่าย'), cat: qCat || guessCat(p.type, p.note), pay: '', file: null, created: now };
   $('#mInput').value = '';
   qCat = '';
   upsert(x);
+  if (!inMonth(x, month)) month = x.date.slice(0, 7);
   render();
   toast(`${x.type === 'in' ? '💰 รับ' : '💸 จ่าย'} ${baht(x.amount)} · ${x.note}${x.cat ? ' [' + x.cat + ']' : ''}`, () => del(x.id), () => openDlg(x));
   try { upsert((await api('money_save', { item: x })).item); render(); }
@@ -337,7 +343,7 @@ $('#mFile').addEventListener('change', async e => {
   const item = { id: uid() };
   if (p.note) item.note = p.note;
   if (p.amount !== null) item.amount = p.amount;
-  if (p.date) item.date = p.date;
+  if (p.date || qDate) item.date = p.date || qDate;   // เลือกวันไว้ = ใช้วันนั้น (ไม่งั้นใช้วันที่อ่านจากสลิป)
   if (qCat) item.cat = qCat;
   let res;
   try { res = await api('money_snap', { item, type: qType, ...prep }); }
@@ -395,9 +401,38 @@ function toast(msg, undo, edit) {
 }
 
 /* ---------- เดือน / มุมมอง ---------- */
-$('#mPrev').onclick = () => { month = addMonth(month, -1); render(); };
-$('#mNext').onclick = () => { if (month < today().slice(0, 7)) { month = addMonth(month, 1); render(); } };
-$('#mLabel').onclick = () => { month = today().slice(0, 7); render(); };
+/* เปลี่ยนเดือน = วันที่จดย้ายไปเดือนนั้นด้วย (จดย้อนหลังง่าย) */
+function monthDate(m) {
+  if (m === today().slice(0, 7)) return '';
+  const [y, mo] = m.split('-').map(Number);
+  const last = new Date(y, mo, 0).getDate();
+  return `${m}-${pad(Math.min(new Date().getDate(), last))}`;
+}
+$('#mPrev').onclick = () => { month = addMonth(month, -1); qDate = monthDate(month); render(); };
+$('#mNext').onclick = () => { if (month < today().slice(0, 7)) { month = addMonth(month, 1); qDate = monthDate(month); render(); } };
+$('#mLabel').onclick = () => { month = today().slice(0, 7); qDate = ''; render(); };
+
+/* วันที่ที่จะจด: วันนี้ / เมื่อวาน / เลือกวัน */
+function renderQDate() {
+  const d = qDate || today(), y = ymd(new Date(Date.now() - 864e5));
+  $('#qdToday').classList.toggle('on', d === today());
+  $('#qdYest').classList.toggle('on', d === y);
+  const other = d !== today() && d !== y;
+  $('#qdPick').classList.toggle('on', other);
+  $('#qdPickLbl').textContent = other ? new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : 'เลือกวัน';
+  $('#qdInput').value = d;
+  $('#qdInput').max = today();
+}
+$('#qdToday').onclick = () => { qDate = ''; month = today().slice(0, 7); render(); };
+$('#qdYest').onclick = () => { qDate = ymd(new Date(Date.now() - 864e5)); month = qDate.slice(0, 7); render(); };
+$('#qdInput').addEventListener('change', () => {
+  const v = $('#qdInput').value;
+  if (!v) return;
+  qDate = v === today() ? '' : v;
+  month = v.slice(0, 7);
+  render();
+});
+
 $('#vTabs').querySelectorAll('.chip').forEach(c => c.onclick = () => { view = c.dataset.v; LS.set('moneyView', view); render(); });
 $('#btnSync').onclick = sync;
 render();

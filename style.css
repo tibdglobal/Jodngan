@@ -538,3 +538,9 @@ dialog label.cchk span { flex: 1; min-width: 0; }
 .mo-file { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--accent); font-size: 14px; }
 .mo-file img, .mo-file .ficon { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); display: grid; place-items: center; }
 #toastMsg { cursor: pointer; }
+.mo-date { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; position: relative; flex-wrap: wrap; }
+.mo-date > span { font-size: 13px; color: var(--muted); margin-right: 2px; }
+.mo-date button, .mo-date .pickl { border: 1px dashed var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.mo-date button.on, .mo-date .pickl.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.mo-date .pickl { position: relative; overflow: hidden; display: inline-flex; gap: 4px; align-items: center; }
+.mo-date .pickl input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; }
