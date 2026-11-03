@@ -842,6 +842,41 @@ let cVat = '*';
 $('#cSplit').checked = LS.get('claimSplit', false);
 $('#cSplit').onchange = () => { LS.set('claimSplit', $('#cSplit').checked); updateTotal(); };
 $('#cAttach').checked = LS.get('claimAttach', true);
+let cSize = LS.get('claimSize', 'full');
+const paintSize = () => $('#cSize').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === cSize));
+paintSize();
+$('#cSize').querySelectorAll('button').forEach(x => x.onclick = () => { cSize = x.dataset.v; LS.set('claimSize', cSize); paintSize(); });
+
+/* PDF → ภาพทุกหน้า (ใช้ pdf.js โหลดเมื่อจำเป็น) */
+let pdfjsReady = null;
+function loadPdfJs() {
+  if (!pdfjsReady) pdfjsReady = new Promise((ok, bad) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; ok(window.pdfjsLib); };
+    sc.onerror = () => { pdfjsReady = null; bad(new Error('โหลดตัวอ่าน PDF ไม่ได้')); };
+    document.head.appendChild(sc);
+  });
+  return pdfjsReady;
+}
+async function pdfPages(b64, max = 15) {
+  const lib = await loadPdfJs();
+  const bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+  const pdf = await lib.getDocument({ data: bytes }).promise;
+  const out = [];
+  for (let i = 1; i <= Math.min(pdf.numPages, max); i++) {
+    const page = await pdf.getPage(i);
+    const v1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 1700 / v1.width });   // กว้าง ~1700px ≈ 200dpi บน A4
+    const cv = document.createElement('canvas');
+    cv.width = vp.width; cv.height = vp.height;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    out.push(cv.toDataURL('image/jpeg', 0.88));
+  }
+  return { pages: out, total: pdf.numPages };
+}
 $('#cAttach').onchange = () => LS.set('claimAttach', $('#cAttach').checked);
 $('#cVat').querySelectorAll('button').forEach(x => x.onclick = () => { cVat = x.dataset.v; renderClaim(); });
 $('#btnClaim').onclick = () => {
@@ -1029,7 +1064,14 @@ $('#btnPrint').onclick = async () => {
   const need = attach ? docs.flatMap(d => d.groups.flatMap(g => g[1])).flatMap(b => (b.files || []).filter(f => !isOrig(f))).map(f => f.id) : [];
   const showId = c.idFile && c.idShow !== false;
   if (showId) need.push(c.idFile);
-  if (need.length) { try { imgs = (await api('bill_images', { fileIds: need })).images || {}; } catch (e) { imgs = {}; } }
+  const full = cSize === 'full';
+  if (need.length) { try { imgs = (await api('bill_images', { fileIds: need, full })).images || {}; } catch (e) { imgs = {}; } }
+  // PDF: แปลงทุกหน้าเป็นภาพ (เต็มหน้า)
+  for (const [id, im] of Object.entries(imgs)) {
+    if (!im.pdfData) continue;
+    try { const r = await pdfPages(im.pdfData); im.pages = r.pages; im.more = r.total - r.pages.length; } catch (e) {}
+    delete im.pdfData;
+  }
 
   const head = `<div class="co"><b>${esc(c.company)}</b><div>${esc(c.addr)}</div><div>${esc(c.contact)}</div></div>`;
   const doc = (d, idx) => {
@@ -1088,16 +1130,22 @@ $('#btnPrint').onclick = async () => {
 
     // 2) รายงานสรุป + 3) รายละเอียดแต่ละหมวดพร้อมภาพ
     let no = 0;
-    const item = b => {
+    const item = (b, k) => {
       no++;
       const files = b.files || [];
       const shots = attach ? files.filter(f => !isOrig(f)) : [];
       const origs = files.filter(isOrig);
-      return `<div class="it"><h4>${no}. ${esc(b.desc)}</h4>
+      // ภาพของไฟล์: PDF หลายหน้า = หลายภาพ
+      const pics = shots.flatMap(f => { const im = imgs[f.id]; if (!im) return [{ f }]; return (im.pages || [im.src]).map((src, i, arr) => ({ f, src, pg: arr.length > 1 ? `หน้า ${i + 1}/${arr.length + (im.more || 0)}` : '' })); });
+      const pic = (x, i) => x.src
+        ? (full && i ? `<div class="pgw"><p class="cap">ภาพหลักฐาน รายการที่ ${no} · ${esc(b.desc)} · ${esc(KIND[x.f.kind].name)}${x.pg ? ' · ' + x.pg : ''}</p><img src="${x.src}" alt=""></div>` : `<img src="${x.src}" alt="">${full && x.pg ? `<p class="cap">${x.pg}</p>` : ''}`)
+        : `<p class="miss">โหลดภาพไม่ได้ · <a href="${esc(x.f.url)}">เปิดไฟล์</a></p>`;
+      const cls = 'it' + (full && pics.some(x => x.src) ? ' big' + (k ? ' nb' : '') : '');
+      return `<div class="${cls}"><h4>${no}. ${esc(b.desc)}</h4>
 <p class="meta">โปรเจค: ${esc(b.project || '-')} &nbsp;|&nbsp; จำนวนเงิน: ${r2(b.amount)} บาท &nbsp;|&nbsp; ที่มา: ${esc(b.vendor || '-')} &nbsp;|&nbsp; วันที่: ${thDate(b.date)}${isVat(b) ? ` &nbsp;|&nbsp; VAT ${r2(vatAmtOf(b))} บาท` : ''}</p>
 ${b.note ? `<p class="note">หมายเหตุ: ${esc(b.note)}</p>` : ''}
 ${origs.length ? `<p class="orig">📄 ${origs.map(f => esc(KIND[f.kind].name)).join(', ')} ตัวจริงแนบแยก</p>` : ''}
-${shots.map(f => imgs[f.id] ? `<img src="${imgs[f.id].src}" alt="">` : `<p class="miss">โหลดภาพไม่ได้ · <a href="${esc(f.url)}">เปิดไฟล์</a></p>`).join('')}
+${pics.map(pic).join('')}
 ${!files.length ? '<p class="miss">ยังไม่มีหลักฐาน</p>' : ''}</div>`;
     };
     const report = `<section class="page pb">
@@ -1108,7 +1156,7 @@ ${!files.length ? '<p class="miss">ยังไม่มีหลักฐาน
 <table class="bt"><thead><tr><th>หมวดหมู่</th><th class="c" style="width:120px">จำนวนรายการ</th><th class="r" style="width:150px">ยอดรวม (บาท)</th></tr></thead><tbody>
 ${cats.map(([k, list]) => `<tr><td>หมวด${esc(k)}</td><td class="c">${list.length}</td><td class="r">${r2(sum(list))}</td></tr>`).join('')}
 <tr class="tot"><td>รวมทั้งสิ้น</td><td class="c">${all.length}</td><td class="r">${r2(total)}</td></tr></tbody></table>
-${cats.map(([k, list]) => `<div class="cat"><p class="lb">หมวด${esc(k)}</p><p class="ct">รวมหมวดนี้ <b>${r2(sum(list))}</b> บาท (${list.length} รายการ)</p>${list.map(item).join('')}</div>`).join('')}
+${cats.map(([k, list]) => `<div class="cat${full ? ' fc' : ''}"><p class="lb">หมวด${esc(k)}</p><p class="ct">รวมหมวดนี้ <b>${r2(sum(list))}</b> บาท (${list.length} รายการ)</p>${list.map(item).join('')}</div>`).join('')}
 </section>`;
     return voucher + report;
   };
@@ -1144,6 +1192,8 @@ tr.wd td:first-child{white-space:nowrap;font-size:13.5px;padding:2px 3px}
 .it{margin:14px 0 18px;break-inside:avoid-page}.it h4{font-size:16px;margin:0}.meta{font-size:13px;color:#333;margin:2px 0}
 .note{color:#b91c1c;font-style:italic;font-size:13px}.orig{font-size:13px;color:#92400e}.miss{color:#b45309;font-size:13px}
 .it img{display:block;max-width:100%;max-height:10.5cm;margin:6px 0;border:1px solid #ddd;break-inside:avoid}
+.fc{break-before:page;page-break-before:always}.it.big.nb{break-before:page;page-break-before:always}.it.big{break-inside:auto}
+.it.big img{max-height:240mm;margin:6px auto;object-fit:contain}.it.big:not(.nb)>img:first-of-type{max-height:212mm}.pgw{break-before:page;page-break-before:always}.pgw img{max-height:258mm}.cap{font-size:12px;color:#555;margin:2px 0}
 a{color:#0f766e}</style></head><body>
 ${docs.map(doc).join('')}
 <script>window.onload=()=>setTimeout(()=>window.print(),700)<\/script></body></html>`);

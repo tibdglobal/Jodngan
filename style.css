@@ -488,3 +488,4 @@ dialog label.chk span { flex: 1; min-width: 0; }
 .c-cfg-body .hint { margin: 0; }
 .id-up { display: grid; gap: 6px; }
 .id-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.c-size .seg button { font-size: 13px; padding: 7px 10px; }
