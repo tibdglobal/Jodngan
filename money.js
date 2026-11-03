@@ -97,18 +97,27 @@ function render() {
   $('#sIn').textContent = baht(I);
   $('#sOut').textContent = baht(O);
   $('#sBal').textContent = (I - O < 0 ? '-' : '') + baht(Math.abs(I - O));
-  $('#sBal').parentElement.classList.toggle('neg', I - O < 0);
+  $('#hero').classList.toggle('neg', I - O < 0);
   const cmp = (a, b) => !b ? '' : (a >= b ? '▲ ' : '▼ ') + Math.abs(Math.round((a - b) / b * 100)) + '% จากเดือนก่อน';
   $('#sInCmp').textContent = cmp(I, pI);
   $('#sOutCmp').textContent = cmp(O, pO);
-  $('#sBalNote').textContent = I ? `ใช้ไป ${Math.round(O / I * 100)}% ของรายรับ` : '';
+  // แถบ: ใช้ไปกี่ % ของรายรับ (เกิน 100% = ใช้เกินรายรับ)
+  const pct = I ? O / I * 100 : (O ? 100 : 0);
+  $('#flowOut').style.width = Math.min(100, pct) + '%';
+  $('#flow').classList.toggle('over', I ? O > I : O > 0);
+  $('#flow').setAttribute('aria-label', I ? `ใช้ไป ${Math.round(pct)}% ของรายรับ` : 'ยังไม่มีรายรับ');
+  $('#sBalNote').textContent = !I && !O ? 'ยังไม่มีรายการเดือนนี้'
+    : !I ? 'ยังไม่ได้จดรายรับเดือนนี้'
+    : O > I ? `ใช้เกินรายรับ ${baht(O - I)}`
+    : `ใช้ไป ${Math.round(pct)}% ของรายรับ`;
   // จดเร็ว
   $('#qType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === qType));
-  $('#mInput').placeholder = qType === 'in' ? 'เช่น 25000 เงินเดือน' : 'เช่น 120 ข้าวมันไก่';
+  $('#mInput').placeholder = qType === 'in' ? '25000 เงินเดือน' : '120 ข้าวมันไก่';
+  $('.mo-comp').classList.toggle('is-in', qType === 'in');
   renderQDate();
   renderQCats();
   // มุมมอง
-  $('#vTabs').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === view));
+  $('#vTabs').querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === view));
   $('#vList').hidden = view !== 'list';
   $('#vCal').hidden = view !== 'cal';
   $('#vChart').hidden = view !== 'chart';
@@ -124,21 +133,42 @@ function allCats(type) {
   if (qCat && type === qType && !base.includes(qCat) && !used.includes(qCat)) used.push(qCat);
   return base.slice(0, -1).concat(used, base.slice(-1));
 }
+let catsOpen = false;
+/* หมวดเรียงตามที่ใช้บ่อย (90 วันล่าสุด) · โชว์ 7 อันแรก ที่เหลือกด "หมวดอื่น" */
+function catsByUse(type) {
+  const since = ymd(new Date(Date.now() - 90 * 864e5)), n = {};
+  items.forEach(x => { if (x.type === type && x.cat && x.date >= since) n[x.cat] = (n[x.cat] || 0) + 1; });
+  const all = allCats(type), base = all.map((c, i) => [c, i]);
+  return base.sort((a, b) => (n[b[0]] || 0) - (n[a[0]] || 0) || a[1] - b[1]).map(x => x[0]);
+}
 function renderQCats() {
   const box = $('#qCats');
   box.innerHTML = '';
-  allCats(qType).forEach(c => {
+  const list = catsByUse(qType);
+  const SHOW = 7;
+  let shown = catsOpen ? list : list.slice(0, SHOW);
+  if (qCat && !shown.includes(qCat)) shown = shown.concat(qCat);
+  shown.forEach(c => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = icon(qType, c) + ' ' + c;
+    b.innerHTML = '<span class="ic"></span><span></span>';
+    b.firstChild.textContent = icon(qType, c);
+    b.lastChild.textContent = c;
     b.classList.toggle('on', qCat === c);
+    b.setAttribute('aria-pressed', qCat === c);
     b.onclick = () => { qCat = qCat === c ? '' : c; renderQCats(); $('#mInput').focus(); };
     box.appendChild(b);
   });
+  if (list.length > SHOW) {
+    const m = document.createElement('button');
+    m.type = 'button'; m.className = 'more';
+    m.textContent = catsOpen ? 'ย่อ' : `หมวดอื่น (${list.length - SHOW})`;
+    m.onclick = () => { catsOpen = !catsOpen; renderQCats(); };
+    box.appendChild(m);
+  }
   const w = document.createElement('button');
-  w.type = 'button';
-  w.className = 'own';
-  w.textContent = '✏️ พิมพ์เอง';
+  w.type = 'button'; w.className = 'more';
+  w.textContent = '✏️ ตั้งชื่อเอง';
   w.onclick = () => {
     const v = (prompt('ชื่อหมวด (เช่น ค่าขนม, ของฝาก)') || '').trim().slice(0, 40);
     if (!v) return;
@@ -147,15 +177,24 @@ function renderQCats() {
   box.appendChild(w);
 }
 
+/* สีประจำหมวด (ตรงกับกราฟ) */
+function catColor(type, cat) {
+  const list = allCats(type);
+  const i = Math.max(0, list.indexOf(cat || 'อื่นๆ'));
+  return type === 'in' ? ['#15803d', '#0f766e', '#0891b2', '#65a30d', '#2563eb', '#7c3aed', '#78716c'][i % 7] : PALETTE[i % PALETTE.length];
+}
+
 function row(x) {
   const el = document.createElement('div');
   el.className = 'item mo-item';
   el.innerHTML = '<span class="mo-ic"></span><button class="body"><span class="title"></span><span class="meta"></span></button><b class="mo-amt"></b>';
-  el.querySelector('.mo-ic').textContent = icon(x.type, x.cat);
+  const ic = el.querySelector('.mo-ic');
+  ic.textContent = icon(x.type, x.cat);
+  ic.style.setProperty('--c', catColor(x.type, x.cat));
   el.querySelector('.title').textContent = x.note || x.cat || (x.type === 'in' ? 'รายรับ' : 'รายจ่าย');
-  el.querySelector('.meta').textContent = [x.cat, x.pay, x.file ? '📎 มีสลิป' : ''].filter(Boolean).join(' · ');
+  el.querySelector('.meta').textContent = [x.cat || 'ไม่มีหมวด', x.pay, x.file ? '📎 สลิป' : ''].filter(Boolean).join('  ·  ');
   const a = el.querySelector('.mo-amt');
-  a.textContent = (x.type === 'in' ? '+' : '-') + baht(x.amount).replace('฿', '฿');
+  a.textContent = (x.type === 'in' ? '+' : '−') + Number(x.amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
   a.classList.add(x.type === 'in' ? 'in' : 'out');
   el.querySelector('.body').onclick = () => openDlg(x);
   el.querySelector('.mo-ic').onclick = () => openDlg(x);
@@ -165,7 +204,7 @@ function row(x) {
 function renderList(mm, only) {
   const box = only || $('#vList');
   box.innerHTML = '';
-  if (!mm.length) { box.innerHTML = `<p class="empty">${only ? 'ไม่มีรายการวันนี้' : 'ยังไม่มีรายการในเดือนนี้ จดด้านบนได้เลย'}</p>`; return; }
+  if (!mm.length) { box.innerHTML = `<p class="empty">${only ? 'ไม่มีรายการวันนี้' : 'ยังไม่มีรายการเดือนนี้ พิมพ์ยอดกับชื่อในกล่องด้านบน แล้วกด จด'}</p>`; return; }
   const days = {};
   mm.forEach(x => { (days[x.date] = days[x.date] || []).push(x); });
   Object.keys(days).sort().reverse().forEach(d => {
@@ -173,7 +212,8 @@ function renderList(mm, only) {
     const sec = document.createElement('section');
     sec.className = 'group';
     const o = sum(list.filter(x => x.type === 'out')), i = sum(list.filter(x => x.type === 'in'));
-    sec.innerHTML = `<h3 class="mo-day"><span>${esc(dayLabel(d))}</span><span>${i ? '<em class="in">+' + baht(i) + '</em> ' : ''}${o ? '<em class="out">-' + baht(o) + '</em>' : ''}</span></h3><div class="items"></div>`;
+    const dd = new Date(d + 'T00:00:00'), rel = d === today() ? 'วันนี้' : d === ymd(new Date(Date.now() - 864e5)) ? 'เมื่อวาน' : '';
+    sec.innerHTML = `<h3 class="mo-day"><b>${dd.getDate()}</b><span class="w">${esc(rel || dd.toLocaleDateString('th-TH', { weekday: 'long' }))}<small>${esc(dd.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }))}</small></span><span class="t">${i ? '<em class="in">+' + baht(i) + '</em>' : ''}${o ? '<em class="out">−' + baht(o) + '</em>' : ''}</span></h3><div class="items"></div>`;
     list.forEach(x => sec.querySelector('.items').appendChild(row(x)));
     box.appendChild(sec);
   });
@@ -230,7 +270,7 @@ function donut(parts, total) {
 function catCard(title, list, type) {
   const by = {};
   list.forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });
-  const parts = Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v], i) => [k, v, PALETTE[i % PALETTE.length]]);
+  const parts = Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v, catColor(type, k)]);
   const total = sum(list);
   const card = document.createElement('section');
   card.className = 's-card';
@@ -452,7 +492,7 @@ $('#qdInput').addEventListener('change', () => {
   render();
 });
 
-$('#vTabs').querySelectorAll('.chip').forEach(c => c.onclick = () => { view = c.dataset.v; LS.set('moneyView', view); render(); });
+$('#vTabs').querySelectorAll('button').forEach(c => c.onclick = () => { view = c.dataset.v; LS.set('moneyView', view); render(); });
 $('#btnSync').onclick = sync;
 render();
 sync();

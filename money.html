@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=35">
+  <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body class="money">
   <header class="top">
@@ -32,36 +32,42 @@
   </div>
   <div id="status" class="status" hidden></div>
 
-  <!-- สรุปเดือน -->
-  <div class="mo-sum">
-    <div class="mo-in"><span>รายรับ</span><b id="sIn">฿0</b><small id="sInCmp"></small></div>
-    <div class="mo-out"><span>รายจ่าย</span><b id="sOut">฿0</b><small id="sOutCmp"></small></div>
-    <div class="mo-bal"><span>คงเหลือ</span><b id="sBal">฿0</b><small id="sBalNote"></small></div>
-  </div>
+  <!-- สรุปเดือน: คงเหลือ + แถบใช้ไปกี่ % ของรายรับ -->
+  <section class="mo-hero" id="hero">
+    <div class="mo-hero-top">
+      <div><span class="mo-k">คงเหลือ</span><b id="sBal" class="mo-bal">฿0</b></div>
+      <p id="sBalNote" class="mo-note"></p>
+    </div>
+    <div class="mo-flow" role="img" id="flow" aria-label=""><i id="flowOut"></i></div>
+    <div class="mo-io">
+      <div><span class="mo-k"><i class="dot in"></i>รายรับ</span><b id="sIn" class="in">฿0</b><small id="sInCmp"></small></div>
+      <div><span class="mo-k"><i class="dot out"></i>รายจ่าย</span><b id="sOut" class="out">฿0</b><small id="sOutCmp"></small></div>
+    </div>
+  </section>
 
-  <!-- จดเร็ว -->
-  <div class="seg mo-type" id="qType"><button type="button" data-v="out">💸 รายจ่าย</button><button type="button" data-v="in">💰 รายรับ</button></div>
-  <div class="mo-date" id="qDateRow">
-    <span>วันที่</span>
-    <button type="button" id="qdToday">วันนี้</button>
-    <button type="button" id="qdYest">เมื่อวาน</button>
-    <label class="pickl" id="qdPick">📅 <span id="qdPickLbl">เลือกวัน</span><input type="date" id="qdInput" aria-label="เลือกวันที่จะจด"></label>
-  </div>
-  <form id="mQuick" class="quick" autocomplete="off">
-    <input id="mInput" type="text" placeholder="เช่น 120 ข้าวมันไก่" enterkeyhint="done">
-    <button type="submit" class="add-btn" aria-label="จด">＋</button>
-  </form>
-  <div id="qCats" class="when-chips mo-qcats"></div>
-  <button type="button" id="btnSnap" class="snap-big">
-    <span class="sb-ico">📷</span>
-    <span><b>ถ่ายสลิป / ใบเสร็จ</b><small>อ่านยอด วันที่ ชื่อร้านให้อัตโนมัติ</small></span>
-  </button>
+  <!-- จด: ประเภท วันที่ ยอด หมวด สลิป อยู่ในกล่องเดียว -->
+  <section class="mo-comp">
+    <div class="mo-comp-top">
+      <div class="seg mo-type" id="qType"><button type="button" data-v="out">จ่าย</button><button type="button" data-v="in">รับ</button></div>
+      <div class="mo-date" id="qDateRow">
+        <button type="button" id="qdToday">วันนี้</button>
+        <button type="button" id="qdYest">เมื่อวาน</button>
+        <label class="pickl" id="qdPick">📅 <span id="qdPickLbl">วันอื่น</span><input type="date" id="qdInput" aria-label="เลือกวันที่จะจด"></label>
+      </div>
+    </div>
+    <form id="mQuick" class="mo-quick" autocomplete="off">
+      <input id="mInput" type="text" placeholder="120 ข้าวมันไก่" enterkeyhint="done" aria-label="ยอดเงินและรายละเอียด">
+      <button type="button" id="btnSnap" class="mo-snap" aria-label="ถ่ายสลิปหรือใบเสร็จ" title="ถ่ายสลิป / ใบเสร็จ อ่านยอดให้อัตโนมัติ">📷<small>สลิป</small></button>
+      <button type="submit" class="mo-add">จด</button>
+    </form>
+    <div id="qCats" class="mo-cats"></div>
+  </section>
 
   <!-- มุมมอง -->
-  <nav class="chips mo-tabs" id="vTabs">
-    <button class="chip" data-v="list">📋 รายการ</button>
-    <button class="chip" data-v="cal">📅 ปฏิทิน</button>
-    <button class="chip" data-v="chart">📊 สรุปและกราฟ</button>
+  <nav class="seg mo-tabs" id="vTabs">
+    <button class="chip" data-v="list">รายการ</button>
+    <button class="chip" data-v="cal">ปฏิทิน</button>
+    <button class="chip" data-v="chart">สรุปและกราฟ</button>
   </nav>
   <main id="vList"></main>
   <section id="vCal" hidden></section>
@@ -102,6 +108,6 @@
   <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo">↩ ยกเลิก</button></div>
   <input type="file" id="mFile" accept="image/*,application/pdf" hidden>
 
-  <script src="money.js?v=35"></script>
+  <script src="money.js?v=36"></script>
 </body>
 </html>
