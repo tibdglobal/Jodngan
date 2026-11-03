@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body class="bills">
   <header class="top">
@@ -190,6 +190,7 @@
         <div class="seg" id="cVat"><button type="button" data-v="*">ทั้งหมด</button><button type="button" data-v="yes">มี VAT</button><button type="button" data-v="no">ไม่มี VAT</button></div>
       </div>
       <label class="chk" id="cSplitWrap"><input type="checkbox" id="cSplit"><span>แยกเอกสาร: ใบเบิก "มี VAT" กับ "ไม่มี VAT" คนละใบ</span></label>
+      <label class="chk"><input type="checkbox" id="cAttach"><span>แนบภาพหลักฐานท้ายใบเบิก <small class="hint" id="cAttachN"></small><br><small class="hint">ไฟล์ที่ตั้งว่า "มีตัวจริง" (รูปถ่ายใบเสร็จ) จะไม่แนบ เพราะส่งตัวจริงแทน</small></span></label>
       <div id="cList" class="c-list"></div>
       <p class="c-total">รวม <b id="cTotal">฿0</b></p>
       <p class="c-vat hint" id="cVatSum"></p>
@@ -205,6 +206,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=25"></script>
+  <script src="bills.js?v=26"></script>
 </body>
 </html>
