@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>เบิกเงิน · จดครบ</title>
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body class="bills">
   <header class="top">
@@ -51,7 +52,7 @@
       <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
       <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
       <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอเงินคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-      <button class="b-tile" data-st="paid"><span class="lbl">✅ ได้คืนแล้ว</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="paid"><span class="lbl">✅ ได้เงินคืนแล้ว</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
     </div>
 
     <div class="h-links">
@@ -71,8 +72,8 @@
     <nav id="bTabs" class="chips" aria-label="สถานะ">
       <button class="chip" data-st="draft">📝 ขาดหลักฐาน</button>
       <button class="chip" data-st="ready">📎 พร้อมเบิก</button>
-      <button class="chip" data-st="submitted">📤 ส่งเบิกแล้ว</button>
-      <button class="chip" data-st="paid">✅ ได้เงินแล้ว</button>
+      <button class="chip" data-st="submitted">📤 รอเงินคืน</button>
+      <button class="chip" data-st="paid">✅ ได้เงินคืนแล้ว</button>
       <button class="chip" data-st="all">ทั้งหมด</button>
     </nav>
     <main id="bList"></main>
@@ -95,7 +96,7 @@
   <!-- แก้ไขบิล -->
   <dialog id="bDlg">
     <form id="bForm" method="dialog" autocomplete="off">
-      <h2 id="bDlgTitle">รายละเอียด</h2>
+      <h2 tabindex="-1" autofocus id="bDlgTitle">รายละเอียด</h2>
       <div id="bSuggest" class="b-suggest" hidden></div>
       <div class="row">
         <label>วันที่จ่าย <input name="date" type="date" required></label>
@@ -136,7 +137,7 @@
         <select name="status" hidden>
           <option value="draft">📝 ขาดหลักฐาน</option>
           <option value="ready">📎 พร้อมเบิก</option>
-          <option value="submitted">📤 ส่งเบิกแล้ว</option>
+          <option value="submitted">📤 รอเงินคืน</option>
           <option value="paid">✅ ได้เงินคืนแล้ว</option>
         </select>
       </div>
@@ -153,7 +154,7 @@
   <!-- เลือกชนิดหลักฐาน -->
   <dialog id="kDlg">
     <form method="dialog" class="k-form">
-      <h2>แนบหลักฐานอะไร</h2>
+      <h2 tabindex="-1" autofocus>แนบหลักฐานอะไร</h2>
       <p class="hint" id="kFor"></p>
       <div class="k-grid">
         <button type="button" data-kind="taxinv">🧾<span>ใบกำกับภาษี</span></button>
@@ -181,7 +182,7 @@
   <!-- ใบเบิก -->
   <dialog id="cDlg" class="wide-dlg">
     <form method="dialog" id="cForm">
-      <h2>สร้างใบเบิก</h2>
+      <h2 tabindex="-1" autofocus>สร้างใบเบิก</h2>
       <div class="row">
         <label>วันที่ในใบเบิก <input type="date" id="cDate"></label>
         <label>โปรเจ็ค / บริษัท
@@ -192,13 +193,18 @@
         <span class="field-label">VAT</span>
         <div class="seg" id="cVat"><button type="button" data-v="*">ทั้งหมด</button><button type="button" data-v="yes">มี VAT</button><button type="button" data-v="no">ไม่มี VAT</button></div>
       </div>
-      <label class="cchk" id="cSplitWrap"><input type="checkbox" id="cSplit"><span>แยกเอกสาร: ใบเบิก "มี VAT" กับ "ไม่มี VAT" คนละใบ</span></label>
-      <div class="field c-size"><span class="field-label">ขนาดภาพหลักฐาน</span>
-        <div class="seg" id="cSize"><button type="button" data-v="full">📄 เต็มหน้า (ขนาดจริง)</button><button type="button" data-v="small">ย่อ (ประหยัดกระดาษ)</button></div></div>
-      <label class="cchk"><input type="checkbox" id="cAttach"><span>แนบภาพหลักฐานท้ายใบเบิก <small class="hint" id="cAttachN"></small><br><small class="hint">ไฟล์ที่ตั้งว่า "มีตัวจริง" (รูปถ่ายใบเสร็จ) จะไม่แนบ เพราะส่งตัวจริงแทน</small></span></label>
       <div id="cList" class="c-list"></div>
       <p class="c-total">รวม <b id="cTotal">฿0</b></p>
       <p class="c-vat hint" id="cVatSum"></p>
+      <details class="c-cfg" id="cOpts">
+        <summary>📄 ตัวเลือกเอกสาร (แนบภาพ · ขนาดภาพ · แยก VAT)</summary>
+        <div class="c-cfg-body">
+          <label class="cchk"><input type="checkbox" id="cAttach"><span>แนบภาพหลักฐานท้ายใบเบิก <small class="hint" id="cAttachN"></small><br><small class="hint">ไฟล์ที่ตั้งว่า "มีตัวจริง" (รูปถ่ายใบเสร็จ) จะไม่แนบ เพราะส่งตัวจริงแทน</small></span></label>
+          <div class="field c-size"><span class="field-label">ขนาดภาพหลักฐาน</span>
+            <div class="seg" id="cSize"><button type="button" data-v="full">📄 เต็มหน้า (ขนาดจริง)</button><button type="button" data-v="small">ย่อ (ประหยัดกระดาษ)</button></div></div>
+          <label class="cchk" id="cSplitWrap"><input type="checkbox" id="cSplit"><span>แยกเอกสาร: ใบเบิก "มี VAT" กับ "ไม่มี VAT" คนละใบ</span></label>
+        </div>
+      </details>
       <details class="c-cfg" id="cCfg">
         <summary>⚙ ข้อมูลบนใบเบิก (บริษัท · ผู้จ่าย · ผู้รับเงิน)</summary>
         <div class="c-cfg-body">
@@ -232,6 +238,13 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=36"></script>
+  <nav class="tabbar" aria-label="ส่วนของแอป">
+    <a href="./"><span aria-hidden="true">✓</span>งาน</a>
+    <a href="money.html"><span aria-hidden="true">💰</span>เงิน</a>
+    <a href="bills.html" aria-current="page"><span aria-hidden="true">🧾</span>เบิก</a>
+    <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
+  </nav>
+
+  <script src="bills.js?v=37"></script>
 </body>
 </html>

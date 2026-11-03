@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>จดครบ</title>
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="จดครบ">
@@ -13,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
   <header class="top">
@@ -23,12 +24,8 @@
       <p id="quota" class="quota" hidden></p>
     </div>
     <div class="top-actions">
-      <a href="money.html" class="icon-btn" title="รายรับ-รายจ่าย" aria-label="รายรับ-รายจ่าย">💰</a>
-      <a href="bills.html" class="icon-btn" title="เบิกเงิน" aria-label="เบิกเงิน">🧾</a>
-      <a href="vault.html" class="icon-btn" title="รหัสผ่าน" aria-label="รหัสผ่าน">🔐</a>
       <button id="btnMeet" class="icon-btn" title="ดึงประชุมจาก Calendar" aria-label="ดึงประชุม">👥</button>
       <button id="btnView" class="icon-btn" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง">📅</button>
-      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
       <button id="btnSettings" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button>
     </div>
   </header>
@@ -51,7 +48,7 @@
   <!-- แก้ไขงาน -->
   <dialog id="editDlg">
     <form id="editForm" method="dialog">
-      <h2 id="editTitle">งาน</h2>
+      <h2 tabindex="-1" autofocus id="editTitle">งาน</h2>
       <label>รายละเอียดงาน
         <textarea name="title" rows="2" required></textarea>
       </label>
@@ -113,7 +110,7 @@
   <!-- ดึงประชุมจาก Google Calendar -->
   <dialog id="meetDlg">
     <form id="meetForm" method="dialog">
-      <h2>ประชุมจาก Calendar</h2>
+      <h2 tabindex="-1" autofocus>ประชุมจาก Calendar</h2>
       <p class="hint">14 วันข้างหน้า ติ๊กอันที่จะเข้า แล้วจะเพิ่มเป็นงานพร้อมเตือนทาง LINE</p>
       <div id="meetList" class="meet-list"></div>
       <label>ใส่โปรเจ็ค (ไม่บังคับ)
@@ -130,13 +127,14 @@
   <!-- ตั้งค่า -->
   <dialog id="setDlg">
     <form id="setForm" method="dialog">
-      <h2>เชื่อมเครื่องนี้</h2>
+      <h2 tabindex="-1" autofocus>ตั้งค่าและเชื่อมเครื่อง</h2>
       <p class="hint" id="setState"></p>
       <label>ลิงก์จาก LINE
         <input name="key" autocomplete="off" placeholder="วางลิงก์จาก LINE ที่นี่">
       </label>
       <p class="hint">พิมพ์ <b>ลิงก์</b> ในแชท LINE OA แล้วคัดลอกลิงก์ที่ได้มาวาง หรือแตะเปิดลิงก์นั้นตรงๆ ก็ได้</p>
       <button type="button" id="btnCopyLink" class="ghost wide">📋 คัดลอกลิงก์สำหรับเครื่องอื่น</button>
+      <button type="button" id="btnSync" class="ghost wide">⟳ ดึงข้อมูลล่าสุดตอนนี้</button>
       <details class="adv">
         <summary>ขั้นสูง</summary>
         <label>Web app URL
@@ -151,6 +149,13 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=36"></script>
+  <nav class="tabbar" aria-label="ส่วนของแอป">
+    <a href="./" aria-current="page"><span aria-hidden="true">✓</span>งาน</a>
+    <a href="money.html"><span aria-hidden="true">💰</span>เงิน</a>
+    <a href="bills.html"><span aria-hidden="true">🧾</span>เบิก</a>
+    <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
+  </nav>
+
+  <script src="app.js?v=37"></script>
 </body>
 </html>

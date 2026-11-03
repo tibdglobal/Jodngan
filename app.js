@@ -50,37 +50,39 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) 
 
 /* พิมพ์เร็ว: "พรุ่งนี้ 10:00 ส่งรายงาน", "5/11 14:30 ประชุม" */
 function parseQuick(text) {
-  let s = text.trim(), date = '', time = '', project = '', m;
+  let s = ' ' + text.trim() + ' ', date = '', time = '', project = '', m;
   const t = today();
+  const cut = (re, fn) => { const mm = s.match(re); if (!mm) return null; s = s.slice(0, mm.index) + ' ' + s.slice(mm.index + mm[0].length); fn && fn(mm); return mm; };
+  const tidy = x => x.replace(/\s{2,}/g, ' ').trim();
   // #แท็ก ที่ไหนก็ได้ = โปรเจ็ค/บริษัท
-  s = s.replace(/(^|\s)#(\S+)/, (all, sp, name) => { project = name; return sp; }).replace(/\s{2,}/g, ' ').trim();
-  // ช่วงเวลาคร่าวๆ / ไม่แน่ใจ
-  if ((m = s.match(/^(?:ภายใน)?(สัปดาห์นี้|อาทิตย์นี้|สัปดาห์หน้า|อาทิตย์หน้า|เดือนนี้|เดือนหน้า)\s*/))) {
+  cut(/\s#(\S+)(?=\s)/, mm => { project = mm[1]; });
+  // ช่วงเวลาคร่าวๆ / ไม่แน่ใจ (อยู่ตรงไหนของประโยคก็ได้)
+  if ((m = cut(/\s(?:ภายใน)?(สัปดาห์นี้|อาทิตย์นี้|สัปดาห์หน้า|อาทิตย์หน้า|เดือนนี้|เดือนหน้า)(?=\s)/))) {
     const r = softDate(m[1]);
-    return { title: s.slice(m[0].length).trim(), date: r.date, time: '', project, due: r.due, typedDate: true };
+    return { title: tidy(s), date: r.date, time: '', project, due: r.due, typedDate: true };
   }
-  if ((m = s.match(/^(ไม่แน่ใจ|ยังไม่รู้|สักวัน)\s*/))) {
-    return { title: s.slice(m[0].length).trim(), date: '', time: '', project, due: '', typedDate: true };
-  }
-  if ((m = s.match(/^(วันนี้|พรุ่งนี้|มะรืน)\s*/))) {
-    date = addDays(t, { 'วันนี้': 0, 'พรุ่งนี้': 1, 'มะรืน': 2 }[m[1]]);
-    s = s.slice(m[0].length);
-  } else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})(?=\s|$)\s*/))) {
+  if (cut(/\s(ไม่แน่ใจ|ยังไม่รู้|สักวัน)(?=\s)/)) return { title: tidy(s), date: '', time: '', project, due: '', typedDate: true };
+  // วัน
+  if ((m = cut(/\s(วันนี้|พรุ่งนี้|มะรืน(?:นี้)?)(?=\s)/))) date = addDays(t, { 'วันนี้': 0, 'พรุ่งนี้': 1 }[m[1]] ?? 2);
+  else if ((m = s.match(/\s(\d{1,2})\/(\d{1,2})(?=\s)/))) {
     const d = +m[1], mo = +m[2];
     if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) {
       const y = +t.slice(0, 4);
       let c = `${y}-${pad(mo)}-${pad(d)}`;
       if (c < t) c = `${y + 1}-${pad(mo)}-${pad(d)}`;
-      date = c; s = s.slice(m[0].length);
+      date = c; cut(/\s(\d{1,2})\/(\d{1,2})(?=\s)/);
     }
   }
-  if ((m = s.match(/^(\d{1,2})[:.](\d{2})(?:\s*น\.?)?(?=\s|$)\s*/))) {
-    const h = +m[1], mi = +m[2];
-    if (h < 24 && mi < 60) { time = `${pad(h)}:${pad(mi)}`; s = s.slice(m[0].length); }
-  }
+  // เวลา: 10:00, 10.30 น., 10 โมง(เช้า), บ่าย 2 (โมง), เย็น 5 โมง, 2 ทุ่ม, เที่ยง(วัน)
+  const set = (h, mi = 0) => { if (h >= 0 && h < 24 && mi >= 0 && mi < 60) time = `${pad(h)}:${pad(mi)}`; };
+  if ((m = cut(/\s(\d{1,2})[:.](\d{2})(?:\s*น\.?)?(?=\s)/))) set(+m[1], +m[2]);
+  else if ((m = cut(/\s(?:บ่าย|เย็น)\s*(\d{1,2})(?:\s*โมง)?(?:ครึ่ง)?(?=\s)/))) set(+m[1] + (+m[1] < 12 ? 12 : 0), /ครึ่ง/.test(m[0]) ? 30 : 0);
+  else if ((m = cut(/\s(\d{1,2})\s*ทุ่ม(ครึ่ง)?(?=\s)/))) set(+m[1] + 18, m[2] ? 30 : 0);
+  else if ((m = cut(/\s(\d{1,2})\s*โมง(?:เช้า)?(ครึ่ง)?(?=\s)/))) set(+m[1], m[2] ? 30 : 0);
+  else if (cut(/\sเที่ยง(?:วัน|ตรง)?(?=\s)/)) set(12);
   const typedDate = !!date;
   if (time && !date) date = t;
-  return { title: s.trim(), date, time, project, due: '', typedDate };
+  return { title: tidy(s), date, time, project, due: '', typedDate };
 }
 
 /* วันสุดท้ายของสัปดาห์ (อาทิตย์) หรือเดือน — คำว่า "หน้า" = ถัดไป */

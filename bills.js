@@ -16,7 +16,7 @@ const KIND = {
   other: { icon: '📄', name: 'อื่นๆ' },
 };
 const ST = {
-  draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ส่งเบิกแล้ว', paid: '✅ ได้เงินแล้ว',
+  draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 รอเงินคืน', paid: '✅ ได้เงินคืนแล้ว',
 };
 
 let bills = LS.get('bills', []);
@@ -36,7 +36,8 @@ const pad = n => String(n).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const today = () => ymd(new Date());
 const short = s => { if (!s) return ''; const [, m, d] = s.split('-'); return `${+d}/${+m}`; };
-const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+// ยอดเงิน: จำนวนเต็มไม่มีทศนิยม · มีเศษแสดง 2 ตำแหน่ง (฿89.50)
+const baht = n => { const v = Number(n || 0); return '฿' + v.toLocaleString('th-TH', Number.isInteger(v) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 const sum = list => list.reduce((s, b) => s + Number(b.amount || 0), 0);
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[-.]/g, '');
 const vatOf = b => (b.vat === 'yes' || (b.files || []).some(f => f.kind === 'taxinv')) ? 'yes' : (b.vat === 'no' ? 'no' : '');
@@ -96,7 +97,7 @@ function render() {
   $('#mNext').disabled = sumMonth >= cur;
   const paidM = mb.filter(b => b.status === 'paid');
   $('#mTotal').textContent = mb.length
-    ? `จ่ายไป ${baht(sum(mb))} · ${mb.length} รายการ` + (paidM.length ? ` · ได้คืนแล้ว ${baht(sum(paidM))}` : '')
+    ? `จ่ายไป ${baht(sum(mb))} · ${mb.length} รายการ` + (paidM.length ? ` · ได้เงินคืนแล้ว ${baht(sum(paidM))}` : '')
     : 'ยังไม่มีบิลในเดือนนี้';
 
   // เดือนอื่นที่ยังขาดหลักฐาน
@@ -135,6 +136,7 @@ function render() {
     const list = mb.filter(b => b.status === t.dataset.st);
     t.querySelector('.amt').textContent = baht(sum(list));
     t.querySelector('.cnt').textContent = `${list.length} รายการ`;
+    t.classList.toggle('has', t.dataset.st === 'draft' && list.length > 0);
   });
   document.querySelectorAll('#bTabs .chip').forEach(c => {
     c.classList.toggle('on', c.dataset.st === tab);
@@ -162,7 +164,7 @@ function render() {
   const list = mb.filter(b => tab === 'all' || b.status === tab)
     .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || '').localeCompare(a.created || ''));
   if (!list.length) {
-    const msg = { draft: 'ไม่มีบิลที่ขาดหลักฐานในเดือนนี้ 👍', ready: 'ยังไม่มีบิลที่พร้อมเบิกในเดือนนี้', submitted: 'ไม่มีบิลที่รอเงินคืนในเดือนนี้', paid: 'ยังไม่มีบิลที่ได้เงินแล้วในเดือนนี้' }[tab] || 'ยังไม่มีบิลในเดือนนี้ จดด้านบนได้เลย';
+    const msg = { draft: 'ไม่มีบิลที่ขาดหลักฐานในเดือนนี้ 👍', ready: 'ยังไม่มีบิลที่พร้อมเบิกในเดือนนี้', submitted: 'ไม่มีบิลที่รอเงินคืนในเดือนนี้', paid: 'ยังไม่มีบิลที่ได้เงินคืนในเดือนนี้' }[tab] || 'ยังไม่มีบิลในเดือนนี้ จดด้านบนได้เลย';
     box.innerHTML = `<p class="empty">${msg}</p>`;
     return;
   }
@@ -298,7 +300,7 @@ function renderSummary(box) {
   const all = document.createElement('section');
   all.className = 's-card';
   all.innerHTML = '<h3>ยอดรวมทั้งหมด</h3><div class="s-grid"></div>';
-  [['จ่ายไปทั้งหมด', sum(bills), bills.length], ['ได้คืนแล้ว', sum(by('paid')), by('paid').length], ['ยังค้างรับคืน', sum(pending), pending.length]].forEach(([l, v, n], i) => {
+  [['จ่ายไปทั้งหมด', sum(bills), bills.length], ['ได้เงินคืนแล้ว', sum(by('paid')), by('paid').length], ['ยังไม่ได้เงินคืน', sum(pending), pending.length]].forEach(([l, v, n], i) => {
     const d = document.createElement('div');
     d.className = 's-num' + (i === 2 ? ' warn' : '');
     d.innerHTML = '<span></span><b></b><small></small>';
@@ -569,7 +571,7 @@ $('#bVat').querySelectorAll('button').forEach(x => x.onclick = () => {
 form.elements.amount.addEventListener('input', () => renderVat());
 
 /* สถานะในหน้ารายละเอียด: แตะขั้นที่ต้องการ (มีผลทันที) */
-const STEPS = [['draft', '📝', 'ขาดหลักฐาน'], ['ready', '📎', 'พร้อมเบิก'], ['submitted', '📤', 'ส่งเบิกแล้ว'], ['paid', '✅', 'ได้เงินแล้ว']];
+const STEPS = [['draft', '📝', 'ขาดหลักฐาน'], ['ready', '📎', 'พร้อมเบิก'], ['submitted', '📤', 'รอเงินคืน'], ['paid', '✅', 'ได้เงินคืนแล้ว']];
 function renderSteps() {
   const box = $('#bSteps');
   box.innerHTML = '';
@@ -1224,7 +1226,7 @@ function toast(msg, undo) {
 }
 async function quickMark(list, status, quiet) {
   const prev = list.map(b => [b.id, b.status]);
-  const label = { draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ส่งเบิกแล้ว', paid: '✅ ได้เงินแล้ว' }[status];
+  const label = { draft: '📝 ขาดหลักฐาน', ready: '📎 พร้อมเบิก', submitted: '📤 ส่งเบิกแล้ว', paid: '✅ ได้เงินคืนแล้ว' }[status];
   const what = list.length === 1 ? (list[0].desc || 'รายการนี้') : `${list.length} รายการ`;
   if (!quiet) toast(`${label} · ${what}`, async () => {
     // ย้อนกลับ: แยกตามสถานะเดิม

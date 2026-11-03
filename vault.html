@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>รหัสผ่าน · จดครบ</title>
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body class="vault">
   <header class="top">
@@ -66,7 +67,7 @@
   <!-- เพิ่ม/แก้ไข -->
   <dialog id="vDlg">
     <form id="vForm" method="dialog" autocomplete="off">
-      <h2 id="vDlgTitle">เพิ่มรหัส</h2>
+      <h2 tabindex="-1" autofocus id="vDlgTitle">เพิ่มรหัส</h2>
       <label>ชื่อ (เว็บ/แอป/บัญชี) <input name="name" required placeholder="เช่น Gmail งาน, ธนาคาร…"></label>
       <label>หมวด
         <input name="cat" list="vCatList" placeholder="เช่น งาน, ธนาคาร, โซเชียล">
@@ -91,6 +92,13 @@
     </form>
   </dialog>
 
-  <script src="vault.js?v=36"></script>
+  <nav class="tabbar" aria-label="ส่วนของแอป">
+    <a href="./"><span aria-hidden="true">✓</span>งาน</a>
+    <a href="money.html"><span aria-hidden="true">💰</span>เงิน</a>
+    <a href="bills.html"><span aria-hidden="true">🧾</span>เบิก</a>
+    <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
+  </nav>
+
+  <script src="vault.js?v=37"></script>
 </body>
 </html>
