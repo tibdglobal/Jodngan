@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>รายรับ-รายจ่าย · จดครบ</title>
+  <meta name="theme-color" content="#0f766e">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=33">
+</head>
+<body class="money">
+  <header class="top">
+    <div>
+      <a href="./" class="back">‹ จดครบ</a>
+      <h1>รายรับ-รายจ่าย</h1>
+      <p class="sub">เงินส่วนตัว (แยกจากบิลเบิกบริษัท)</p>
+    </div>
+    <div class="top-actions">
+      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
+    </div>
+  </header>
+
+  <div class="m-bar">
+    <button id="mPrev" class="icon-btn" aria-label="เดือนก่อน">‹</button>
+    <button id="mLabel" class="m-label" title="กลับไปเดือนนี้"></button>
+    <button id="mNext" class="icon-btn" aria-label="เดือนถัดไป">›</button>
+  </div>
+  <div id="status" class="status" hidden></div>
+
+  <!-- สรุปเดือน -->
+  <div class="mo-sum">
+    <div class="mo-in"><span>รายรับ</span><b id="sIn">฿0</b><small id="sInCmp"></small></div>
+    <div class="mo-out"><span>รายจ่าย</span><b id="sOut">฿0</b><small id="sOutCmp"></small></div>
+    <div class="mo-bal"><span>คงเหลือ</span><b id="sBal">฿0</b><small id="sBalNote"></small></div>
+  </div>
+
+  <!-- จดเร็ว -->
+  <div class="seg mo-type" id="qType"><button type="button" data-v="out">💸 รายจ่าย</button><button type="button" data-v="in">💰 รายรับ</button></div>
+  <form id="mQuick" class="quick" autocomplete="off">
+    <input id="mInput" type="text" placeholder="เช่น 120 ข้าวมันไก่" enterkeyhint="done">
+    <button type="submit" class="add-btn" aria-label="จด">＋</button>
+  </form>
+  <div id="qCats" class="when-chips mo-qcats"></div>
+  <button type="button" id="btnSnap" class="snap-big">
+    <span class="sb-ico">📷</span>
+    <span><b>ถ่ายสลิป / ใบเสร็จ</b><small>อ่านยอด วันที่ ชื่อร้านให้อัตโนมัติ</small></span>
+  </button>
+
+  <!-- มุมมอง -->
+  <nav class="chips mo-tabs" id="vTabs">
+    <button class="chip" data-v="list">📋 รายการ</button>
+    <button class="chip" data-v="cal">📅 ปฏิทิน</button>
+    <button class="chip" data-v="chart">📊 สรุปและกราฟ</button>
+  </nav>
+  <main id="vList"></main>
+  <section id="vCal" hidden></section>
+  <section id="vChart" hidden></section>
+
+  <!-- แก้ไขรายการ -->
+  <dialog id="mDlg">
+    <form id="mForm" method="dialog" autocomplete="off">
+      <h2 id="mDlgTitle">รายการ</h2>
+      <div id="mSuggest" class="b-suggest" hidden></div>
+      <div class="seg mo-type" id="fType"><button type="button" data-v="out">💸 รายจ่าย</button><button type="button" data-v="in">💰 รายรับ</button></div>
+      <input type="hidden" name="type">
+      <div class="row">
+        <label>วันที่ <input name="date" type="date" required></label>
+        <label>จำนวนเงิน (บาท) <input name="amount" inputmode="decimal" required></label>
+      </div>
+      <label>รายละเอียด <input name="note" placeholder="เช่น ข้าวมันไก่"></label>
+      <div class="field">
+        <label>หมวด <input name="cat" placeholder="แตะเลือก หรือพิมพ์หมวดเอง"></label>
+        <div id="fCats" class="when-chips wrap"></div>
+      </div>
+      <label>จ่าย/รับทาง
+        <select name="pay"><option value="">-</option><option>เงินสด</option><option>โอน</option><option>บัตรเครดิต</option><option>QR/พร้อมเพย์</option><option>บัตรเดบิต</option></select>
+      </label>
+      <div id="fFile" class="field" hidden></div>
+      <div class="dlg-actions">
+        <button type="button" id="btnDel" class="danger">ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnCancel" class="ghost">ปิด</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="busy" class="busy" hidden role="status" aria-live="polite">
+    <div class="busy-card"><img id="busyImg" alt="" hidden><div class="spin"></div><b id="busyMsg">กำลังอ่านสลิป…</b><small id="busySub"></small></div>
+  </div>
+  <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo">↩ ยกเลิก</button></div>
+  <input type="file" id="mFile" accept="image/*,application/pdf" hidden>
+
+  <script src="money.js?v=33"></script>
+</body>
+</html>
