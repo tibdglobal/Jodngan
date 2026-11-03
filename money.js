@@ -11,7 +11,7 @@ if (!cfg.url) cfg.url = DEFAULT_URL;
 /* หมวด + ไอคอน */
 const CATS = {
   out: [['อาหาร', '🍚'], ['เครื่องดื่ม/กาแฟ', '☕'], ['เดินทาง', '🚗'], ['ค่าเช่าห้อง', '🔑'], ['เสื้อผ้า', '👕'], ['ออกกำลังกาย', '🏃'], ['อุปกรณ์กีฬา', '🏸'],
-    ['ช้อปปิ้ง', '🛍'], ['บ้าน/ที่พัก', '🏠'], ['ค่าน้ำไฟ/โทรศัพท์', '💡'], ['สุขภาพ', '💊'], ['บันเทิง/ท่องเที่ยว', '🎬'], ['การศึกษา', '📚'], ['อื่นๆ', '📦']],
+    ['ของใช้', '🧴'], ['ซักผ้า', '🧺'], ['เติมเกม', '🎮'], ['การ์ด', '🃏'], ['ค่าน้ำไฟ/โทรศัพท์', '💡'], ['สุขภาพ', '💊'], ['บันเทิง/ท่องเที่ยว', '🎬'], ['การศึกษา', '📚'], ['อื่นๆ', '📦']],
   in: [['เงินเดือน', '💼'], ['โบนัส', '🎉'], ['งานเสริม/ฟรีแลนซ์', '🧑‍💻'], ['ขายของ', '🏷'], ['ดอกเบี้ย/ปันผล', '📈'], ['ได้เงินคืน', '↩️'], ['อื่นๆ', '💰']],
 };
 const KW = {
@@ -22,16 +22,18 @@ const KW = {
     ['เสื้อผ้า', /เสื้อ|กางเกง|กระโปรง|ชุด|รองเท้า|ถุงเท้า|uniqlo|h&m|zara/i],
     ['อุปกรณ์กีฬา', /อุปกรณ์กีฬา|ไม้แบด|ลูกแบด|ลูกขนไก่|ไม้เทนนิส|ลูกบอล|ฟุตบอล|ดัมเบล|เสื่อโยคะ|จักรยาน|decathlon|super\s*sports|กีฬา/i],
     ['ออกกำลังกาย', /ฟิตเนส|fitness|gym|ยิม|วิ่ง|ว่ายน้ำ|สระ|โยคะ|yoga|มวย|แบด|ค่าสนาม|ค่าคอร์ท|เทรนเนอร์|ปั่นจักรยาน|ออกกำลัง/i],
-    ['ช้อปปิ้ง', /shopee|lazada|tiktok|กระเป๋า|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s*c|บิ๊กซี|makro|แม็คโคร|ikea/i],
-    ['บ้าน/ที่พัก', /ผ่อนบ้าน|ของใช้ในบ้าน|เฟอร์นิเจอร์|ซ่อมบ้าน/i],
     ['ค่าน้ำไฟ/โทรศัพท์', /ค่าไฟ|ค่าน้ำ|ค่าเน็ต|อินเทอร์เน็ต|internet|wifi|ais|true|dtac|ค่าโทร|มือถือ/i],
     ['สุขภาพ', /ยา|หมอ|คลินิก|โรงพยาบาล|ทำฟัน/i],
-    ['บันเทิง/ท่องเที่ยว', /หนัง|netflix|spotify|youtube|disney|เกม|game|คอนเสิร์ต|เที่ยว|โรงแรม|hotel|agoda/i],
+    ['เติมเกม', /เติมเกม|เติมเพชร|เติมเงินเกม|top-?up|rov|free\s*fire|pubg|genshin|honkai|garena|steam|playstation|psn|nintendo|valorant|razer\s*gold|truemoney\s*game/i],
+    ['การ์ด', /การ์ด|โปเกมอน|pokemon|pokémon|yu-?gi-?oh|ยูกิ|tcg|บูสเตอร์|booster|one\s*piece\s*card|magic\s*the\s*gathering|การ์ดเกม/i],
+    ['ซักผ้า', /ซักผ้า|ร้านซัก|เครื่องซัก|อบผ้า|ผงซักฟอก|น้ำยาซักผ้า|ปรับผ้านุ่ม|ซักรีด|รีดผ้า|otteri|หยอดเหรียญ/i],
+    ['ของใช้', /ของใช้|สบู่|แชมพู|ยาสีฟัน|แปรงสีฟัน|ทิชชู่|ทิชชู|กระดาษชำระ|ถุงขยะ|โฟมล้างหน้า|ครีม|ผ้าอนามัย|มีดโกน|watsons|วัตสัน|boots|eveandboy|shopee|lazada|lotus|โลตัส|big\s*c|บิ๊กซี|makro|แม็คโคร|tops|ikea|เฟอร์นิเจอร์/i],
+    ['บันเทิง/ท่องเที่ยว', /หนัง|netflix|spotify|youtube|disney|คอนเสิร์ต|เที่ยว|โรงแรม|hotel|agoda/i],
     ['การศึกษา', /หนังสือ|คอร์ส|course|เรียน|ค่าเทอม/i]],
   in: [['เงินเดือน', /เงินเดือน|salary/i], ['โบนัส', /โบนัส|bonus/i], ['งานเสริม/ฟรีแลนซ์', /ฟรีแลนซ์|freelance|งานเสริม|ค่าจ้าง|ค่าแรง/i],
     ['ขายของ', /ขาย|ออเดอร์/i], ['ดอกเบี้ย/ปันผล', /ดอกเบี้ย|ปันผล/i], ['ได้เงินคืน', /คืน|refund|cashback/i]],
 };
-const icon = (type, cat) => ((CATS[type] || []).find(c => c[0] === cat) || [0, type === 'in' ? '💰' : '📦'])[1];
+const icon = (type, cat) => ((CATS[type] || []).find(c => c[0] === cat) || [0, type === 'in' ? '💰' : (cat ? '🏷' : '📦')])[1];
 
 let items = LS.get('money', []);
 let month = '';
@@ -115,17 +117,34 @@ function render() {
   if (view === 'chart') renderChart(mm);
 }
 
+/* หมวดทั้งหมดของประเภทนี้: หมวดตั้งต้น + หมวดที่เคยพิมพ์เอง (อื่นๆ อยู่ท้ายสุด) */
+function allCats(type) {
+  const base = CATS[type].map(c => c[0]);
+  const used = [...new Set(items.filter(x => x.type === type).map(x => String(x.cat || '').trim()).filter(c => c && !base.includes(c)))];
+  if (qCat && type === qType && !base.includes(qCat) && !used.includes(qCat)) used.push(qCat);
+  return base.slice(0, -1).concat(used, base.slice(-1));
+}
 function renderQCats() {
   const box = $('#qCats');
   box.innerHTML = '';
-  CATS[qType].forEach(([c, ic]) => {
+  allCats(qType).forEach(c => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = ic + ' ' + c;
+    b.textContent = icon(qType, c) + ' ' + c;
     b.classList.toggle('on', qCat === c);
     b.onclick = () => { qCat = qCat === c ? '' : c; renderQCats(); $('#mInput').focus(); };
     box.appendChild(b);
   });
+  const w = document.createElement('button');
+  w.type = 'button';
+  w.className = 'own';
+  w.textContent = '✏️ พิมพ์เอง';
+  w.onclick = () => {
+    const v = (prompt('ชื่อหมวด (เช่น ค่าขนม, ของฝาก)') || '').trim().slice(0, 40);
+    if (!v) return;
+    qCat = v; renderQCats(); $('#mInput').focus();
+  };
+  box.appendChild(w);
 }
 
 function row(x) {
@@ -293,8 +312,8 @@ function openDlg(x) {
 function paintType() { const v = form.elements.type.value || 'out'; $('#fType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
 function renderFCats() {
   const box = $('#fCats'), inp = form.elements.cat, type = form.elements.type.value || 'out';
-  const used = [...new Set(items.filter(x => x.type === type).map(x => String(x.cat || '').trim()).filter(Boolean))];
-  const all = CATS[type].map(c => c[0]).concat(used.filter(c => !CATS[type].some(z => z[0] === c)));
+  const all = allCats(type);
+  if (inp.value.trim() && !all.includes(inp.value.trim())) all.splice(all.length - 1, 0, inp.value.trim());
   box.innerHTML = '';
   all.forEach(c => {
     const b = document.createElement('button');
