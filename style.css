@@ -489,3 +489,4 @@ dialog label.cchk span { flex: 1; min-width: 0; }
 .id-up { display: grid; gap: 6px; }
 .id-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .c-size .seg button { font-size: 13px; padding: 7px 10px; }
+.forgot { justify-self: center; margin-top: 4px; }

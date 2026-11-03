@@ -133,6 +133,21 @@ $('#vUnlock').addEventListener('submit', async e => {
   await decryptAll();
 });
 
+/* ลืมรหัสหลัก: กู้ไม่ได้ (เข้ารหัสในเครื่อง) → ลบทั้งหมดแล้วตั้งรหัสใหม่ */
+$('#btnForgot').onclick = async () => {
+  const n = (vault && vault.items || []).length;
+  const msg = n
+    ? `รหัสหลักกู้คืนไม่ได้ เพราะไม่ได้ถูกส่งไปเก็บที่ไหน\n\nถ้าตั้งใหม่ รหัสผ่านที่เก็บไว้ ${n} รายการจะถูกลบทั้งหมด และกู้คืนไม่ได้\n\nพิมพ์คำว่า ลบ เพื่อยืนยัน`
+    : 'ยังไม่มีรหัสผ่านที่เก็บไว้ ตั้งรหัสหลักใหม่ได้เลย\n\nพิมพ์คำว่า ลบ เพื่อยืนยัน';
+  if ((prompt(msg) || '').trim() !== 'ลบ') return;
+  try {
+    await api('vault_reset');
+    key = null;
+    showStatus('ลบแล้ว ตั้งรหัสหลักใหม่ได้เลย', true);
+    await load();
+  } catch (e) { showStatus('ทำไม่สำเร็จ: ' + e.message); }
+};
+
 /* ล็อก: ล้างกุญแจและข้อมูลที่ถอดรหัสแล้วออกจากหน่วยความจำ */
 function lock() {
   key = null;
