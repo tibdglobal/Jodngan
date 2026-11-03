@@ -39,6 +39,9 @@ const short = s => { if (!s) return ''; const [, m, d] = s.split('-'); return `$
 const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 const sum = list => list.reduce((s, b) => s + Number(b.amount || 0), 0);
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[-.]/g, '');
+const vatOf = b => (b.vat === 'yes' || (b.files || []).some(f => f.kind === 'taxinv')) ? 'yes' : (b.vat === 'no' ? 'no' : '');
+const vatAmtOf = b => vatOf(b) === 'yes' ? (Number(b.vatAmt) || Math.round(Number(b.amount || 0) * 7 / 107 * 100) / 100) : 0;
+const r2 = n => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const hasProof = b => (b.files || []).length > 0;   // แนบไฟล์อะไรก็ได้ (รวมสลิป) = มีหลักฐานแล้ว
 
 async function api(action, payload = {}) {
@@ -365,7 +368,7 @@ function row(b) {
   const t = body.querySelector('.title');
   if (b.project) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = b.project; t.appendChild(tag); }
   t.append(b.desc);
-  body.querySelector('.meta').textContent = [short(b.date), b.cat, b.pay, view === 'list' && tab !== 'all' ? '' : ST[b.status]].filter(Boolean).join(' · ');
+  body.querySelector('.meta').textContent = [short(b.date), b.cat, vatOf(b) === 'yes' ? '🧾 VAT' : '', b.pay, view === 'list' && tab !== 'all' ? '' : ST[b.status]].filter(Boolean).join(' · ');
   const pf = body.querySelector('.b-proofs');
   if (!(b.files || []).length) pf.innerHTML = '<span class="missing">ยังไม่มีหลักฐาน</span>';
   else (b.files || []).forEach(f => { const s = document.createElement('span'); s.className = 'pf ' + f.kind; s.textContent = KIND[f.kind].icon + ' ' + KIND[f.kind].name; pf.appendChild(s); });
@@ -451,12 +454,14 @@ const dlg = $('#bDlg'), form = $('#bForm');
 function openDlg(b) {
   editing = b;
   const f = form.elements;
-  ['date', 'amount', 'desc', 'project', 'cat', 'pay', 'vendor', 'note', 'status'].forEach(k => { f[k].value = b[k] ?? ''; });
+  ['date', 'amount', 'desc', 'project', 'cat', 'pay', 'vendor', 'note', 'status', 'vat', 'vatAmt'].forEach(k => { f[k].value = b[k] ?? ''; });
+  if (!f.vat.value && vatOf(b)) f.vat.value = vatOf(b);
   if (!Number(b.amount)) f.amount.value = '';
   $('#bSuggest').hidden = true;
   renderFiles();
   renderCats();
   renderSteps();
+  renderVat();
   if (!dlg.open) dlg.showModal();
   if (!Number(b.amount)) setTimeout(() => f.amount.focus(), 50);
 }
@@ -533,6 +538,21 @@ function renderFiles() {
   });
 }
 
+/* VAT: มี / ไม่มี + ยอด VAT (เว้นว่าง = คิดจากยอด 7/107) */
+function renderVat() {
+  const f = form.elements;
+  $('#bVat').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === f.vat.value));
+  $('#bVatAmtWrap').hidden = f.vat.value !== 'yes';
+  const amt = Number(String(f.amount.value).replace(/,/g, '')) || 0;
+  f.vatAmt.placeholder = amt ? 'คิดให้ ≈ ' + r2(amt * 7 / 107) : 'ยอด VAT';
+}
+$('#bVat').querySelectorAll('button').forEach(x => x.onclick = () => {
+  const f = form.elements;
+  f.vat.value = f.vat.value === x.dataset.v ? '' : x.dataset.v;
+  renderVat();
+});
+form.elements.amount.addEventListener('input', () => renderVat());
+
 /* สถานะในหน้ารายละเอียด: แตะขั้นที่ต้องการ (มีผลทันที) */
 const STEPS = [['draft', '📝', 'ขาดหลักฐาน'], ['ready', '📎', 'พร้อมเบิก'], ['submitted', '📤', 'ส่งเบิกแล้ว'], ['paid', '✅', 'ได้เงินแล้ว']];
 function renderSteps() {
@@ -569,7 +589,8 @@ form.addEventListener('submit', async () => {
   if (!editing) return;
   const f = form.elements;
   const b = { ...editing };
-  ['date', 'desc', 'project', 'cat', 'pay', 'vendor', 'note'].forEach(k => { b[k] = f[k].value.trim(); });
+  ['date', 'desc', 'project', 'cat', 'pay', 'vendor', 'note', 'vat'].forEach(k => { b[k] = f[k].value.trim(); });
+  b.vatAmt = b.vat === 'yes' ? String(f.vatAmt.value).replace(/,/g, '').trim() : '';
   b.amount = Number(String(f.amount.value).replace(/,/g, '')) || 0;
   const statusChanged = f.status.value !== editing.status;
   b.status = f.status.value;
@@ -627,17 +648,17 @@ $('#bFile').addEventListener('change', async e => {
   if (!files.length) return;
   if (isSnap) { snapBill(files[0]); return; }
   if (!attachFor) return;
-  let found = null;   // วันที่/ยอดที่อ่านได้จากหลักฐาน
+  let found = null, filled = {}, prev = {};   // สิ่งที่อ่านได้ / ที่ระบบเติมให้ / ค่าเดิม
+  const before = { ...attachFor };
   for (let i = 0; i < files.length; i++) {
-    showStatus(`กำลังอัปโหลดและอ่านหลักฐาน ${i + 1}/${files.length}…`, true);
     try {
       const prep = await prepare(files[i]);
       busyStart(prep.thumb, files.length > 1 ? `ไฟล์ ${i + 1}/${files.length}` : '');
-      const { bill, ocr } = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
-      attachFor = { ...bill, typed: attachFor.typed, typedAmt: attachFor.typedAmt, typedDate: attachFor.typedDate };
-      upsert(bill);
-      if (ocr && (ocr.date || ocr.amount) && !found) found = ocr;
-      if (editing && editing.id === bill.id) { editing = bill; renderFiles(); form.elements.status.value = bill.status; }
+      const res = await api('bill_upload', { id: attachFor.id, kind: attachKind, ...prep });
+      attachFor = res.bill;
+      upsert(res.bill);
+      if (res.ocr && (res.ocr.date || res.ocr.amount || res.ocr.vendor) && !found) found = res.ocr;
+      Object.entries(res.filled || {}).forEach(([k, v]) => { if (!(k in filled)) { filled[k] = v; prev[k] = (res.prev || {})[k] ?? before[k] ?? ''; } });
       render();
     } catch (err) {
       busyEnd();
@@ -646,25 +667,67 @@ $('#bFile').addEventListener('change', async e => {
     }
   }
   busyEnd();
-  showStatus(attachFor.status === 'ready' ? '✅ แนบแล้ว รายการนี้พร้อมเบิก' : '✅ แนบแล้ว', true);
-  setTimeout(() => showStatus(''), 3000);
-
-  if (!found) return;
-  // ยังไม่ได้ใส่ยอด = เติมให้เลย
-  if (found.amount && !Number(attachFor.amount)) {
-    const b = { ...attachFor, amount: found.amount };
-    upsert(b); render();
-    try { upsert((await api('bill_save', { bill: { id: b.id, amount: b.amount } })).bill); } catch {}
-    attachFor = b;
-    found.amountFilled = true;
+  const b = attachFor;
+  const inDlg = editing && editing.id === b.id && dlg.open;
+  if (inDlg) {
+    // กำลังแก้อยู่: ใส่เฉพาะช่องที่ระบบเติม (ช่องอื่นที่พิมพ์ค้างไว้ไม่หาย)
+    const f = form.elements;
+    Object.entries(filled).forEach(([k, v]) => { if (f[k]) f[k].value = v; });
+    editing = { ...b };
+    f.status.value = b.status;
+    renderFiles(); renderSteps(); renderCats(); renderVat();
+  } else {
+    openDlg(b);
   }
-  const diffDate = found.date && found.date !== attachFor.date;
-  const diffAmt = found.amount && Number(found.amount) !== Number(attachFor.amount);
-  if (diffDate || diffAmt || found.amountFilled) {
-    if (!editing || editing.id !== attachFor.id) openDlg(attachFor);
-    showSuggest(found, diffDate, diffAmt);
-  }
+  showRead(found, filled, prev, b);
 });
+
+/* แสดงว่าอ่านอะไรได้ และเติมอะไรให้แล้ว (กดใช้ค่าเดิมได้) */
+function showRead(ocr, filled, prev, b) {
+  const box = $('#bSuggest');
+  box.innerHTML = '';
+  const f = form.elements;
+  const NAME = { date: 'วันที่', amount: 'ยอด', vendor: 'ร้าน', cat: 'หมวด', desc: 'รายละเอียด', vat: 'VAT', vatAmt: 'ยอด VAT' };
+  const show = (k, v) => k === 'date' ? short(v) : (k === 'amount' || k === 'vatAmt') ? baht(v) : k === 'vat' ? (v === 'yes' ? 'มี' : v === 'no' ? 'ไม่มี' : '-') : v;
+  const head = document.createElement('p');
+  if (!ocr) {
+    head.textContent = '📎 แนบแล้ว · อ่านวันที่/ยอดจากไฟล์นี้ไม่ได้ กรอกเองได้เลย';
+    box.appendChild(head);
+    box.hidden = false;
+    return;
+  }
+  const keys = Object.keys(filled);
+  head.textContent = keys.length
+    ? '🔎 อ่านจากหลักฐานแล้วเติมให้: ' + keys.map(k => `${NAME[k]} ${show(k, filled[k])}`).join(' · ')
+    : '🔎 อ่านจากหลักฐานได้: ' + [ocr.date && 'วันที่ ' + short(ocr.date), ocr.amount && 'ยอด ' + baht(ocr.amount), ocr.vendor && 'ร้าน ' + ocr.vendor].filter(Boolean).join(' · ');
+  box.appendChild(head);
+  const btns = document.createElement('div');
+  btns.className = 'b-sg-btns';
+  const add = (label, fn) => {
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'mini';
+    x.textContent = label;
+    x.onclick = () => { fn(); x.disabled = true; x.textContent = '✓ ' + label; syncCats(); renderVat(); };
+    btns.appendChild(x);
+  };
+  // ย้อนค่าที่เติม (เฉพาะที่เดิมมีค่า)
+  keys.filter(k => k !== 'vat' && k !== 'vatAmt' && (k === 'date' || (prev[k] && Number(prev[k]) !== 0))).forEach(k =>
+    add(`↩ ใช้${NAME[k]}เดิม ${show(k, prev[k])}`, () => { f[k].value = prev[k]; }));
+  // ที่อ่านได้แต่ไม่ได้เติม เพราะไม่อยากทับของเดิม
+  if (ocr.date && !('date' in filled) && ocr.date !== f.date.value)
+    add(`ใช้วันที่ ${short(ocr.date)}/${String(+ocr.date.slice(0, 4) + 543).slice(2)}`, () => { f.date.value = ocr.date; });
+  if (ocr.amount && !('amount' in filled) && Number(ocr.amount) !== Number(f.amount.value)) {
+    add(`ใช้ยอด ${baht(ocr.amount)}`, () => { f.amount.value = ocr.amount; });
+    if ((b.files || []).length > 1 && Number(f.amount.value))
+      add(`รวมยอด = ${baht(Number(f.amount.value) + Number(ocr.amount))}`, () => { f.amount.value = Math.round((Number(f.amount.value) + Number(ocr.amount)) * 100) / 100; });
+  }
+  if (btns.children.length) box.appendChild(btns);
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.textContent = keys.length ? 'บันทึกให้แล้ว · ตรวจอีกครั้ง ถ้าแก้อะไรกด บันทึก' : 'กดปุ่มเพื่อใช้ค่าที่อ่านได้ แล้วกด บันทึก';
+  box.appendChild(note);
+  box.hidden = false;
+}
 
 /* ---------- หน้าจอ "กำลังอ่านใบเสร็จ" ---------- */
 let busyTick = null;
@@ -716,44 +779,6 @@ async function snapBill(file) {
   if (!ocr.amount && !p.amount) setTimeout(() => form.elements.amount.focus(), 60);
 }
 
-/* แสดงสิ่งที่อ่านได้จากหลักฐาน ให้กดใช้ค่า (ยังไม่บันทึกจนกด บันทึก) */
-function showSuggest(ocr, diffDate, diffAmt) {
-  const box = $('#bSuggest');
-  box.innerHTML = '';
-  const title = document.createElement('p');
-  title.textContent = '🔎 อ่านจากหลักฐาน';
-  box.appendChild(title);
-  const f = form.elements;
-  if (ocr.amountFilled) {
-    const p = document.createElement('p');
-    p.className = 'hint';
-    p.textContent = `เติมยอด ${baht(ocr.amount)} ให้แล้ว (แก้ได้)`;
-    box.appendChild(p);
-  }
-  const btns = document.createElement('div');
-  btns.className = 'b-sg-btns';
-  if (diffDate) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'mini';
-    b.textContent = `ใช้วันที่ ${short(ocr.date)}/${String(+ocr.date.slice(0, 4) + 543).slice(2)}`;
-    b.onclick = () => { f.date.value = ocr.date; b.disabled = true; b.textContent = '✓ ' + b.textContent; };
-    btns.appendChild(b);
-  }
-  if (diffAmt && !ocr.amountFilled) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'mini';
-    b.textContent = `ใช้ยอด ${baht(ocr.amount)}`;
-    b.onclick = () => { f.amount.value = ocr.amount; b.disabled = true; b.textContent = '✓ ' + b.textContent; };
-    btns.appendChild(b);
-  }
-  if (btns.children.length) box.appendChild(btns);
-  const note = document.createElement('p');
-  note.className = 'hint';
-  note.textContent = 'ตรวจให้ถูกก่อนกดบันทึก (อ่านอัตโนมัติอาจผิดได้)';
-  box.appendChild(note);
-  box.hidden = false;
-}
-
 /* ย่อรูปก่อนส่ง (ประหยัดเน็ตและพื้นที่) + ทำรูปเล็กไว้แสดงในแอป */
 async function prepare(file) {
   if (file.type === 'application/pdf') {
@@ -796,8 +821,12 @@ function toB64(file) {
   });
 }
 
-/* ---------- ใบเบิก ---------- */
+/* ---------- ใบเบิก (แยก/รวม มี VAT · ไม่มี VAT) ---------- */
 const cDlg = $('#cDlg');
+let cVat = '*';
+$('#cSplit').checked = LS.get('claimSplit', false);
+$('#cSplit').onchange = () => { LS.set('claimSplit', $('#cSplit').checked); updateTotal(); };
+$('#cVat').querySelectorAll('button').forEach(x => x.onclick = () => { cVat = x.dataset.v; renderClaim(); });
 $('#btnClaim').onclick = () => {
   const ready = bills.filter(b => b.status === 'ready');
   const projs = [...new Set(ready.map(b => b.project || ''))];
@@ -805,6 +834,7 @@ $('#btnClaim').onclick = () => {
   sel.innerHTML = '';
   sel.add(new Option('ทั้งหมด', '*'));
   projs.forEach(p => sel.add(new Option(p || 'ไม่ระบุโปรเจ็ค', p)));
+  cVat = '*';
   renderClaim();
   cDlg.showModal();
 };
@@ -812,61 +842,115 @@ $('#cProj').onchange = renderClaim;
 function claimItems() {
   return [...$('#cList').querySelectorAll('input:checked')].map(i => bills.find(b => b.id === i.value)).filter(Boolean);
 }
+const isVat = b => vatOf(b) === 'yes';
 function renderClaim() {
   const p = $('#cProj').value;
-  const list = bills.filter(b => b.status === 'ready' && (p === '*' || (b.project || '') === p))
-    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  $('#cVat').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === cVat));
+  const list = bills.filter(b => b.status === 'ready' && (p === '*' || (b.project || '') === p)
+      && (cVat === '*' || (cVat === 'yes' ? isVat(b) : !isVat(b))))
+    .sort((a, b) => (isVat(b) - isVat(a)) || (a.date || '').localeCompare(b.date || ''));
   const box = $('#cList');
   box.innerHTML = '';
+  let lastGroup = null;
   list.forEach(b => {
+    const g = isVat(b) ? 'yes' : 'no';
+    if (cVat === '*' && g !== lastGroup) {
+      const h = document.createElement('p');
+      h.className = 'c-group';
+      h.textContent = g === 'yes' ? '🧾 มี VAT' : 'ไม่มี VAT';
+      box.appendChild(h);
+      lastGroup = g;
+    }
     const lab = document.createElement('label');
     lab.className = 'meet';
     lab.innerHTML = '<input type="checkbox" checked><span><span class="t"></span><span class="s"></span></span><b class="c-amt"></b>';
     lab.querySelector('input').value = b.id;
     lab.querySelector('.t').textContent = b.desc;
-    lab.querySelector('.s').textContent = [short(b.date), b.project, (b.files || []).map(f => KIND[f.kind].name).join(', ')].filter(Boolean).join(' · ');
+    lab.querySelector('.s').textContent = [short(b.date), b.project, isVat(b) ? 'VAT ' + baht(vatAmtOf(b)) : '', (b.files || []).map(f => KIND[f.kind].name).join(', ')].filter(Boolean).join(' · ');
     lab.querySelector('.c-amt').textContent = baht(b.amount);
     lab.querySelector('input').onchange = updateTotal;
     box.appendChild(lab);
   });
+  if (!list.length) box.innerHTML = '<p class="empty small">ไม่มีรายการพร้อมเบิกตามที่เลือก</p>';
   updateTotal();
 }
-function updateTotal() {
+function claimGroups() {
   const items = claimItems();
+  const v = items.filter(isVat), n = items.filter(b => !isVat(b));
+  const split = $('#cSplit').checked && v.length && n.length;
+  return { items, v, n, split };
+}
+function updateTotal() {
+  const { items, v, n, split } = claimGroups();
   $('#cTotal').textContent = `${baht(sum(items))} (${items.length} รายการ)`;
+  $('#cVatSum').textContent = items.length
+    ? `🧾 มี VAT ${baht(sum(v))} (ก่อน VAT ${baht(sum(v) - v.reduce((s, b) => s + vatAmtOf(b), 0))} · VAT ${baht(v.reduce((s, b) => s + vatAmtOf(b), 0))}) · ไม่มี VAT ${baht(sum(n))}` +
+      (split ? ' · จะออกเป็น 2 ใบ' : '')
+    : '';
+  $('#cSplitWrap').hidden = !(v.length && n.length);
   $('#btnSubmitted').disabled = !items.length;
 }
 function claimNo() {
   const d = new Date();
   return `เบิก-${String(d.getFullYear()).slice(2)}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 }
+/* ชุดเอกสาร: รวม = 1 ใบ (แบ่งหัวข้อ มี/ไม่มี VAT) | แยก = 2 ใบ เลขต่อท้าย -V / -N */
+function claimDocs() {
+  const { items, v, n, split } = claimGroups();
+  const no = claimNo();
+  if (split) return [{ no: no + '-V', title: 'รายการที่มี VAT (ใบกำกับภาษี)', groups: [['', v]] }, { no: no + '-N', title: 'รายการที่ไม่มี VAT', groups: [['', n]] }];
+  const groups = v.length && n.length ? [['มี VAT', v], ['ไม่มี VAT', n]] : [['', items]];
+  return [{ no, title: '', groups }];
+}
 $('#btnCopy').onclick = async () => {
-  const items = claimItems();
-  const rows = [['ลำดับ', 'วันที่', 'รายละเอียด', 'โปรเจ็ค', 'หมวด', 'หลักฐาน', 'จำนวนเงิน']]
-    .concat(items.map((b, i) => [i + 1, b.date, b.desc, b.project, b.cat, (b.files || []).map(f => KIND[f.kind].name).join(', '), Number(b.amount)]))
-    .concat([['', '', 'รวม', '', '', '', sum(items)]]);
+  const head = ['ลำดับ', 'วันที่', 'รายละเอียด', 'โปรเจ็ค', 'หมวด', 'หลักฐาน', 'VAT', 'ยอดก่อน VAT', 'ยอด VAT', 'จำนวนเงิน'];
+  const rows = [];
+  claimDocs().forEach((d, di) => {
+    if (di) rows.push([]);
+    rows.push([d.no + (d.title ? ' · ' + d.title : '')], head);
+    let i = 0;
+    d.groups.forEach(([g, list]) => {
+      if (g) rows.push(['', '', g]);
+      list.forEach(b => rows.push([++i, b.date, b.desc, b.project, b.cat, (b.files || []).map(f => KIND[f.kind].name).join(', '),
+        isVat(b) ? 'มี' : 'ไม่มี', Number(b.amount) - vatAmtOf(b), vatAmtOf(b), Number(b.amount)]));
+    });
+    const all = d.groups.flatMap(x => x[1]);
+    const vt = all.reduce((s, b) => s + vatAmtOf(b), 0);
+    rows.push(['', '', 'รวม', '', '', '', '', sum(all) - vt, vt, sum(all)]);
+  });
   const tsv = rows.map(r => r.join('\t')).join('\n');
   try { await navigator.clipboard.writeText(tsv); $('#btnCopy').textContent = '✅ คัดลอกแล้ว'; }
   catch { prompt('คัดลอกตารางนี้', tsv); }
   setTimeout(() => { $('#btnCopy').textContent = '📋 คัดลอกตาราง (วางใน Excel/อีเมล)'; }, 2500);
 };
 $('#btnPrint').onclick = () => {
-  const items = claimItems();
-  if (!items.length) return;
+  if (!claimItems().length) return;
   const p = $('#cProj').value;
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const rows = items.map((b, i) => `<tr><td>${i + 1}</td><td>${esc(b.date)}</td><td>${esc(b.desc)}${b.vendor ? '<br><small>' + esc(b.vendor) + '</small>' : ''}</td><td>${esc(b.project)}</td><td>${(b.files || []).map(f => `<a href="${esc(f.url)}">${esc(KIND[f.kind].name)}</a>`).join('<br>')}</td><td class="r">${Number(b.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td></tr>`).join('');
+  const docs = claimDocs();
+  const page = (d, idx) => {
+    let i = 0;
+    const all = d.groups.flatMap(x => x[1]);
+    const body = d.groups.map(([g, list]) => {
+      const vt = list.reduce((s, b) => s + vatAmtOf(b), 0);
+      return (g ? `<tr class="g"><td colspan="8">${esc(g)}</td></tr>` : '') + list.map(b => `<tr><td>${++i}</td><td>${esc(b.date)}</td><td>${esc(b.desc)}${b.vendor ? '<br><small>' + esc(b.vendor) + '</small>' : ''}</td><td>${esc(b.project)}</td><td>${(b.files || []).map(f => `<a href="${esc(f.url)}">${esc(KIND[f.kind].name)}</a>`).join('<br>')}</td><td class="r">${isVat(b) ? r2(Number(b.amount) - vatAmtOf(b)) : '-'}</td><td class="r">${isVat(b) ? r2(vatAmtOf(b)) : '-'}</td><td class="r">${r2(b.amount)}</td></tr>`).join('') +
+        (g ? `<tr class="sub"><td colspan="5" class="r">รวม${esc(g)}</td><td class="r">${vt ? r2(sum(list) - vt) : '-'}</td><td class="r">${vt ? r2(vt) : '-'}</td><td class="r">${r2(sum(list))}</td></tr>` : '');
+    }).join('');
+    const vt = all.reduce((s, b) => s + vatAmtOf(b), 0);
+    return `<section${idx ? ' class="pb"' : ''}><h1>ใบสรุปขอเบิกเงิน ${esc(d.no)}</h1><p>${d.title ? esc(d.title) + ' · ' : ''}${p === '*' ? '' : 'โปรเจ็ค/บริษัท: ' + esc(p || 'ไม่ระบุ') + ' · '}วันที่ ${new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })}</p>
+<table><thead><tr><th>#</th><th>วันที่</th><th>รายละเอียด</th><th>โปรเจ็ค</th><th>หลักฐาน</th><th class="r">ก่อน VAT</th><th class="r">VAT 7%</th><th class="r">จำนวนเงิน (บาท)</th></tr></thead>
+<tbody>${body}</tbody><tfoot><tr><td colspan="5" class="r">รวมทั้งสิ้น</td><td class="r">${vt ? r2(sum(all) - vt) : '-'}</td><td class="r">${vt ? r2(vt) : '-'}</td><td class="r">${r2(sum(all))}</td></tr></tfoot></table>
+<div class="sign"><div>ผู้ขอเบิก</div><div>ผู้อนุมัติ</div></div></section>`;
+  };
   const w = window.open('', '_blank');
   if (!w) { showStatus('เบราว์เซอร์บล็อกหน้าต่างใหม่ ลองอนุญาตป๊อปอัป'); return; }
-  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${claimNo()}</title>
+  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${docs.map(d => d.no).join(' + ')}</title>
 <style>body{font-family:"IBM Plex Sans Thai",system-ui,sans-serif;margin:32px;color:#111}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 16px;color:#555}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top;text-align:left}th{background:#f3f3f3}
-.r{text-align:right;white-space:nowrap}tfoot td{font-weight:600}.sign{margin-top:48px;display:flex;justify-content:space-between;font-size:13px}.sign div{width:40%;text-align:center;border-top:1px solid #999;padding-top:6px}
-a{color:#0f766e}</style></head><body>
-<h1>ใบสรุปขอเบิกเงิน ${esc(claimNo())}</h1><p>${p === '*' ? '' : 'โปรเจ็ค/บริษัท: ' + esc(p || 'ไม่ระบุ') + ' · '}วันที่ ${new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })}</p>
-<table><thead><tr><th>#</th><th>วันที่</th><th>รายละเอียด</th><th>โปรเจ็ค</th><th>หลักฐาน</th><th class="r">จำนวนเงิน (บาท)</th></tr></thead>
-<tbody>${rows}</tbody><tfoot><tr><td colspan="5" class="r">รวมทั้งสิ้น</td><td class="r">${sum(items).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td></tr></tfoot></table>
-<div class="sign"><div>ผู้ขอเบิก</div><div>ผู้อนุมัติ</div></div>
+.r{text-align:right;white-space:nowrap}tfoot td{font-weight:600}tr.g td{background:#eef6f5;font-weight:600}tr.sub td{font-weight:600;background:#fafafa}
+.sign{margin-top:48px;display:flex;justify-content:space-between;font-size:13px}.sign div{width:40%;text-align:center;border-top:1px solid #999;padding-top:6px}
+.pb{page-break-before:always;margin-top:48px}a{color:#0f766e}</style></head><body>
+${docs.map(page).join('')}
 <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
 };
@@ -874,9 +958,11 @@ $('#btnCCancel').onclick = () => cDlg.close();
 $('#btnSubmitted').onclick = async () => {
   const items = claimItems();
   if (!items.length) return;
+  const docs = claimDocs();
   cDlg.close();
   go('list/submitted');
-  await quickMark(items, 'submitted');
+  toast(`📤 ส่งเบิกแล้ว · ${items.length} รายการ` + (docs.length > 1 ? ' (2 ใบ)' : ''), () => mark(items.map(b => b.id), 'ready'));
+  for (const d of docs) await mark(d.groups.flatMap(x => x[1]).map(b => b.id), 'submitted', d.no);
 };
 
 /* เปลี่ยนสถานะแบบแตะเดียว + ปุ่มยกเลิก (ย้อนกลับได้ 6 วินาที) */

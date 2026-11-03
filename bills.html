@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=24">
+  <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body class="bills">
   <header class="top">
@@ -115,6 +115,14 @@
         </label>
         <label>ร้าน / ผู้ขาย <input name="vendor"></label>
       </div>
+      <div class="field">
+        <span class="field-label">VAT</span>
+        <div class="vat-row">
+          <div class="seg" id="bVat"><button type="button" data-v="yes">🧾 มี VAT 7%</button><button type="button" data-v="no">ไม่มี VAT</button></div>
+          <label class="vat-amt" id="bVatAmtWrap" hidden>ยอด VAT <input name="vatAmt" inputmode="decimal"></label>
+        </div>
+        <input type="hidden" name="vat">
+      </div>
 
       <div class="field">
         <span class="field-label" id="bFilesLbl">หลักฐาน</span>
@@ -177,8 +185,14 @@
       <label>โปรเจ็ค / บริษัท
         <select id="cProj"></select>
       </label>
+      <div class="field">
+        <span class="field-label">VAT</span>
+        <div class="seg" id="cVat"><button type="button" data-v="*">ทั้งหมด</button><button type="button" data-v="yes">มี VAT</button><button type="button" data-v="no">ไม่มี VAT</button></div>
+      </div>
+      <label class="chk" id="cSplitWrap"><input type="checkbox" id="cSplit"><span>แยกเอกสาร: ใบเบิก "มี VAT" กับ "ไม่มี VAT" คนละใบ</span></label>
       <div id="cList" class="c-list"></div>
       <p class="c-total">รวม <b id="cTotal">฿0</b></p>
+      <p class="c-vat hint" id="cVatSum"></p>
       <div class="c-actions">
         <button type="button" id="btnPrint" class="wide">🖨 พิมพ์ / บันทึก PDF</button>
         <button type="button" id="btnCopy" class="wide">📋 คัดลอกตาราง (วางใน Excel/อีเมล)</button>
@@ -191,6 +205,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=24"></script>
+  <script src="bills.js?v=25"></script>
 </body>
 </html>
