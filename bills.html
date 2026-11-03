@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=26">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body class="bills">
   <header class="top">
@@ -194,6 +194,26 @@
       <div id="cList" class="c-list"></div>
       <p class="c-total">รวม <b id="cTotal">฿0</b></p>
       <p class="c-vat hint" id="cVatSum"></p>
+      <details class="c-cfg" id="cCfg">
+        <summary>⚙ ข้อมูลบนใบเบิก (บริษัท · ผู้จ่าย · ผู้รับเงิน)</summary>
+        <div class="c-cfg-body">
+          <label>ชื่อบริษัท <input id="cfCompany"></label>
+          <label>ชื่อย่อ (ต่อท้ายหัวรายงาน) <input id="cfShort" placeholder="เช่น TIBD"></label>
+          <label>ที่อยู่ <input id="cfAddr"></label>
+          <label>โทร / อีเมล <input id="cfContact"></label>
+          <label>ผู้จ่ายเงิน (ลงชื่อ) <input id="cfPayer"></label>
+          <label>ผู้รับเงิน / ผู้สำรองจ่าย <input id="cfPayee" placeholder="ชื่อ-สกุล ของคุณ"></label>
+          <label>เลขบัตรประชาชนผู้รับเงิน <input id="cfPayeeId" inputmode="numeric" maxlength="17" placeholder="ไม่ใส่ก็ได้"></label>
+          <label>หักภาษี ณ ที่จ่าย (%) <input id="cfWht" inputmode="decimal" placeholder="0"></label>
+          <div class="id-up">
+            <span class="field-label">สำเนาบัตรประชาชน (แสดงในใบสำคัญรับเงิน)</span>
+            <div class="id-row"><button type="button" id="cfIdBtn" class="mini">📇 อัปโหลดสำเนาบัตรประชาชน</button><span id="cfIdState" class="hint"></span><button type="button" id="cfIdDel" class="mini" hidden>ลบ</button></div>
+            <label class="chk"><input type="checkbox" id="cfIdShow"><span>แนบรูปบัตรในใบสำคัญรับเงิน</span></label>
+            <input type="file" id="cfIdFile" accept="image/*" hidden>
+          </div>
+          <p class="hint">บันทึกให้อัตโนมัติ ใช้ได้ทุกเครื่อง</p>
+        </div>
+      </details>
       <div class="c-actions">
         <button type="button" id="btnPrint" class="wide">🖨 พิมพ์ / บันทึก PDF</button>
         <button type="button" id="btnCopy" class="wide">📋 คัดลอกตาราง (วางใน Excel/อีเมล)</button>
@@ -206,6 +226,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=26"></script>
+  <script src="bills.js?v=27"></script>
 </body>
 </html>

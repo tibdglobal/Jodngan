@@ -481,3 +481,10 @@ dialog label.chk span { flex: 1; min-width: 0; }
 .bf-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .bf-orig { border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 99px; padding: 2px 9px; font: inherit; font-size: 11.5px; cursor: pointer; }
 .bf-orig.on { border-color: #b45309; color: #92400e; background: #fef3c7; }
+
+.c-cfg { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--card); }
+.c-cfg summary { cursor: pointer; font-size: 14px; color: var(--text); }
+.c-cfg-body { display: grid; gap: 8px; margin-top: 10px; }
+.c-cfg-body .hint { margin: 0; }
+.id-up { display: grid; gap: 6px; }
+.id-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

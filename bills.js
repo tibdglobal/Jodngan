@@ -853,6 +853,7 @@ $('#btnClaim').onclick = () => {
   projs.forEach(p => sel.add(new Option(p || 'ไม่ระบุโปรเจ็ค', p)));
   cVat = '*';
   renderClaim();
+  loadCfg();
   cDlg.showModal();
 };
 $('#cProj').onchange = renderClaim;
@@ -943,61 +944,168 @@ $('#btnCopy').onclick = async () => {
   catch { prompt('คัดลอกตารางนี้', tsv); }
   setTimeout(() => { $('#btnCopy').textContent = '📋 คัดลอกตาราง (วางใน Excel/อีเมล)'; }, 2500);
 };
+/* ---------- ข้อมูลบนใบเบิก (เก็บที่ระบบ ใช้ได้ทุกเครื่อง) ---------- */
+const CFG_DEFAULT = { company: 'บริษัท ทีไอบีดี จำกัด', short: 'TIBD', addr: '8/24 ซอยนาวงประชาพัฒนา 6 แขวงสีกัน เขตดอนเมือง กรุงเทพมหานคร',
+  contact: 'โทร. 097-297-1777  Email : nutto0925@gmail.com', payer: 'นายณัชพล สมรักษ์', payee: 'นิติธร สีดำ', payeeId: '', wht: '', idFile: '', idShow: true };
+const CF = { company: '#cfCompany', short: '#cfShort', addr: '#cfAddr', contact: '#cfContact', payer: '#cfPayer', payee: '#cfPayee', payeeId: '#cfPayeeId', wht: '#cfWht' };
+let claimCfg = { ...CFG_DEFAULT, ...LS.get('claimCfg', {}) };
+function fillCfg() {
+  Object.entries(CF).forEach(([k, sel]) => { $(sel).value = claimCfg[k] || ''; });
+  $('#cfIdShow').checked = claimCfg.idShow !== false;
+  $('#cfIdState').textContent = claimCfg.idFile ? '✅ อัปโหลดแล้ว' : 'ยังไม่มี';
+  $('#cfIdDel').hidden = !claimCfg.idFile;
+  $('#cfIdBtn').textContent = claimCfg.idFile ? '📇 เปลี่ยนรูปบัตร' : '📇 อัปโหลดสำเนาบัตรประชาชน';
+}
+function saveCfg() { LS.set('claimCfg', claimCfg); clearTimeout(cfgTimer); cfgTimer = setTimeout(() => api('claim_cfg_set', { cfg: claimCfg }).catch(() => {}), 500); }
+$('#cfIdShow').onchange = () => { claimCfg.idShow = $('#cfIdShow').checked; saveCfg(); };
+$('#cfIdBtn').onclick = () => { $('#cfIdFile').value = ''; $('#cfIdFile').click(); };
+$('#cfIdFile').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('#cfIdState').textContent = 'กำลังอัปโหลด…';
+  try {
+    const prep = await prepare(file);
+    const r = await api('claim_idcard', { data: prep.data, mime: prep.mime });
+    claimCfg = { ...claimCfg, ...r.cfg };
+    if (r.idNo && !claimCfg.payeeId) claimCfg.payeeId = r.idNo;   // อ่านเลขบัตรจากรูปได้ = เติมให้
+    LS.set('claimCfg', claimCfg);
+    if (r.idNo) api('claim_cfg_set', { cfg: claimCfg }).catch(() => {});
+    fillCfg();
+    $('#cfIdState').textContent = '✅ อัปโหลดแล้ว' + (r.idNo ? ' · อ่านเลขบัตรให้แล้ว ตรวจอีกครั้ง' : '');
+  } catch (err) { $('#cfIdState').textContent = 'อัปโหลดไม่สำเร็จ: ' + err.message; }
+};
+$('#cfIdDel').onclick = async () => {
+  if (!confirm('ลบสำเนาบัตรประชาชนออกจากระบบ? (ไฟล์จะไปอยู่ถังขยะของ Google Drive)')) return;
+  try { const r = await api('claim_idcard', { remove: true }); claimCfg = { ...claimCfg, ...r.cfg }; LS.set('claimCfg', claimCfg); fillCfg(); }
+  catch (err) { showStatus('ลบไม่สำเร็จ: ' + err.message); }
+};
+let cfgTimer = null;
+Object.entries(CF).forEach(([k, sel]) => $(sel).addEventListener('input', () => {
+  claimCfg[k] = $(sel).value.trim();
+  saveCfg();
+}));
+async function loadCfg() {
+  fillCfg();
+  try { const { cfg } = await api('claim_cfg'); if (cfg && Object.keys(cfg).length) { claimCfg = { ...CFG_DEFAULT, ...cfg }; LS.set('claimCfg', claimCfg); fillCfg(); } } catch {}
+  if (!claimCfg.payee) $('#cCfg').open = true;   // ยังไม่ได้ใส่ชื่อผู้รับเงิน = เปิดให้กรอก
+}
+
+/* ตัวเลขเป็นคำอ่านภาษาไทย เช่น 5504 → ห้าพันห้าร้อยสี่บาทถ้วน */
+function bahtText(n) {
+  const D = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'], U = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+  const read = (s, high) => {
+    s = String(s).replace(/^0+/, '');
+    if (!s) return '';
+    if (s.length > 6) return read(s.slice(0, -6)) + 'ล้าน' + read(s.slice(-6), true);
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+      const d = +s[i], pos = s.length - i - 1;
+      if (!d) continue;
+      if (pos === 0 && d === 1 && (s.length > 1 || high)) out += 'เอ็ด';
+      else if (pos === 1 && d === 2) out += 'ยี่';
+      else if (pos === 1 && d === 1) out += '';
+      else out += D[d];
+      out += U[pos];
+    }
+    return out;
+  };
+  const [bt, st] = Math.abs(Number(n) || 0).toFixed(2).split('.');
+  return (read(bt) || 'ศูนย์') + 'บาท' + (+st ? read(st) + 'สตางค์' : 'ถ้วน');
+}
+const thDate = d => new Date((d || today()) + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+const thMonth = m => new Date(m + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+
+/* ---------- พิมพ์ใบเบิก: ใบสำคัญรับเงิน + รายงานสรุปแยกหมวด + รายการพร้อมภาพหลักฐาน ---------- */
 $('#btnPrint').onclick = async () => {
   if (!claimItems().length) return;
   const w = window.open('', '_blank');   // เปิดทันที (กันบล็อกป๊อปอัป) แล้วค่อยใส่เนื้อหา
   if (!w) { showStatus('เบราว์เซอร์บล็อกหน้าต่างใหม่ ลองอนุญาตป๊อปอัป'); return; }
   w.document.write('<p style="font-family:system-ui;padding:32px">กำลังเตรียมใบเบิกและภาพหลักฐาน…</p>');
-  const p = $('#cProj').value;
-  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const c = claimCfg;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const docs = claimDocs();
   const attach = $('#cAttach').checked;
-  // ภาพหลักฐานที่ต้องแนบท้าย (เฉพาะไฟล์ที่ไม่มีตัวจริง)
   let imgs = {};
   const need = attach ? docs.flatMap(d => d.groups.flatMap(g => g[1])).flatMap(b => (b.files || []).filter(f => !isOrig(f))).map(f => f.id) : [];
+  const showId = c.idFile && c.idShow !== false;
+  if (showId) need.push(c.idFile);
   if (need.length) { try { imgs = (await api('bill_images', { fileIds: need })).images || {}; } catch (e) { imgs = {}; } }
+  const idImg = showId && imgs[c.idFile] ? `<div class="idc"><img src="${imgs[c.idFile].src}" alt=""><small>รับรองสำเนาถูกต้อง ลงชื่อ ............................</small></div>` : '';
 
-  const page = (d, idx) => {
-    let i = 0, n = 0;
-    const all = d.groups.flatMap(x => x[1]);
-    const annex = [];   // [ลำดับภาพ, บิล, ไฟล์, ลำดับรายการ]
-    const proofCell = (b, row) => (b.files || []).map(f => {
-      const name = esc(KIND[f.kind].name);
-      if (isOrig(f)) return `${name} <span class="o">(ตัวจริงแนบแยก)</span>`;
-      if (!attach) return `<a href="${esc(f.url)}">${name}</a>`;
-      annex.push([++n, b, f, row]);
-      return `<a href="${esc(f.url)}">${name}</a> <span class="o">(ภาพ ${n})</span>`;
-    }).join('<br>') || '<span class="o">-</span>';
-    const body = d.groups.map(([g, list]) => {
-      const vt = list.reduce((s, b) => s + vatAmtOf(b), 0);
-      return (g ? `<tr class="g"><td colspan="8">${esc(g)}</td></tr>` : '') + list.map(b => { const row = ++i; return `<tr><td>${row}</td><td>${esc(b.date)}</td><td>${esc(b.desc)}${b.vendor ? '<br><small>' + esc(b.vendor) + '</small>' : ''}</td><td>${esc(b.project)}</td><td>${proofCell(b, row)}</td><td class="r">${isVat(b) ? r2(Number(b.amount) - vatAmtOf(b)) : '-'}</td><td class="r">${isVat(b) ? r2(vatAmtOf(b)) : '-'}</td><td class="r">${r2(b.amount)}</td></tr>`; }).join('') +
-        (g ? `<tr class="sub"><td colspan="5" class="r">รวม${esc(g)}</td><td class="r">${vt ? r2(sum(list) - vt) : '-'}</td><td class="r">${vt ? r2(vt) : '-'}</td><td class="r">${r2(sum(list))}</td></tr>` : '');
-    }).join('');
-    const vt = all.reduce((s, b) => s + vatAmtOf(b), 0);
-    const origN = all.filter(b => (b.files || []).some(isOrig)).length;
-    const annexHtml = annex.length ? `<section class="pb"><h2>เอกสารแนบ ${esc(d.no)}</h2>` + annex.map(([k, b, f, row]) => {
-      const im = imgs[f.id];
-      return `<figure><figcaption><b>ภาพ ${k}</b> · รายการที่ ${row} · ${esc(b.date)} · ${esc(b.desc)} · ${r2(b.amount)} บาท · ${esc(KIND[f.kind].name)}${im && im.pdf ? ' (หน้าแรกของ PDF)' : ''}</figcaption>` +
-        (im ? `<img src="${im.src}" alt="">` : `<p class="miss">โหลดภาพไม่ได้ · <a href="${esc(f.url)}">เปิดไฟล์</a></p>`) + '</figure>';
-    }).join('') + '</section>' : '';
-    return `<section${idx ? ' class="pb"' : ''}><h1>ใบสรุปขอเบิกเงิน ${esc(d.no)}</h1><p>${d.title ? esc(d.title) + ' · ' : ''}${p === '*' ? '' : 'โปรเจ็ค/บริษัท: ' + esc(p || 'ไม่ระบุ') + ' · '}วันที่ ${new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })}</p>
-<table><thead><tr><th>#</th><th>วันที่</th><th>รายละเอียด</th><th>โปรเจ็ค</th><th>หลักฐาน</th><th class="r">ก่อน VAT</th><th class="r">VAT 7%</th><th class="r">จำนวนเงิน (บาท)</th></tr></thead>
-<tbody>${body}</tbody><tfoot><tr><td colspan="5" class="r">รวมทั้งสิ้น</td><td class="r">${vt ? r2(sum(all) - vt) : '-'}</td><td class="r">${vt ? r2(vt) : '-'}</td><td class="r">${r2(sum(all))}</td></tr></tfoot></table>
-<p class="note">${[annex.length ? `แนบภาพหลักฐานท้ายเอกสาร ${annex.length} ภาพ` : '', origN ? `เอกสารตัวจริงแนบแยก ${origN} รายการ` : ''].filter(Boolean).join(' · ')}</p>
-<div class="sign"><div>ผู้ขอเบิก</div><div>ผู้อนุมัติ</div></div></section>${annexHtml}`;
+  const head = `<div class="co"><b>${esc(c.company)}</b><div>${esc(c.addr)}</div><div>${esc(c.contact)}</div></div>`;
+  const doc = (d, idx) => {
+    const all = d.groups.flatMap(x => x[1]).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const total = sum(all);
+    const months = [...new Set(all.map(b => (b.date || '').slice(0, 7)))].sort();
+    const period = months.length === 1 ? 'ประจำเดือน' + thMonth(months[0]) : 'ระหว่าง ' + thMonth(months[0]) + ' – ' + thMonth(months[months.length - 1]);
+    // แยกหมวด
+    const cats = [];
+    all.forEach(b => { const k = (b.cat || '').trim() || 'อื่นๆ'; let g = cats.find(x => x[0] === k); if (!g) cats.push(g = [k, []]); g[1].push(b); });
+    const wht = Number(c.wht) || 0, whtAmt = Math.round(total * wht) / 100, net = total - whtAmt;
+    const vatT = all.reduce((s, b) => s + vatAmtOf(b), 0);
+
+    // 1) ใบสำคัญรับเงิน
+    const voucher = `<section class="page${idx ? ' pb' : ''}">${head}
+<h1 class="vt">ใบสำคัญรับเงิน</h1>
+<p class="r">เลขที่ ${esc(d.no)}<br>วันที่ ${thDate(today())}</p>
+<p class="lb">รายละเอียดผู้รับเงิน</p>
+<div class="payee"><p>ชื่อ-สกุล: <b>${esc(c.payee) || '................................................'}</b><br>เลขบัตรประจำตัวประชาชน: <span class="id">${esc(c.payeeId) || '..............................................'}</span></p>${idImg}</div>
+<p>ได้รับเงินจาก${esc(c.company)} เรียบร้อยแล้ว ดังรายการต่อไปนี้ (เงินสำรองจ่าย ${period.replace('ประจำ', '')}${d.title ? ' · ' + esc(d.title) : ''})</p>
+<table class="bt"><thead><tr><th style="width:52px">ลำดับ</th><th>รายการ (หมวดหมู่)</th><th class="r" style="width:150px">จำนวนเงิน (บาท)</th><th style="width:120px">หมายเหตุ</th></tr></thead><tbody>
+${cats.map(([k, list], i) => `<tr><td class="c">${i + 1}</td><td>${esc(k)}</td><td class="r">${r2(sum(list))}</td><td>${list.length} รายการ</td></tr>`).join('')}
+${wht ? `<tr><td></td><td class="r">จำนวนเต็ม</td><td class="r">${r2(total)}</td><td></td></tr><tr><td></td><td class="r">หักภาษี ณ ที่จ่าย ${wht}%</td><td class="r">${r2(whtAmt)}</td><td></td></tr>` : ''}
+<tr class="tot"><td></td><td class="r">${wht ? 'รับจริง' : 'รวมทั้งสิ้น'}</td><td class="r">${r2(net)}</td><td></td></tr></tbody></table>
+<p><b>ตัวอักษร :</b> ${bahtText(net)}</p>
+${vatT ? `<p class="small">ในยอดนี้มีภาษีมูลค่าเพิ่ม ${r2(vatT)} บาท (ยอดก่อน VAT ${r2(total - vatT)} บาท)</p>` : ''}
+<div class="sign"><div>ลงชื่อ ................................................<br>( ${esc(c.payer) || '................................'} )<br>ผู้จ่ายเงิน</div><div>ลงชื่อ ................................................<br>( ${esc(c.payee) || '................................'} )<br>ผู้รับเงิน</div></div>
+<p class="foot">หมายเหตุ สำหรับบุคคลภายนอก การรับชำระเงินในแต่ละครั้ง ผู้รับเงินจะต้องแนบสำเนาบัตรประจำตัวประชาชน พร้อมลงลายมือชื่อรับรองเอกสาร</p></section>`;
+
+    // 2) รายงานสรุป + 3) รายละเอียดแต่ละหมวดพร้อมภาพ
+    let no = 0;
+    const item = b => {
+      no++;
+      const files = b.files || [];
+      const shots = attach ? files.filter(f => !isOrig(f)) : [];
+      const origs = files.filter(isOrig);
+      return `<div class="it"><h4>${no}. ${esc(b.desc)}</h4>
+<p class="meta">โปรเจค: ${esc(b.project || '-')} &nbsp;|&nbsp; จำนวนเงิน: ${r2(b.amount)} บาท &nbsp;|&nbsp; ที่มา: ${esc(b.vendor || '-')} &nbsp;|&nbsp; วันที่: ${thDate(b.date)}${isVat(b) ? ` &nbsp;|&nbsp; VAT ${r2(vatAmtOf(b))} บาท` : ''}</p>
+${b.note ? `<p class="note">หมายเหตุ: ${esc(b.note)}</p>` : ''}
+${origs.length ? `<p class="orig">📄 ${origs.map(f => esc(KIND[f.kind].name)).join(', ')} ตัวจริงแนบแยก</p>` : ''}
+${shots.map(f => imgs[f.id] ? `<img src="${imgs[f.id].src}" alt="">` : `<p class="miss">โหลดภาพไม่ได้ · <a href="${esc(f.url)}">เปิดไฟล์</a></p>`).join('')}
+${!files.length ? '<p class="miss">ยังไม่มีหลักฐาน</p>' : ''}</div>`;
+    };
+    const report = `<section class="page pb">
+<h2 class="rt">${esc(c.company)}${c.short ? ' (' + esc(c.short) + ')' : ''}</h2>
+<h3 class="rt">รายงานสรุปค่าใช้จ่ายสำรองจ่าย ${period}</h3>
+<p class="rt small">ผู้สำรองจ่าย: ${esc(c.payee || '-')} &nbsp;|&nbsp; จัดทำวันที่ ${thDate(today())} &nbsp;|&nbsp; เลขที่ ${esc(d.no)}${d.title ? ' &nbsp;|&nbsp; ' + esc(d.title) : ''}</p>
+<p class="lb">สรุปยอดรวมแต่ละหมวด</p>
+<table class="bt"><thead><tr><th>หมวดหมู่</th><th class="c" style="width:120px">จำนวนรายการ</th><th class="r" style="width:150px">ยอดรวม (บาท)</th></tr></thead><tbody>
+${cats.map(([k, list]) => `<tr><td>หมวด${esc(k)}</td><td class="c">${list.length}</td><td class="r">${r2(sum(list))}</td></tr>`).join('')}
+<tr class="tot"><td>รวมทั้งสิ้น</td><td class="c">${all.length}</td><td class="r">${r2(total)}</td></tr></tbody></table>
+${cats.map(([k, list]) => `<div class="cat"><p class="lb">หมวด${esc(k)}</p><p class="ct">รวมหมวดนี้ <b>${r2(sum(list))}</b> บาท (${list.length} รายการ)</p>${list.map(item).join('')}</div>`).join('')}
+</section>`;
+    return voucher + report;
   };
   w.document.open();
   w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${docs.map(d => d.no).join(' + ')}</title>
-<style>body{font-family:"IBM Plex Sans Thai",system-ui,sans-serif;margin:32px;color:#111}h1{font-size:20px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}p{margin:0 0 16px;color:#555}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #ccc;padding:6px 8px;vertical-align:top;text-align:left}th{background:#f3f3f3}
-.r{text-align:right;white-space:nowrap}tfoot td{font-weight:600}tr.g td{background:#eef6f5;font-weight:600}tr.sub td{font-weight:600;background:#fafafa}
-.o{color:#777;font-size:11.5px}.note{margin-top:8px;font-size:12.5px}
-.sign{margin-top:48px;display:flex;justify-content:space-between;font-size:13px}.sign div{width:40%;text-align:center;border-top:1px solid #999;padding-top:6px}
-.pb{page-break-before:always;margin-top:48px}a{color:#0f766e}
-figure{margin:0 0 20px;break-inside:avoid;page-break-inside:avoid}figcaption{font-size:12.5px;margin-bottom:6px;color:#333}
-figure img{display:block;max-width:100%;max-height:23cm;border:1px solid #ddd}.miss{color:#b45309}</style></head><body>
-${docs.map(page).join('')}
-<script>window.onload=()=>setTimeout(()=>window.print(),500)<\/script></body></html>`);
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<style>@page{size:A4;margin:14mm 14mm}body{font-family:"Sarabun","TH Sarabun New",system-ui,sans-serif;color:#111;font-size:14px;margin:0}
+.page{max-width:780px;margin:0 auto}.pb{page-break-before:always;break-before:page}
+.co{text-align:center;line-height:1.5;margin-bottom:6px}.co b{font-size:18px}
+h1.vt{text-align:center;font-size:20px;margin:10px 0 0}.rt{text-align:center;margin:2px 0}h2.rt{font-size:19px}h3.rt{font-size:17px}
+p{margin:6px 0}.r{text-align:right}.c{text-align:center}.small{font-size:12.5px;color:#444}.lb{font-weight:700;margin-top:14px}
+table.bt{width:100%;border-collapse:collapse;margin:8px 0}table.bt th{background:#1d5fbf;color:#fff;font-weight:600;padding:7px 8px;border:1px solid #1d5fbf}
+table.bt td{border:1px solid #999;padding:6px 8px}table.bt tr.tot td{font-weight:700;background:#f1f4f9}
+.sign{display:flex;justify-content:space-between;margin-top:40px;text-align:center;line-height:2}.sign div{width:46%}
+.payee{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.idc{flex:none;text-align:center}.idc img{display:block;width:8.6cm;max-height:5.6cm;object-fit:contain;border:1px solid #ccc}.idc small{font-size:11px;color:#444}
+.foot{font-size:11.5px;color:#444;margin-top:28px;border-top:1px solid #ccc;padding-top:6px}.id{letter-spacing:2px}
+.cat{margin-top:18px}.cat>.lb,.ct{break-after:avoid;page-break-after:avoid}.ct{color:#444}.ct b{color:#c2410c;font-size:16px}
+.it{margin:14px 0 18px;break-inside:avoid-page}.it h4{font-size:16px;margin:0}.meta{font-size:13px;color:#333;margin:2px 0}
+.note{color:#b91c1c;font-style:italic;font-size:13px}.orig{font-size:13px;color:#92400e}.miss{color:#b45309;font-size:13px}
+.it img{display:block;max-width:100%;max-height:10.5cm;margin:6px 0;border:1px solid #ddd;break-inside:avoid}
+a{color:#0f766e}</style></head><body>
+${docs.map(doc).join('')}
+<script>window.onload=()=>setTimeout(()=>window.print(),700)<\/script></body></html>`);
   w.document.close();
 };
 $('#btnCCancel').onclick = () => cDlg.close();
