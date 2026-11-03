@@ -887,6 +887,7 @@ $('#btnClaim').onclick = () => {
   sel.add(new Option('ทั้งหมด', '*'));
   projs.forEach(p => sel.add(new Option(p || 'ไม่ระบุโปรเจ็ค', p)));
   cVat = '*';
+  $('#cDate').value = today();
   renderClaim();
   loadCfg();
   cDlg.showModal();
@@ -946,14 +947,15 @@ function updateTotal() {
   $('#cAttachN').textContent = items.length ? `แนบภาพ ${att} ไฟล์ · ใช้ตัวจริง ${fs.length - att} ไฟล์` : '';
   $('#btnSubmitted').disabled = !items.length;
 }
-function claimNo() {
-  const d = new Date();
+const claimDate = () => $('#cDate').value || today();   // วันที่ในใบเบิก (แก้ได้)
+function claimNo(ymdStr) {
+  const d = new Date((ymdStr || today()) + 'T00:00:00');
   return `เบิก-${String(d.getFullYear()).slice(2)}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
 }
 /* ชุดเอกสาร: รวม = 1 ใบ (แบ่งหัวข้อ มี/ไม่มี VAT) | แยก = 2 ใบ เลขต่อท้าย -V / -N */
 function claimDocs() {
   const { items, v, n, split } = claimGroups();
-  const no = claimNo();
+  const no = claimNo(claimDate());
   if (split) return [{ no: no + '-V', title: 'รายการที่มี VAT (ใบกำกับภาษี)', groups: [['', v]] }, { no: no + '-N', title: 'รายการที่ไม่มี VAT', groups: [['', n]] }];
   const groups = v.length && n.length ? [['มี VAT', v], ['ไม่มี VAT', n]] : [['', items]];
   return [{ no, title: '', groups }];
@@ -1098,7 +1100,7 @@ $('#btnPrint').onclick = async () => {
       if (i === 6) rem = `<td class="sb"><span>รับจริง</span><b>${r2(net)}</b><span>บาท</span></td>`;
       return `<tr><td class="c">${i + 1}</td><td></td><td>${g ? esc(g[0]) : ''}</td><td class="r">${g ? r2(sum(g[1])) : ''}</td>${rem}</tr>`;
     }).join('');
-    const vDate = (() => { const t = new Date(); const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return `${t.getDate()}-${M[t.getMonth()]}-${String(t.getFullYear() + 543).slice(2)}`; })();
+    const vDate = (() => { const t = new Date(claimDate() + 'T00:00:00'); const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return `${t.getDate()}-${M[t.getMonth()]}-${String(t.getFullYear() + 543).slice(2)}`; })();
     const idCard = showId && imgs[c.idFile] ? `<img class="idimg" src="${imgs[c.idFile].src}" alt="">` : '';
     const voucher = `<section class="page vch${idx ? ' pb' : ''}">
 <div class="vh"><img class="logo" src="${new URL('logo-tibd.png', location.href).href}" alt="" onerror="this.remove()"><div><b>${esc(c.company)}</b><b>${esc(c.addr)}</b><b>${esc(c.contact)}</b></div></div>
@@ -1151,7 +1153,7 @@ ${!files.length ? '<p class="miss">ยังไม่มีหลักฐาน
     const report = `<section class="page pb">
 <h2 class="rt">${esc(c.company)}${c.short ? ' (' + esc(c.short) + ')' : ''}</h2>
 <h3 class="rt">รายงานสรุปค่าใช้จ่ายสำรองจ่าย ${period}</h3>
-<p class="rt small">ผู้สำรองจ่าย: ${esc(c.payee || '-')} &nbsp;|&nbsp; จัดทำวันที่ ${thDate(today())} &nbsp;|&nbsp; เลขที่ ${esc(d.no)}${d.title ? ' &nbsp;|&nbsp; ' + esc(d.title) : ''}</p>
+<p class="rt small">ผู้สำรองจ่าย: ${esc(c.payee || '-')} &nbsp;|&nbsp; จัดทำวันที่ ${thDate(claimDate())} &nbsp;|&nbsp; เลขที่ ${esc(d.no)}${d.title ? ' &nbsp;|&nbsp; ' + esc(d.title) : ''}</p>
 <p class="lb">สรุปยอดรวมแต่ละหมวด</p>
 <table class="bt"><thead><tr><th>หมวดหมู่</th><th class="c" style="width:120px">จำนวนรายการ</th><th class="r" style="width:150px">ยอดรวม (บาท)</th></tr></thead><tbody>
 ${cats.map(([k, list]) => `<tr><td>หมวด${esc(k)}</td><td class="c">${list.length}</td><td class="r">${r2(sum(list))}</td></tr>`).join('')}

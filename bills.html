@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=29">
+  <link rel="stylesheet" href="style.css?v=30">
 </head>
 <body class="bills">
   <header class="top">
@@ -182,9 +182,12 @@
   <dialog id="cDlg" class="wide-dlg">
     <form method="dialog" id="cForm">
       <h2>สร้างใบเบิก</h2>
-      <label>โปรเจ็ค / บริษัท
-        <select id="cProj"></select>
-      </label>
+      <div class="row">
+        <label>วันที่ในใบเบิก <input type="date" id="cDate"></label>
+        <label>โปรเจ็ค / บริษัท
+          <select id="cProj"></select>
+        </label>
+      </div>
       <div class="field">
         <span class="field-label">VAT</span>
         <div class="seg" id="cVat"><button type="button" data-v="*">ทั้งหมด</button><button type="button" data-v="yes">มี VAT</button><button type="button" data-v="no">ไม่มี VAT</button></div>
@@ -229,6 +232,6 @@
     </form>
   </dialog>
 
-  <script src="bills.js?v=29"></script>
+  <script src="bills.js?v=30"></script>
 </body>
 </html>
