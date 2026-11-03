@@ -471,12 +471,12 @@ a.icon-btn { text-decoration: none; color: inherit; }
 .vat-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 dialog label.vat-amt { display: flex; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
 dialog .vat-amt input { width: 130px; }
-dialog label.chk { display: flex; width: 100%; box-sizing: border-box; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); margin: 0; }
-dialog label.chk input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; }
-dialog label.chk[hidden] { display: none; }
+dialog label.cchk { display: flex; width: 100%; box-sizing: border-box; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text); margin: 0; }
+dialog label.cchk input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; }
+dialog label.cchk[hidden] { display: none; }
 .c-group { margin: 10px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .c-vat { margin-top: -6px; font-size: 12.5px; }
-dialog label.chk span { flex: 1; min-width: 0; }
+dialog label.cchk span { flex: 1; min-width: 0; }
 
 .bf-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .bf-orig { border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 99px; padding: 2px 9px; font: inherit; font-size: 11.5px; cursor: pointer; }
