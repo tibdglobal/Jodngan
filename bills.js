@@ -946,8 +946,8 @@ $('#btnCopy').onclick = async () => {
 };
 /* ---------- ข้อมูลบนใบเบิก (เก็บที่ระบบ ใช้ได้ทุกเครื่อง) ---------- */
 const CFG_DEFAULT = { company: 'บริษัท ทีไอบีดี จำกัด', short: 'TIBD', addr: '8/24 ซอยนาวงประชาพัฒนา 6 แขวงสีกัน เขตดอนเมือง กรุงเทพมหานคร',
-  contact: 'โทร. 097-297-1777  Email : nutto0925@gmail.com', payer: 'นายณัชพล สมรักษ์', payee: 'นิติธร สีดำ', payeeId: '', wht: '', idFile: '', idShow: true };
-const CF = { company: '#cfCompany', short: '#cfShort', addr: '#cfAddr', contact: '#cfContact', payer: '#cfPayer', payee: '#cfPayee', payeeId: '#cfPayeeId', wht: '#cfWht' };
+  contact: 'โทร. 097-297-1777  Email : nutto0925@gmail.com', payer: 'นายณัชพล สมรักษ์', payee: 'นิติธร สีดำ', payeeAddr: '', payeeId: '', wht: '', idFile: '', idShow: true };
+const CF = { company: '#cfCompany', short: '#cfShort', addr: '#cfAddr', contact: '#cfContact', payer: '#cfPayer', payee: '#cfPayee', payeeAddr: '#cfPayeeAddr', payeeId: '#cfPayeeId', wht: '#cfWht' };
 let claimCfg = { ...CFG_DEFAULT, ...LS.get('claimCfg', {}) };
 function fillCfg() {
   Object.entries(CF).forEach(([k, sel]) => { $(sel).value = claimCfg[k] || ''; });
@@ -1030,7 +1030,6 @@ $('#btnPrint').onclick = async () => {
   const showId = c.idFile && c.idShow !== false;
   if (showId) need.push(c.idFile);
   if (need.length) { try { imgs = (await api('bill_images', { fileIds: need })).images || {}; } catch (e) { imgs = {}; } }
-  const idImg = showId && imgs[c.idFile] ? `<div class="idc"><img src="${imgs[c.idFile].src}" alt=""><small>รับรองสำเนาถูกต้อง ลงชื่อ ............................</small></div>` : '';
 
   const head = `<div class="co"><b>${esc(c.company)}</b><div>${esc(c.addr)}</div><div>${esc(c.contact)}</div></div>`;
   const doc = (d, idx) => {
@@ -1044,21 +1043,48 @@ $('#btnPrint').onclick = async () => {
     const wht = Number(c.wht) || 0, whtAmt = Math.round(total * wht) / 100, net = total - whtAmt;
     const vatT = all.reduce((s, b) => s + vatAmtOf(b), 0);
 
-    // 1) ใบสำคัญรับเงิน
-    const voucher = `<section class="page${idx ? ' pb' : ''}">${head}
-<h1 class="vt">ใบสำคัญรับเงิน</h1>
-<p class="r">เลขที่ ${esc(d.no)}<br>วันที่ ${thDate(today())}</p>
-<p class="lb">รายละเอียดผู้รับเงิน</p>
-<div class="payee"><p>ชื่อ-สกุล: <b>${esc(c.payee) || '................................................'}</b><br>เลขบัตรประจำตัวประชาชน: <span class="id">${esc(c.payeeId) || '..............................................'}</span></p>${idImg}</div>
-<p>ได้รับเงินจาก${esc(c.company)} เรียบร้อยแล้ว ดังรายการต่อไปนี้ (เงินสำรองจ่าย ${period.replace('ประจำ', '')}${d.title ? ' · ' + esc(d.title) : ''})</p>
-<table class="bt"><thead><tr><th style="width:52px">ลำดับ</th><th>รายการ (หมวดหมู่)</th><th class="r" style="width:150px">จำนวนเงิน (บาท)</th><th style="width:120px">หมายเหตุ</th></tr></thead><tbody>
-${cats.map(([k, list], i) => `<tr><td class="c">${i + 1}</td><td>${esc(k)}</td><td class="r">${r2(sum(list))}</td><td>${list.length} รายการ</td></tr>`).join('')}
-${wht ? `<tr><td></td><td class="r">จำนวนเต็ม</td><td class="r">${r2(total)}</td><td></td></tr><tr><td></td><td class="r">หักภาษี ณ ที่จ่าย ${wht}%</td><td class="r">${r2(whtAmt)}</td><td></td></tr>` : ''}
-<tr class="tot"><td></td><td class="r">${wht ? 'รับจริง' : 'รวมทั้งสิ้น'}</td><td class="r">${r2(net)}</td><td></td></tr></tbody></table>
-<p><b>ตัวอักษร :</b> ${bahtText(net)}</p>
-${vatT ? `<p class="small">ในยอดนี้มีภาษีมูลค่าเพิ่ม ${r2(vatT)} บาท (ยอดก่อน VAT ${r2(total - vatT)} บาท)</p>` : ''}
-<div class="sign"><div>ลงชื่อ ................................................<br>( ${esc(c.payer) || '................................'} )<br>ผู้จ่ายเงิน</div><div>ลงชื่อ ................................................<br>( ${esc(c.payee) || '................................'} )<br>ผู้รับเงิน</div></div>
-<p class="foot">หมายเหตุ สำหรับบุคคลภายนอก การรับชำระเงินในแต่ละครั้ง ผู้รับเงินจะต้องแนบสำเนาบัตรประจำตัวประชาชน พร้อมลงลายมือชื่อรับรองเอกสาร</p></section>`;
+    // 1) ใบสำคัญรับเงิน (ตามฟอร์มบริษัท)
+    const idDigits = String(c.payeeId || '').replace(/\D/g, '').padEnd(13, ' ').slice(0, 13).split('');
+    const boxes = (arr) => `<div class="bx">${arr.map(x => `<span>${x.trim() ? esc(x) : '&nbsp;'}</span>`).join('')}</div>`;
+    const ROWS = Math.max(13, cats.length);
+    const rows = Array.from({ length: ROWS }, (_, i) => {
+      const g = cats[i];
+      let rem = '';
+      if (i < 4 || i >= 7) rem = i === 7 ? `<td class="rem" rowspan="${ROWS - 7}"></td>` : (i > 7 ? '' : '<td class="rem"></td>');
+      if (i === 4) rem = `<td class="sb"><span>จำนวนเต็ม</span><b>${r2(total)}</b><span>บาท</span></td>`;
+      if (i === 5) rem = `<td class="sb tax"><span>ภาษี</span><i>${wht ? wht : ''}</i><span>%</span><b>${wht ? r2(whtAmt) : ''}</b><span>บาท</span></td>`;
+      if (i === 6) rem = `<td class="sb"><span>รับจริง</span><b>${r2(net)}</b><span>บาท</span></td>`;
+      return `<tr><td class="c">${i + 1}</td><td></td><td>${g ? esc(g[0]) : ''}</td><td class="r">${g ? r2(sum(g[1])) : ''}</td>${rem}</tr>`;
+    }).join('');
+    const vDate = (() => { const t = new Date(); const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return `${t.getDate()}-${M[t.getMonth()]}-${String(t.getFullYear() + 543).slice(2)}`; })();
+    const idCard = showId && imgs[c.idFile] ? `<img class="idimg" src="${imgs[c.idFile].src}" alt="">` : '';
+    const voucher = `<section class="page vch${idx ? ' pb' : ''}">
+<div class="vh"><img class="logo" src="${new URL('logo-tibd.png', location.href).href}" alt="" onerror="this.remove()"><div><b>${esc(c.company)}</b><b>${esc(c.addr)}</b><b>${esc(c.contact)}</b></div></div>
+<div class="vt-row"><div class="vt">ใบสำคัญรับเงิน</div></div>
+<div class="vdate">วันที่ <span class="dl">${vDate}</span></div>
+<div class="pl">
+  <div class="pl-l">
+    <p class="lb">รายละเอียดผู้รับเงิน</p>
+    <div class="pf"><span>ชื่อ</span><div class="ln">${idCard ? '' : esc(c.payee)}</div></div>
+    <div class="pf"><span>ที่อยู่</span><div class="ln">${idCard ? '' : esc(c.payeeAddr || '')}</div></div>
+    <div class="pf"><span></span><div class="ln"></div></div>
+    <div class="pf"><span></span><div class="ln"></div></div>
+    ${idCard}
+  </div>
+  <div class="pl-r">
+    <div>เลขที่บัตรประจำตัวประชาชน</div>${boxes(idDigits)}
+    <div>เลขที่ประจำตัวผู้เสียภาษี</div>${boxes(Array(10).fill(' '))}
+  </div>
+</div>
+<p class="rcv">ได้รับเงินจาก${esc(c.company)} เรียบร้อยแล้ว ดังรายการต่อไปนี้</p>
+<table class="vtb"><colgroup><col style="width:9%"><col style="width:15%"><col style="width:36%"><col style="width:14%"><col style="width:26%"></colgroup>
+<thead><tr><th>ลำดับที่</th><th>รหัสส่วนงาน</th><th>รายการ</th><th>จำนวนเงิน<br>(บาท)</th><th>หมายเหตุ</th></tr></thead>
+<tbody>${rows}
+<tr class="wd"><td>ตัวอักษร</td><td colspan="2" class="c">${bahtText(total)}</td><td class="r">${r2(total)}</td><td class="rem"></td></tr></tbody></table>
+<div class="vsg"><div><div>ลงชื่อ <span class="dl w"></span></div><div>( <span class="dl n">${esc(c.payer)}</span> )</div><div>ผู้จ่าย</div></div>
+<div><div>ลงชื่อ <span class="dl w"></span></div><div>( <span class="dl n">${esc(c.payee)}</span> )</div><div>ผู้รับเงิน</div></div></div>
+<div class="vft"><u>หมายเหตุ&nbsp; สำหรับบุคคลภายนอก&nbsp; การรับชำระเงินในแต่ละครั้ง&nbsp; ผู้รับเงินจะต้องแนบสำเนาบัตรประจำตัวประชาชน</u><br>พร้อมลงลายมือชื่อรับรองเอกสาร</div>
+</section>`;
 
     // 2) รายงานสรุป + 3) รายละเอียดแต่ละหมวดพร้อมภาพ
     let no = 0;
@@ -1097,6 +1123,21 @@ p{margin:6px 0}.r{text-align:right}.c{text-align:center}.small{font-size:12.5px;
 table.bt{width:100%;border-collapse:collapse;margin:8px 0}table.bt th{background:#1d5fbf;color:#fff;font-weight:600;padding:7px 8px;border:1px solid #1d5fbf}
 table.bt td{border:1px solid #999;padding:6px 8px}table.bt tr.tot td{font-weight:700;background:#f1f4f9}
 .sign{display:flex;justify-content:space-between;margin-top:40px;text-align:center;line-height:2}.sign div{width:46%}
+.vch{font-family:"Sarabun",serif;font-size:15px}.vh{display:flex;align-items:center;gap:14px}.vh .logo{height:58px}.vh b{display:block;font-size:16.5px;line-height:1.35}
+.vt-row{margin:8px 0 0}.vt{display:inline-block;border:1.5px solid #000;padding:4px 44px;font-weight:700;font-size:18px}
+.vdate{text-align:right;margin:2px 0 4px}.dl{display:inline-block;min-width:150px;border-bottom:1px dotted #000;text-align:center;padding:0 6px}.dl.w{min-width:230px}.dl.n{min-width:230px}
+.pl{display:flex;gap:16px;align-items:flex-start}.pl-l{flex:1;position:relative;min-height:196px}.pl-r{width:47%;padding-top:20px;font-size:14.5px}
+.lb{font-weight:700;margin:0 0 6px}.pf{display:flex;align-items:flex-end;gap:10px;height:28px}.pf span{width:44px}.pf .ln{flex:1;border-bottom:1px dotted #000;padding:0 4px 1px}
+.idimg{position:absolute;left:48px;top:22px;width:7.2cm;height:4.55cm;object-fit:contain;object-position:left top;border-radius:6px}
+.bx{display:flex;margin:2px 0 8px}.bx span{width:22px;height:24px;border:1px solid #2b4ccf;margin-left:-1px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.rcv{margin:14px 0 4px}
+table.vtb{width:100%;border-collapse:collapse;table-layout:fixed}table.vtb th,table.vtb td{border:1px solid #000;padding:1px 6px;height:22px;font-size:14px}
+table.vtb th{font-weight:700;text-align:center;line-height:1.25}
+table.vtb td.sb{padding:0 4px}table.vtb td.sb{display:table-cell}.sb span,.sb b,.sb i{display:inline-block}.sb span:first-child{width:66px}.sb b{width:calc(100% - 66px - 36px);text-align:right;font-weight:400;border-bottom:1px dotted #000}.sb span:last-child{width:30px;text-align:right}
+.sb.tax span:first-child{width:46px;text-align:center}.sb.tax i{width:26px;font-style:normal;text-align:center;border-left:1px solid #000;border-right:1px solid #000}.sb.tax span:nth-child(3){width:18px;text-align:center}.sb.tax b{width:calc(100% - 46px - 26px - 18px - 36px)}
+tr.wd td:first-child{white-space:nowrap;font-size:13.5px;padding:2px 3px}
+.vsg{display:flex;justify-content:space-between;border:1px solid #000;border-bottom:0;margin-top:6px;padding:10px 16px 6px}.vsg>div{width:48%;line-height:1.95}.vsg>div>div:last-child{text-align:center}.vsg>div>div:nth-child(2){padding-left:26px}
+.vft{border:1px solid #000;text-align:center;font-size:13.5px;padding:6px 8px;line-height:1.9}
 .payee{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.idc{flex:none;text-align:center}.idc img{display:block;width:8.6cm;max-height:5.6cm;object-fit:contain;border:1px solid #ccc}.idc small{font-size:11px;color:#444}
 .foot{font-size:11.5px;color:#444;margin-top:28px;border-top:1px solid #ccc;padding-top:6px}.id{letter-spacing:2px}
 .cat{margin-top:18px}.cat>.lb,.ct{break-after:avoid;page-break-after:avoid}.ct{color:#444}.ct b{color:#c2410c;font-size:16px}
