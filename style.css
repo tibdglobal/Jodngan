@@ -1270,3 +1270,7 @@ body.pv-on { overflow: hidden; }
   body.printing .pv-bar { display: none !important; }
   body.printing #pvDoc { margin: 0 !important; padding: 0 !important; box-shadow: none !important; width: auto !important; zoom: 1 !important; }
 }
+#pv:not([hidden]) { display: flex; flex-direction: column; align-items: center; }
+#pv .pv-bar { align-self: stretch; }
+#pvDoc { flex: none; }
+@media print { body.printing #pv { display: block !important; } }
