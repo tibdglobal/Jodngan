@@ -1055,11 +1055,49 @@ const thDate = d => new Date((d || today()) + 'T00:00:00').toLocaleDateString('t
 const thMonth = m => new Date(m + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
 
 /* ---------- พิมพ์ใบเบิก: ใบสำคัญรับเงิน + รายงานสรุปแยกหมวด + รายการพร้อมภาพหลักฐาน ---------- */
+/* ---------- ดูตัวอย่างใบเบิกในแอป + พิมพ์ ---------- */
+// ใส่ #pvDoc นำหน้าทุก selector ให้สไตล์ใบเบิกไม่ไปโดนหน้าแอป (body → #pvDoc)
+function scopeCss(css) {
+  return css.replace(/(^|\})\s*([^{}@][^{}]*)\{/g, (m, b, sel) =>
+    b + sel.split(',').map(x => { x = x.trim(); return x === 'body' ? '#pvDoc' : '#pvDoc ' + x; }).join(',') + '{');
+}
+// แสดงเป็นกระดาษ A4 (กว้าง 794px) ย่อให้พอดีจอ — ตอนพิมพ์ใช้ขนาดจริง
+function pvFit() {
+  const d = $('#pvDoc');
+  if (d) d.style.zoom = Math.min(1, (window.innerWidth - 16) / 794);
+}
+window.addEventListener('resize', pvFit);
+function pvOpen(html, title) {
+  let pv = $('#pv');
+  if (!pv) {
+    if (!document.getElementById('pvFont')) {
+      const l = document.createElement('link');
+      l.id = 'pvFont'; l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap';
+      document.head.appendChild(l);
+    }
+    pv = document.createElement('div');
+    pv.id = 'pv';
+    pv.innerHTML = '<div class="pv-bar"><button type="button" id="pvClose" class="ghost">‹ กลับ</button><b id="pvTitle">ใบเบิก</b><button type="button" id="pvPrint" class="primary">🖨 พิมพ์ / บันทึก PDF</button></div><div id="pvDoc"></div>';
+    document.body.appendChild(pv);
+    $('#pvClose').onclick = () => { pv.hidden = true; document.body.classList.remove('pv-on'); };
+    $('#pvPrint').onclick = () => { document.body.classList.add('printing'); setTimeout(() => { window.print(); }, 50); };
+    window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
+  }
+  $('#pvTitle').textContent = title || 'ใบเบิก';
+  $('#pvPrint').disabled = !title;
+  $('#pvDoc').innerHTML = html;
+  pv.hidden = false;
+  document.body.classList.add('pv-on');
+  pvFit();
+  cDlg.open && cDlg.close();
+  pv.scrollTop = 0;
+}
+
 $('#btnPrint').onclick = async () => {
   if (!claimItems().length) return;
-  const w = window.open('', '_blank');   // เปิดทันที (กันบล็อกป๊อปอัป) แล้วค่อยใส่เนื้อหา
-  if (!w) { showStatus('เบราว์เซอร์บล็อกหน้าต่างใหม่ ลองอนุญาตป๊อปอัป'); return; }
-  w.document.write('<p style="font-family:system-ui;padding:32px">กำลังเตรียมใบเบิกและภาพหลักฐาน…</p>');
+  // แสดงในแอป (ไม่ใช้หน้าต่างใหม่ — iPad/iPhone มักบล็อกป๊อปอัป)
+  pvOpen('<p class="pv-wait">กำลังเตรียมใบเบิกและภาพหลักฐาน… (ถ้ามี PDF อาจใช้เวลาราว 30 วินาที)</p>');
   const c = claimCfg;
   const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const docs = claimDocs();
@@ -1164,10 +1202,7 @@ ${cats.map(([k, list]) => `<div class="cat${full ? ' fc' : ''}"><p class="lb">�
 </section>`;
     return voucher + report;
   };
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${docs.map(d => d.no).join(' + ')}</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-<style>@page{size:A4;margin:14mm 14mm}body{font-family:"Sarabun","TH Sarabun New",system-ui,sans-serif;color:#111;font-size:14px;margin:0}
+  const css = `@page{size:A4;margin:14mm 14mm}body{font-family:"Sarabun","TH Sarabun New",system-ui,sans-serif;color:#111;font-size:14px;margin:0}
 .page{max-width:780px;margin:0 auto}.pb{page-break-before:always;break-before:page}
 .co{text-align:center;line-height:1.5;margin-bottom:6px}.co b{font-size:18px}
 h1.vt{text-align:center;font-size:20px;margin:10px 0 0}.rt{text-align:center;margin:2px 0}h2.rt{font-size:19px}h3.rt{font-size:17px}
@@ -1198,10 +1233,8 @@ tr.wd td:first-child{white-space:nowrap;font-size:13.5px;padding:2px 3px}
 .it img{display:block;max-width:100%;max-height:10.5cm;margin:6px 0;border:1px solid #ddd;break-inside:avoid}
 .fc{break-before:page;page-break-before:always}.it.big.nb{break-before:page;page-break-before:always}.it.big{break-inside:auto}
 .it.big img{max-height:240mm;margin:6px auto;object-fit:contain}.it.big:not(.nb)>img:first-of-type{max-height:212mm}.pgw{break-before:page;page-break-before:always}.pgw img{max-height:258mm}.cap{font-size:12px;color:#555;margin:2px 0}
-a{color:#0f766e}</style></head><body>
-${docs.map(doc).join('')}
-<script>window.onload=()=>setTimeout(()=>window.print(),700)<\/script></body></html>`);
-  w.document.close();
+a{color:#0f766e}`;
+  pvOpen(`<style>${scopeCss(css)}</style>${docs.map(doc).join('')}`, docs.map(d => d.no).join(' + '));
 };
 $('#btnCCancel').onclick = () => cDlg.close();
 $('#btnSubmitted').onclick = async () => {

@@ -1248,3 +1248,25 @@ body.vault .empty:not(.small)::before { content: "🔐"; }
 dialog { background: var(--card); }
 dialog::backdrop { background: color-mix(in srgb, #08120d 45%, transparent); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .b-bar { background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 92%, transparent) 40%); }
+
+/* ---------- ดูตัวอย่างใบเบิก (ในแอป) + พิมพ์ ---------- */
+#pv { position: fixed; inset: 0; z-index: 100; background: #e9ebe8; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#pv[hidden] { display: none; }
+body.pv-on { overflow: hidden; }
+.pv-bar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; background: #fff; border-bottom: 1px solid #d9dcd8; }
+.pv-bar b { flex: 1; min-width: 0; text-align: center; font-size: 15px; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-bar button { min-height: 44px; padding: 0 14px; border-radius: 12px; font: inherit; font-size: 15px; cursor: pointer; }
+.pv-bar .ghost { background: #f1f2f0; color: #222; border: 0; }
+.pv-bar .primary { background: #0f766e; color: #fff; border: 0; font-weight: 600; }
+.pv-bar .primary:disabled { opacity: .45; }
+#pvDoc { background: #fff; color: #111; width: 794px; box-sizing: border-box; margin: 8px auto 40px; padding: 40px 48px; box-shadow: 0 2px 18px rgba(0,0,0,.12); }
+.pv-wait { font-family: system-ui, sans-serif; color: #444; padding: 40px 8px; text-align: center; }
+
+@media print {
+  body.printing > *:not(#pv) { display: none !important; }
+  body.printing, html:has(body.printing) { background: #fff !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; display: block !important; }
+  body.printing::before, body.printing::after, html:has(body.printing)::before, html:has(body.printing)::after { display: none !important; content: none !important; }
+  body.printing #pv { position: static !important; overflow: visible !important; background: #fff !important; inset: auto; }
+  body.printing .pv-bar { display: none !important; }
+  body.printing #pvDoc { margin: 0 !important; padding: 0 !important; box-shadow: none !important; width: auto !important; zoom: 1 !important; }
+}
