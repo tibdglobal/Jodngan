@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>กล่องฝาก · จดครบ</title>
+  <meta name="theme-color" content="#eff2ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101412" media="(prefers-color-scheme: dark)">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=41">
+</head>
+<body class="inbox">
+  <header class="top">
+    <div>
+      <a href="./" class="back">‹ จดครบ</a>
+      <h1>กล่องฝาก</h1>
+      <p class="sub">ลิงก์ โน้ต รูป ที่ยังไม่ใช่งาน</p>
+    </div>
+    <div class="top-actions">
+      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
+    </div>
+  </header>
+  <div id="status" class="status" hidden></div>
+
+  <form id="iQuick" class="quick" autocomplete="off">
+    <input id="iInput" type="text" placeholder="วางลิงก์ หรือพิมพ์โน้ต #แท็ก" enterkeyhint="done" aria-label="ลิงก์หรือโน้ตที่จะฝาก">
+    <button type="button" id="btnPic" class="icon-btn in-pic" aria-label="ฝากรูป" title="ฝากรูป">🖼</button>
+    <button type="submit" class="add-btn" aria-label="ฝาก">＋</button>
+  </form>
+
+  <div class="search"><input id="iSearch" type="search" placeholder="🔍 ค้นหาในกล่องฝาก" aria-label="ค้นหา"></div>
+  <nav class="chips" id="iFilters" aria-label="กรองประเภท"></nav>
+  <main id="iList"></main>
+
+  <dialog id="iDlg">
+    <form id="iForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus>แก้ไข</h2>
+      <div id="iPrev"></div>
+      <label>ข้อความ / ลิงก์ <textarea name="text" rows="4" placeholder="ข้อความ ลิงก์ หรือ #แท็ก"></textarea></label>
+      <label>ชื่อ (ไม่ใส่ก็ได้) <input name="title" placeholder="เช่น ชื่อหน้าเว็บ"></label>
+      <div class="dlg-actions">
+        <button type="button" id="btnDel" class="danger">ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="btnTask" class="ghost">✓ ทำเป็นงาน</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="busy" class="busy" hidden role="status" aria-live="polite">
+    <div class="busy-card"><div class="spin"></div><b id="busyMsg">กำลังบันทึก…</b></div>
+  </div>
+  <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo" hidden>↩ ยกเลิก</button></div>
+  <input type="file" id="iFile" accept="image/*,application/pdf" hidden>
+
+  <nav class="tabbar" aria-label="ส่วนของแอป">
+    <a href="./"><span aria-hidden="true">✓</span>งาน</a>
+    <a href="inbox.html" aria-current="page"><span aria-hidden="true">📌</span>ฝาก</a>
+    <a href="money.html"><span aria-hidden="true">💰</span>เงิน</a>
+    <a href="bills.html"><span aria-hidden="true">🧾</span>เบิก</a>
+    <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
+  </nav>
+
+  <script src="inbox.js?v=41"></script>
+</body>
+</html>
