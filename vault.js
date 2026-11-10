@@ -154,6 +154,7 @@ function lock() {
   items = [];
   editing = null;
   if ($('#vDlg').open) $('#vDlg').close();
+  if ($('#vImp').open) { $('#impText').value = ''; impRows = []; $('#impList').innerHTML = ''; $('#vImp').close(); }
   $('#vList').innerHTML = '';
   $('#vSearch').value = '';
   clearTimeout(idleTimer);
@@ -319,6 +320,197 @@ $('#btnVDelete').onclick = async () => {
   dlg.close();
   render();
   try { await api('vault_delete', { id }); } catch (e) { showStatus('ลบไม่สำเร็จ: ' + e.message); }
+};
+
+
+/* ---------- นำเข้า: วางหลายรายการ (แยกช่องในเครื่องนี้ แล้วเข้ารหัสก่อนส่ง) ---------- */
+const FIELD_ALIASES = {
+  name: /^(name|title|account|ชื่อ|ชื่อบัญชี|บัญชี|แอป|app|service|บริการ)$/i,
+  url: /^(url|website|web|site|login_uri|login uri|link|เว็บ|เว็บไซต์|ลิงก์|ลิงค์)$/i,
+  user: /^(user|username|user ?name|login|login_username|email|e-mail|id|ผู้ใช้|ชื่อผู้ใช้|อีเมล|ไอดี|ยูส|ยูสเซอร์)$/i,
+  pass: /^(pass|password|pwd|pw|login_password|รหัส|รหัสผ่าน|พาส|พาสเวิร์ด)$/i,
+  note: /^(note|notes|extra|comment|โน้ต|โน๊ต|หมายเหตุ)$/i,
+  cat: /^(category|folder|grouping|group|tag|หมวด|หมวดหมู่|กลุ่ม)$/i,
+};
+const fieldOf = h => Object.keys(FIELD_ALIASES).find(k => FIELD_ALIASES[k].test(String(h).trim()));
+const looksUrl = s => /^(https?:\/\/|www\.)\S+$|^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(s) && !/@/.test(s);
+const looksUser = s => /@/.test(s) || /^0\d{8,9}$/.test(s);
+
+/** แยกบรรทัดแบบ CSV (รองรับ "ข้อความ, ที่มีจุลภาค") */
+function splitDelim(line, d) {
+  if (d !== ',') return line.split(d === '|' ? /\s*\|\s*/ : d).map(x => x.trim());
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"' && !cur.trim()) { q = true; cur = ''; }
+    else if (c === ',') { out.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur.trim());
+  return out;
+}
+const delimOf = line => line.includes('\t') ? '\t' : line.includes('|') ? '|' : line.includes(',') ? ',' : line.includes(';') ? ';' : '';
+
+function nameFrom(o) {
+  if (o.name) return o.name;
+  if (o.url) { try { const h = new URL(/^http/i.test(o.url) ? o.url : 'https://' + o.url).hostname.replace(/^(www|accounts?|login|m)\./, ''); return h.split('.')[0].replace(/^./, c => c.toUpperCase()); } catch {} }
+  if (/@/.test(o.user || '')) return o.user.split('@')[1].split('.')[0].replace(/^./, c => c.toUpperCase());
+  return '';
+}
+
+/** ไม่มีหัวตาราง: เดาว่าช่องไหนคืออะไร (ลำดับปกติ ชื่อ · ผู้ใช้ · รหัส · เว็บ · โน้ต) */
+function guessFields(parts) {
+  parts = parts.filter(x => x !== '');
+  const o = {};
+  const ui = parts.findIndex(looksUrl);
+  if (ui > -1) o.url = parts.splice(ui, 1)[0];
+  if (parts.length === 1) { o.pass = parts[0]; }
+  else if (parts.length === 2) {
+    // ผู้ใช้ + รหัส หรือ ชื่อ + รหัส
+    if (looksUser(parts[0]) || o.url) { o.user = parts[0]; o.pass = parts[1]; }
+    else { o.name = parts[0]; o.pass = parts[1]; }
+  } else if (parts.length >= 3) {
+    if (looksUser(parts[0]) && !looksUser(parts[1])) { o.user = parts[0]; o.pass = parts[1]; o.name = parts[2]; parts = parts.slice(3); }
+    else { [o.name, o.user, o.pass] = parts; parts = parts.slice(3); }
+    if (parts.length) o.note = parts.join(' · ');
+  }
+  return o;
+}
+
+function parseImport(text) {
+  const lines = String(text).replace(/\r/g, '').split('\n');
+  const nonEmpty = lines.filter(l => l.trim());
+  if (!nonEmpty.length) return [];
+  const out = [];
+  // 1) มีหัวตาราง
+  const d0 = delimOf(nonEmpty[0]);
+  if (d0) {
+    const head = splitDelim(nonEmpty[0], d0).map(fieldOf);
+    if (head.includes('pass') && head.filter(Boolean).length >= 2) {
+      for (const l of nonEmpty.slice(1)) {
+        const parts = splitDelim(l, d0), o = {};
+        head.forEach((f, i) => { if (f && parts[i]) o[f] = o[f] ? o[f] + ' · ' + parts[i] : parts[i]; });
+        if (o.pass || o.user) out.push(o);
+      }
+      return out;
+    }
+  }
+  // 2) แยกเป็นก้อนตามบรรทัดว่าง: ก้อนที่มี "pass:" = แบบหัวข้อ, ที่เหลือ = บรรทัดละรายการ
+  const KV = /^\s*([^:：=]{1,20}?)\s*[:：=]\s*(.*)$/;
+  const isPassKv = l => { const m = l.match(KV); return m && /^(pass|pw|pwd|password|รหัส|รหัสผ่าน|พาส)/i.test(m[1].trim()); };
+  const blocks = String(text).replace(/\r/g, '').split(/\n\s*\n/).map(bl => bl.split('\n').filter(l => l.trim()));
+  for (const bl of blocks) {
+    if (bl.some(isPassKv)) parseKvBlock(bl, KV, out);
+    else bl.forEach(l => { const o = parseLine(l); if (o.pass || o.user) out.push(o); });
+  }
+  return out;
+}
+
+function parseKvBlock(lines, KV, out) {
+  let cur = null;
+  const push = () => { if (cur && (cur.pass || cur.user)) out.push(cur); cur = null; };
+  for (const l of lines) {
+    const m = l.match(KV), f = m && fieldOf(m[1]);
+    if (f) {
+      if (!cur) cur = {};
+      if (cur[f] && f !== 'note') { const keepName = null; push(); cur = {}; }   // ช่องซ้ำ = รายการใหม่
+      cur[f] = cur[f] ? cur[f] + '\n' + m[2].trim() : m[2].trim();
+    } else {
+      if (cur && (cur.pass || cur.user)) push();
+      if (!cur) cur = {};
+      if (!cur.name) cur.name = l.trim().replace(/[:：]$/, ''); else cur.note = (cur.note ? cur.note + '\n' : '') + l.trim();
+    }
+  }
+  push();
+}
+
+function parseLine(l) {
+  const d = delimOf(l);
+  if (d) return guessFields(splitDelim(l, d));
+  // คั่นด้วยช่องว่าง: คำท้าย = รหัส, คำก่อนท้าย = ผู้ใช้ (ถ้าดูเหมือน), ที่เหลือ = ชื่อ
+  const w = l.trim().split(/\s+/);
+  if (w.length < 2) return guessFields(w);
+  const pass = w.pop();
+  const ascii = x => /^[\x21-\x7e]+$/.test(x);
+  const user = w.length > 1 && (looksUser(w[w.length - 1]) || w.length > 2 || (ascii(w[0]) && ascii(w[1]))) ? w.pop() : (w.length === 1 && looksUser(w[0]) ? w.pop() : '');
+  return guessFields([w.join(' '), user, pass]);
+}
+
+let impRows = [];
+const imp = $('#vImp');
+const impKey = o => (nameFrom(o) + '|' + (o.user || '')).toLowerCase();
+
+$('#btnImp').onclick = () => { if (!key) return; impStep(1); imp.showModal(); setTimeout(() => $('#impText').focus(), 50); };
+function impStep(n) {
+  $('#impStep1').hidden = n !== 1; $('#impStep2').hidden = n !== 2;
+  $('#impBack').hidden = n !== 2;
+  $('#impNext').textContent = n === 1 ? 'อ่านข้อมูล' : 'บันทึก';
+  $('#impNext').dataset.step = n;
+}
+function impClose() { $('#impText').value = ''; impRows = []; $('#impList').innerHTML = ''; imp.close(); }
+$('#impCancel').onclick = impClose;
+$('#impBack').onclick = () => impStep(1);
+
+function renderImp() {
+  const have = new Set(items.map(impKey));
+  const box = $('#impList');
+  box.innerHTML = '';
+  impRows.forEach((o, i) => {
+    const dup = have.has(impKey(o));
+    if (o.on === undefined) o.on = !dup && !!nameFrom(o) && !!o.pass;
+    const el = document.createElement('label');
+    el.className = 'imp-row' + (o.on ? '' : ' off');
+    el.innerHTML = '<input type="checkbox"><span class="imp-b"><input class="imp-name" placeholder="ตั้งชื่อ"><small></small></span><span class="imp-flag"></span>';
+    const cb = el.querySelector('input[type=checkbox]');
+    cb.checked = o.on;
+    cb.onchange = () => { o.on = cb.checked; el.classList.toggle('off', !o.on); impSum(); };
+    const nm = el.querySelector('.imp-name');
+    nm.value = nameFrom(o);
+    nm.oninput = () => { o.name = nm.value.trim(); };
+    nm.onclick = e => e.preventDefault();
+    el.querySelector('small').textContent = [o.user || '(ไม่มีผู้ใช้)', o.pass ? '•'.repeat(Math.min(10, o.pass.length)) : '(ไม่มีรหัส)', o.url ? o.url.replace(/^https?:\/\//, '') : '', o.cat || ''].filter(Boolean).join(' · ');
+    el.querySelector('.imp-flag').textContent = dup ? 'มีแล้ว' : !nameFrom(o) ? 'ใส่ชื่อ' : !o.pass ? 'ไม่มีรหัส' : '';
+    box.appendChild(el);
+  });
+  impSum();
+}
+function impSum() {
+  const n = impRows.filter(o => o.on).length;
+  $('#impSum').textContent = `อ่านได้ ${impRows.length} รายการ · เลือกไว้ ${n} รายการ — ติ๊กออกรายการที่ไม่ต้องการ แก้ชื่อได้ตรงนี้ ส่วนอื่นแก้ทีหลังได้`;
+  if ($('#impNext').dataset.step === '2') { $('#impNext').textContent = n ? `บันทึก ${n} รายการ` : 'บันทึก'; $('#impNext').disabled = !n; }
+}
+
+$('#impNext').onclick = async () => {
+  if ($('#impNext').dataset.step !== '2') {
+    impRows = parseImport($('#impText').value);
+    if (!impRows.length) { alert('อ่านไม่เจอรายการ ลองให้แต่ละบรรทัดมี ผู้ใช้ และ รหัส คั่นด้วย Tab, | หรือ ,'); return; }
+    impStep(2); renderImp();
+    return;
+  }
+  if (!key) return;
+  const def = $('#impCat').value.trim();
+  const pick = impRows.filter(o => o.on);
+  const miss = pick.filter(o => !nameFrom(o));
+  if (miss.length) { alert(`ยังมี ${miss.length} รายการที่ไม่มีชื่อ ใส่ชื่อก่อนนะครับ`); return; }
+  const btn = $('#impNext'); btn.disabled = true; btn.textContent = 'กำลังเข้ารหัส…';
+  const sealedAll = [], plain = [];
+  for (const o of pick) {
+    const data = { name: nameFrom(o), cat: o.cat || def, user: o.user || '', pass: o.pass || '', url: o.url || '', note: o.note || '' };
+    const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9]/g, '');
+    sealedAll.push({ id, ...(await encryptJSON(key, data)) });
+    plain.push({ id, ...data });
+  }
+  btn.textContent = 'กำลังบันทึก…';
+  try {
+    for (let i = 0; i < sealedAll.length; i += 100) await api('vault_save_many', { items: sealedAll.slice(i, i + 100) });
+    vault.items.push(...sealedAll);
+    items.push(...plain);
+    impClose(); render();
+    showStatus(`✓ นำเข้าแล้ว ${plain.length} รายการ`, true);
+    setTimeout(() => showStatus(''), 4000);
+  } catch (e) { showStatus('นำเข้าไม่สำเร็จ: ' + e.message); }
+  finally { btn.disabled = false; impSum(); }
 };
 
 /* ---------- เริ่มต้น ---------- */

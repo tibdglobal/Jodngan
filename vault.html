@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=41">
+  <link rel="stylesheet" href="style.css?v=42">
 </head>
 <body class="vault">
   <header class="top">
@@ -59,6 +59,7 @@
   <section id="vMain" hidden>
     <form id="vQuick" class="quick" autocomplete="off">
       <input id="vSearch" type="search" placeholder="🔍 ค้นหาชื่อ ผู้ใช้ หรือเว็บ" aria-label="ค้นหา">
+      <button type="button" id="btnImp" class="icon-btn" aria-label="วางหลายรายการ" title="วางหลายรายการ">📋</button>
       <button type="button" id="btnAdd" class="add-btn" aria-label="เพิ่มรหัส">＋</button>
     </form>
     <nav id="vCats" class="chips" aria-label="หมวด"></nav>
@@ -93,6 +94,43 @@
     </form>
   </dialog>
 
+  <!-- นำเข้าแบบวางหลายรายการ -->
+  <dialog id="vImp">
+    <form id="vImpForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus>📋 วางหลายรายการ</h2>
+      <div id="impStep1">
+        <p class="hint">ก็อปมาวางได้หลายแบบ ระบบจะแยกช่องให้เอง — อ่านและเข้ารหัสในเครื่องนี้เท่านั้น</p>
+        <textarea id="impText" rows="9" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="Gmail งาน	me@gmail.com	รหัส123
+Facebook | 0812345678 | pass456
+ธนาคาร กสิกร, user01, pw789, https://kbank.co.th
+
+หรือแบบหลายบรรทัด
+Shopee
+user: myname
+pass: abc123"></textarea>
+        <details class="imp-help"><summary>รองรับแบบไหนบ้าง</summary>
+          <ul>
+            <li><b>บรรทัดละรายการ</b> คั่นด้วย Tab (ก็อปจาก Excel/Sheet), <code>|</code> หรือ <code>,</code> ลำดับ: ชื่อ · ผู้ใช้ · รหัส · เว็บ · โน้ต</li>
+            <li><b>มีหัวตาราง</b> เช่น name, url, username, password (ไฟล์ CSV จาก Chrome / Google / Bitwarden ก็วางได้)</li>
+            <li><b>แบบหัวข้อ</b> บรรทัดแรกเป็นชื่อ ตามด้วย <code>user:</code> <code>pass:</code> <code>เว็บ:</code> <code>โน้ต:</code> เว้นบรรทัดระหว่างรายการ</li>
+            <li>ไม่ใส่ชื่อ ระบบตั้งจากเว็บหรืออีเมลให้</li>
+          </ul>
+        </details>
+      </div>
+      <div id="impStep2" hidden>
+        <p id="impSum" class="hint"></p>
+        <label>หมวดของทั้งหมด (ถ้าไม่ได้ระบุ) <input id="impCat" list="vCatList" placeholder="เช่น งาน"></label>
+        <div id="impList" class="imp-list"></div>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" id="impBack" class="ghost" hidden>‹ แก้</button>
+        <span class="spacer"></span>
+        <button type="button" id="impCancel" class="ghost">ยกเลิก</button>
+        <button type="button" id="impNext" class="primary">อ่านข้อมูล</button>
+      </div>
+    </form>
+  </dialog>
+
   <nav class="tabbar" aria-label="ส่วนของแอป">
     <a href="./"><span aria-hidden="true">✓</span>งาน</a>
     <a href="inbox.html"><span aria-hidden="true">📌</span>ฝาก</a>
@@ -101,6 +139,6 @@
     <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="vault.js?v=41"></script>
+  <script src="vault.js?v=42"></script>
 </body>
 </html>
