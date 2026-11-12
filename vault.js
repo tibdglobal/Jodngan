@@ -333,8 +333,9 @@ const FIELD_ALIASES = {
   cat: /^(category|folder|grouping|group|tag|หมวด|หมวดหมู่|กลุ่ม)$/i,
 };
 const fieldOf = h => Object.keys(FIELD_ALIASES).find(k => FIELD_ALIASES[k].test(String(h).trim()));
-const looksUrl = s => /^(https?:\/\/|www\.)\S+$|^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(s) && !/@/.test(s);
-const looksUser = s => /@/.test(s) || /^0\d{8,9}$/.test(s);
+const looksUrl = s => (/^(https?:\/\/|www\.)\S+$/i.test(s) || /^[\w-]+(\.[\w-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(s)) && !/@/.test(s);
+const isEmail = s => /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(s);
+const looksUser = s => isEmail(s) || /^0\d{8,9}$/.test(s);
 
 /** แยกบรรทัดแบบ CSV (รองรับ "ข้อความ, ที่มีจุลภาค") */
 function splitDelim(line, d) {
@@ -396,15 +397,75 @@ function parseImport(text) {
       return out;
     }
   }
-  // 2) แยกเป็นก้อนตามบรรทัดว่าง: ก้อนที่มี "pass:" = แบบหัวข้อ, ที่เหลือ = บรรทัดละรายการ
-  const KV = /^\s*([^:：=]{1,20}?)\s*[:：=]\s*(.*)$/;
-  const isPassKv = l => { const m = l.match(KV); return m && /^(pass|pw|pwd|password|รหัส|รหัสผ่าน|พาส)/i.test(m[1].trim()); };
-  const blocks = String(text).replace(/\r/g, '').split(/\n\s*\n/).map(bl => bl.split('\n').filter(l => l.trim()));
+  // 2) แยกเป็นก้อนตามบรรทัดว่าง แล้วดูแต่ละก้อนว่าเป็นแบบไหน
+  const blocks = String(text).replace(/\r/g, '').split(/\n\s*\n/).map(bl => bl.split('\n').map(l => l.trim()).filter(Boolean)).filter(bl => bl.length);
   for (const bl of blocks) {
-    if (bl.some(isPassKv)) parseKvBlock(bl, KV, out);
-    else bl.forEach(l => { const o = parseLine(l); if (o.pass || o.user) out.push(o); });
+    const labeled = bl.some(l => labelOf(l));
+    const delimAll = bl.every(l => delimOf(l));
+    // บรรทัดละรายการ (คั่นด้วย tab | , หรือเว้นวรรคแบบ "ชื่อ user รหัส")
+    const multiTok = bl.filter(l => /\s/.test(l) && !labelOf(l) && rowLike(l)).length;
+    if (!labeled && (delimAll || (bl.length === 1 && (delimOf(bl[0]) || multiTok)) || multiTok > bl.length / 2)) {
+      bl.forEach(l => { const o = parseLine(l); if (o.pass || o.user) out.push(o); });
+    } else {
+      parseFree(bl, out);   // บรรทัดละช่อง (ชื่อ / user / รหัส / ลิงก์ ...) หรือมีป้าย user: pass:
+    }
   }
   return out;
+}
+
+/* "user: abc" / "ยูส abc" / "รหัส 1234" → ['user','abc'] */
+function labelOf(l) {
+  let m = l.match(/^\s*([^:：=]{1,20}?)\s*[:：=]\s*(.*)$/);
+  if (m && fieldOf(m[1])) return [fieldOf(m[1]), m[2].trim()];
+  m = l.match(/^\s*(\S+)\s+(\S.*)$/);
+  if (m && fieldOf(m[1]) && fieldOf(m[1]) !== 'name') return [fieldOf(m[1]), m[2].trim()];
+  return null;
+}
+/* บรรทัดนี้ดูเหมือน "ทั้งรายการในบรรทัดเดียว" ไหม: มีหลายคำ และคำท้ายดูเป็นรหัส หรือมีอีเมล/ลิงก์อยู่ข้างใน */
+function rowLike(l) {
+  const w = l.split(/\s+/);
+  if (w.length < 2) return false;
+  return w.some(x => looksUser(x) || looksUrl(x)) || secretLike(w[w.length - 1]);
+}
+const hasThai = s => /[฀-๿]/.test(s);
+/* ดูเหมือนรหัส: คำเดียว มีตัวเลขหรือสัญลักษณ์ปน */
+const secretLike = s => !/\s/.test(s) && !hasThai(s) && /\d|[^A-Za-z0-9]/.test(s) && !looksUrl(s) && !isEmail(s);
+/* ดูเหมือนชื่อรายการ: มีภาษาไทย / มีเว้นวรรค / ขึ้นต้นตัวใหญ่ไม่มีตัวเลข เช่น Gmail, Shopee */
+const nameLike = s => !looksUrl(s) && !/@/.test(s) && !/\d/.test(s.replace(/\s.*/, '')) && (hasThai(s) || /\s/.test(s) || /^[A-Z][A-Za-z.&'-]*$/.test(s));
+
+/** บรรทัดละช่อง เช่น
+ *  Gmail ↵ me@gmail.com ↵ Pass1234 ↵ https://gmail.com   (ไม่เว้นบรรทัดระหว่างรายการก็ได้ ระบบตัดเมื่อเจอชื่อใหม่) */
+function parseFree(lines, out) {
+  let g = {};
+  const has = () => g.name || g.user || g.pass || g.url;
+  const push = () => { if (g.pass || g.user) out.push(g); else if (g.name && out.length && !out[out.length - 1].note) out[out.length - 1].note = g.name; g = {}; };
+  lines.forEach((l, i) => {
+    const lab = labelOf(l);
+    if (lab) {
+      const [f, v] = lab;
+      if (f === 'note') { g.note = g.note ? g.note + '\n' + v : v; return; }
+      if (g[f] || (f === 'name' && has())) push();
+      g[f] = v;
+      return;
+    }
+    const next = lines[i + 1] && !labelOf(lines[i + 1]) ? lines[i + 1] : '';
+    if (looksUrl(l)) { if (g.url) push(); g.url = l; return; }
+    if (looksUser(l)) {
+      if (g.user && !g.pass) { g.pass = l; return; }     // เบอร์โทรเป็นรหัสก็มี
+      if (g.user) push();
+      g.user = l; return;
+    }
+    const plainName = (!has() || g.pass) && !secretLike(l) && !looksUser(l) && next && (looksUser(next) || secretLike(next) || looksUrl(next));
+    if (plainName || (nameLike(l) && !(g.user && !g.pass && secretLike(l)))) {
+      if (has()) push();
+      g.name = l; return;
+    }
+    // ที่เหลือ = user หรือ รหัส
+    if (!g.user && !g.pass && next && !looksUrl(next) && !nameLike(next) && !looksUser(next)) { g.user = l; return; }
+    if (!g.pass) { g.pass = l; return; }
+    push(); g.user = l;
+  });
+  push();
 }
 
 function parseKvBlock(lines, KV, out) {
@@ -461,7 +522,7 @@ function renderImp() {
     if (o.on === undefined) o.on = !dup && !!nameFrom(o) && !!o.pass;
     const el = document.createElement('label');
     el.className = 'imp-row' + (o.on ? '' : ' off');
-    el.innerHTML = '<input type="checkbox"><span class="imp-b"><input class="imp-name" placeholder="ตั้งชื่อ"><small></small></span><span class="imp-flag"></span>';
+    el.innerHTML = '<input type="checkbox"><span class="imp-b"><input class="imp-name" placeholder="ตั้งชื่อ"><small></small></span><span class="imp-side"><span class="imp-flag"></span><button type="button" class="mini imp-sw" title="สลับ ผู้ใช้ ↔ รหัส">⇄</button></span>';
     const cb = el.querySelector('input[type=checkbox]');
     cb.checked = o.on;
     cb.onchange = () => { o.on = cb.checked; el.classList.toggle('off', !o.on); impSum(); };
@@ -470,6 +531,7 @@ function renderImp() {
     nm.oninput = () => { o.name = nm.value.trim(); };
     nm.onclick = e => e.preventDefault();
     el.querySelector('small').textContent = [o.user || '(ไม่มีผู้ใช้)', o.pass ? '•'.repeat(Math.min(10, o.pass.length)) : '(ไม่มีรหัส)', o.url ? o.url.replace(/^https?:\/\//, '') : '', o.cat || ''].filter(Boolean).join(' · ');
+    el.querySelector('.imp-sw').onclick = e => { e.preventDefault(); [o.user, o.pass] = [o.pass || '', o.user || '']; o.on = undefined; renderImp(); };
     el.querySelector('.imp-flag').textContent = dup ? 'มีแล้ว' : !nameFrom(o) ? 'ใส่ชื่อ' : !o.pass ? 'ไม่มีรหัส' : '';
     box.appendChild(el);
   });

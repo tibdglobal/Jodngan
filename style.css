@@ -1387,3 +1387,5 @@ body.inbox #iList { display: grid; gap: 10px; margin-top: 10px; }
 #pSlipBtn, .s-iadd, .s-addbill { min-height: 44px; border-radius: 12px; border: 1px dashed var(--accent-line, var(--line)); background: var(--card); color: var(--accent); font-weight: 600; font-size: 14px; }
 .s-iadd { justify-self: start; padding: 0 14px; }
 #owMe.zero, #owThey.zero { color: var(--muted) !important; }
+.imp-side { display: grid; justify-items: end; gap: 4px; }
+.imp-sw { min-height: 32px !important; padding: 0 10px; }

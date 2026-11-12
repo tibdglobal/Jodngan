@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=43">
+  <link rel="stylesheet" href="style.css?v=44">
 </head>
 <body class="vault">
   <header class="top">
@@ -104,15 +104,18 @@
 Facebook | 0812345678 | pass456
 ธนาคาร กสิกร, user01, pw789, https://kbank.co.th
 
-หรือแบบหลายบรรทัด
+หรือบรรทัดละช่อง
 Shopee
-user: myname
-pass: abc123"></textarea>
+myname
+abc123
+shopee.co.th"></textarea>
         <details class="imp-help"><summary>รองรับแบบไหนบ้าง</summary>
           <ul>
             <li><b>บรรทัดละรายการ</b> คั่นด้วย Tab (ก็อปจาก Excel/Sheet), <code>|</code> หรือ <code>,</code> ลำดับ: ชื่อ · ผู้ใช้ · รหัส · เว็บ · โน้ต</li>
             <li><b>มีหัวตาราง</b> เช่น name, url, username, password (ไฟล์ CSV จาก Chrome / Google / Bitwarden ก็วางได้)</li>
-            <li><b>แบบหัวข้อ</b> บรรทัดแรกเป็นชื่อ ตามด้วย <code>user:</code> <code>pass:</code> <code>เว็บ:</code> <code>โน้ต:</code> เว้นบรรทัดระหว่างรายการ</li>
+            <li><b>บรรทัดละช่อง</b> ชื่อ ↵ user ↵ รหัส ↵ ลิงก์ (ลิงก์ไม่ใส่ก็ได้) ต่อกันหลายรายการได้เลย ระบบแยกเองเมื่อเจอชื่อใหม่</li>
+            <li><b>มีป้าย</b> <code>user:</code> <code>pass:</code> <code>ยูส</code> <code>พาส</code> <code>เว็บ:</code> <code>โน้ต:</code></li>
+            <li>ระบบเดาผิด? กด ⇄ สลับ ผู้ใช้/รหัส ในหน้าตรวจ หรือแก้ทีหลังได้</li>
             <li>ไม่ใส่ชื่อ ระบบตั้งจากเว็บหรืออีเมลให้</li>
           </ul>
         </details>
@@ -139,6 +142,6 @@ pass: abc123"></textarea>
     <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="vault.js?v=43"></script>
+  <script src="vault.js?v=44"></script>
 </body>
 </html>
