@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=44">
+  <link rel="stylesheet" href="style.css?v=45">
 </head>
 <body class="vault">
   <header class="top">
@@ -71,10 +71,10 @@
     <form id="vForm" method="dialog" autocomplete="off">
       <h2 tabindex="-1" autofocus id="vDlgTitle">เพิ่มรหัส</h2>
       <label>ชื่อ (เว็บ/แอป/บัญชี) <input name="name" required placeholder="เช่น Gmail งาน, ธนาคาร…"></label>
-      <label>หมวด
-        <input name="cat" list="vCatList" placeholder="เช่น งาน, ธนาคาร, โซเชียล">
-        <datalist id="vCatList"></datalist>
-      </label>
+      <div class="field">
+        <label>หมวด <input name="vcat-pick" id="vCatIn" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="แตะเลือกด้านล่าง หรือพิมพ์หมวดเอง"></label>
+        <div id="vCatChips" class="when-chips wrap v-cats"></div>
+      </div>
       <label>ชื่อผู้ใช้ / อีเมล <input name="user" autocapitalize="off" spellcheck="false"></label>
       <label>รหัสผ่าน
         <span class="pw-row">
@@ -122,7 +122,8 @@ shopee.co.th"></textarea>
       </div>
       <div id="impStep2" hidden>
         <p id="impSum" class="hint"></p>
-        <label>หมวดของทั้งหมด (ถ้าไม่ได้ระบุ) <input id="impCat" list="vCatList" placeholder="เช่น งาน"></label>
+        <div class="field"><span class="lbl">หมวดของรายการที่ระบบเดาไม่ได้</span><div id="impCats" class="when-chips wrap v-cats"></div></div>
+        <input type="hidden" id="impCat">
         <div id="impList" class="imp-list"></div>
       </div>
       <div class="dlg-actions">
@@ -142,6 +143,6 @@ shopee.co.th"></textarea>
     <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="vault.js?v=44"></script>
+  <script src="vault.js?v=45"></script>
 </body>
 </html>

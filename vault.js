@@ -14,7 +14,35 @@ const ITER = 310000;               // รอบของ PBKDF2 (ยิ่งม
 const CHECK_TEXT = 'jodngan-vault-ok';
 const LOCK_IDLE_MS = 5 * 60 * 1000;    // ไม่ได้ใช้ 5 นาที = ล็อก
 const LOCK_HIDDEN_MS = 60 * 1000;      // สลับไปแอปอื่นเกิน 1 นาที = ล็อก
-const DEFAULT_CATS = ['งาน', 'ธนาคาร/การเงิน', 'อีเมล', 'โซเชียล', 'ช้อปปิ้ง', 'อื่นๆ'];
+/* หมวดตั้งต้น + คำที่ใช้เดาหมวดจากชื่อ/เว็บ/อีเมล */
+const CAT_RULES = [
+  ['🏢 งาน', /tibd|งาน|office|work|slack|teams|zoom|notion|trello|asana|jira|canva|figma|adobe|chillpay|silk/i],
+  ['📧 อีเมล', /gmail|outlook|hotmail|yahoo|mail|อีเมล|proton/i],
+  ['🏦 ธนาคาร', /bank|ธนาคาร|กสิกร|kbank|k plus|kplus|scb|ไทยพาณิชย์|กรุงเทพ|bbl|กรุงไทย|ktb|krungthai|ttb|ทหารไทย|กรุงศรี|krungsri|ออมสิน|gsb|uob|cimb|ธกส|baac|เกียรตินาคิน|lh bank|แลนด์|mymo|paotang|เป๋าตัง/i],
+  ['💳 บัตร/e-Wallet', /บัตร|card|visa|master|amex|truemoney|true money|wallet|rabbit|linepay|line pay|paypal|shopeepay|airpay|dolfin/i],
+  ['📈 ลงทุน', /หุ้น|ลงทุน|กองทุน|fund|stock|settrade|streaming|bitkub|binance|crypto|คริปโต|finnomena|dime|webull|interactive|ib\b|gold|ทอง|liberator|innovestx/i],
+  ['💬 โซเชียล/แชท', /facebook|fb\b|instagram|ig\b|tiktok|twitter|x\.com|threads|line\b|ไลน์|discord|telegram|whatsapp|messenger|youtube|pantip|reddit|linkedin/i],
+  ['🛒 ช้อปปิ้ง', /shopee|lazada|amazon|aliexpress|temu|jd|central|robinson|ikea|lotus|bigc|makro|tops|uniqlo|nike|adidas|ช้อป|shop/i],
+  ['🍜 อาหาร/เดลิเวอรี่', /grab|lineman|line man|foodpanda|robinhood|starbucks|mcdonald|kfc|the1|ร้านอาหาร|เดลิเวอรี่/i],
+  ['🎬 ดูหนัง/ฟังเพลง', /netflix|spotify|disney|hbo|max\b|prime video|viu|wetv|iqiyi|trueid|monomax|apple music|joox|youtube premium|bugaboo|3plus/i],
+  ['🎮 เกม', /steam|epic|playstation|psn|xbox|nintendo|garena|riot|valorant|rov|genshin|hoyoverse|roblox|minecraft|battle\.net|ea\b|ubisoft|เกม/i],
+  ['✈️ เดินทาง', /airasia|thai airways|การบินไทย|nok|lion|bangkok airways|agoda|booking|traveloka|trip\.com|airbnb|klook|bolt|bts|mrt|รถไฟ|เดินทาง|โรงแรม/i],
+  ['🏛 ราชการ/ภาษี', /กรมสรรพากร|rd\.go|ภาษี|ประกันสังคม|sso|ทะเบียน|dopa|ราชการ|go\.th|ไทยดี|thaid|หมอพร้อม|กยศ/i],
+  ['📱 มือถือ/เน็ต', /ais|true\b|dtac|nt\b|3bb|ais fibre|truemove|ทรู|เอไอเอส|ดีแทค|อินเทอร์เน็ต|internet/i],
+  ['📶 Wi-Fi/อุปกรณ์', /wifi|wi-fi|router|เราเตอร์|กล้อง|cctv|tapo|xiaomi|mi home|smart|printer|tv|ทีวี|แอร์|nas/i],
+  ['☁️ คลาวด์/เครื่องมือ', /google|icloud|apple id|apple|microsoft|onedrive|dropbox|github|gitlab|aws|cloudflare|godaddy|wordpress|hosting|domain|chatgpt|openai|claude|anthropic|cpanel|vercel/i],
+  ['🎓 การศึกษา', /udemy|coursera|skooldio|มหาวิทยาลัย|university|\.ac\.th|เรียน|คอร์ส|school|duolingo/i],
+  ['🏥 สุขภาพ/ประกัน', /โรงพยาบาล|hospital|ประกัน|insurance|aia|เมืองไทย|allianz|fwd|คลินิก|ฟิตเนส|fitness|gym/i],
+  ['🏠 บ้าน/ค่าน้ำไฟ', /การไฟฟ้า|pea|mea|ประปา|pwa|คอนโด|นิติ|บ้าน|หอ|ค่าเช่า/i],
+];
+const DEFAULT_CATS = [...CAT_RULES.map(r => r[0]), '🔖 อื่นๆ'];
+const LEGACY_CATS = { 'งาน': '🏢 งาน', 'ธนาคาร/การเงิน': '🏦 ธนาคาร', 'อีเมล': '📧 อีเมล', 'โซเชียล': '💬 โซเชียล/แชท', 'ช้อปปิ้ง': '🛒 ช้อปปิ้ง', 'อื่นๆ': '🔖 อื่นๆ' };
+function guessVaultCat(o) {
+  // ชื่อ/เว็บก่อน (Netflix ที่ใช้อีเมล @gmail ต้องเป็นหมวดดูหนัง ไม่ใช่อีเมล) แล้วค่อยดูโดเมนอีเมล
+  const tries = [[o.name, o.url].filter(Boolean).join(' '), o.user && /@/.test(o.user) && !(o.name || o.url) ? o.user.split('@')[1] : ''];
+  for (const t of tries) { const r = t && CAT_RULES.find(x => x[1].test(t)); if (r) return r[0]; }
+  return '';
+}
 
 let vault = null;        // { salt, check, items:[{id, iv, ct}] } จากเซิร์ฟเวอร์
 let key = null;          // CryptoKey (อยู่ในหน่วยความจำเท่านั้น)
@@ -83,7 +111,7 @@ async function decryptAll() {
   const out = [];
   let bad = 0;
   for (const it of vault.items) {
-    try { out.push({ id: it.id, updated: it.updated, ...(await decryptJSON(key, it.iv, it.ct)) }); }
+    try { const d = await decryptJSON(key, it.iv, it.ct); d.cat = LEGACY_CATS[d.cat] || d.cat; out.push({ id: it.id, updated: it.updated, ...d }); }
     catch { bad++; }
   }
   items = out;
@@ -172,7 +200,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ---------- รายการ ---------- */
-const catsOf = () => [...new Set([...items.map(i => i.cat || 'อื่นๆ')])].sort((a, b) => a.localeCompare(b, 'th'));
+const catsOf = () => [...new Set([...items.map(i => i.cat || '🔖 อื่นๆ')])].sort((a, b) => a.localeCompare(b, 'th'));
 
 function render() {
   // หมวด
@@ -180,7 +208,7 @@ function render() {
   nav.innerHTML = '';
   const cats = catsOf();
   if (cat && !cats.includes(cat)) cat = '';
-  [['ทั้งหมด', '', items.length], ...cats.map(c => [c, c, items.filter(i => (i.cat || 'อื่นๆ') === c).length])].forEach(([label, val, n]) => {
+  [['ทั้งหมด', '', items.length], ...cats.map(c => [c, c, items.filter(i => (i.cat || '🔖 อื่นๆ') === c).length])].forEach(([label, val, n]) => {
     const b = document.createElement('button');
     b.className = 'chip' + (cat === val ? ' on' : '');
     b.innerHTML = '<span></span><span class="n"></span>';
@@ -189,15 +217,14 @@ function render() {
     b.onclick = () => { cat = val; render(); };
     nav.appendChild(b);
   });
-  $('#vCatList').innerHTML = '';
-  [...new Set([...DEFAULT_CATS, ...cats])].forEach(c => { const o = document.createElement('option'); o.value = c; $('#vCatList').appendChild(o); });
+
 
   // รายการ
   const q = $('#vSearch').value.trim().toLowerCase();
   const list = items
-    .filter(i => !cat || (i.cat || 'อื่นๆ') === cat)
+    .filter(i => !cat || (i.cat || '🔖 อื่นๆ') === cat)
     .filter(i => !q || [i.name, i.user, i.url, i.note, i.cat].join(' ').toLowerCase().includes(q))
-    .sort((a, b) => (a.cat || 'อื่นๆ').localeCompare(b.cat || 'อื่นๆ', 'th') || a.name.localeCompare(b.name, 'th'));
+    .sort((a, b) => (a.cat || '🔖 อื่นๆ').localeCompare(b.cat || '🔖 อื่นๆ', 'th') || a.name.localeCompare(b.name, 'th'));
 
   const box = $('#vList');
   box.innerHTML = '';
@@ -207,7 +234,7 @@ function render() {
 
   let last = null, wrap = null;
   for (const it of list) {
-    const c = it.cat || 'อื่นๆ';
+    const c = it.cat || '🔖 อื่นๆ';
     if (c !== last) {
       last = c;
       const sec = document.createElement('section');
@@ -265,7 +292,8 @@ function openDlg(it) {
   $('#vDlgTitle').textContent = it ? 'แก้ไขรหัส' : 'เพิ่มรหัส';
   $('#btnVDelete').hidden = !it;
   f.name.value = it ? it.name : '';
-  f.cat.value = it ? (it.cat || '') : (cat || '');
+  $('#vCatIn').value = it ? (it.cat || '') : (cat || '');
+  paintCatChips();
   f.user.value = it ? (it.user || '') : '';
   f.pass.value = it ? (it.pass || '') : '';
   f.url.value = it ? (it.url || '') : '';
@@ -293,7 +321,7 @@ form.addEventListener('submit', async () => {
   if (!key) return;
   const f = form.elements;
   const data = {
-    name: f.name.value.trim(), cat: f.cat.value.trim(), user: f.user.value.trim(),
+    name: f.name.value.trim(), cat: $('#vCatIn').value.trim() || guessVaultCat({ name: f.name.value, url: f.url.value, user: f.user.value }) || '🔖 อื่นๆ', user: f.user.value.trim(),
     pass: f.pass.value, url: f.url.value.trim(), note: f.note.value,
   };
   const id = editing ? editing.id : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/-/g, '');
@@ -322,6 +350,45 @@ $('#btnVDelete').onclick = async () => {
   try { await api('vault_delete', { id }); } catch (e) { showStatus('ลบไม่สำเร็จ: ' + e.message); }
 };
 
+
+/* ---------- เลือกหมวดแบบแตะ (แทน datalist ที่ Chrome เอาช่องเดารหัสมาบัง) ---------- */
+function allVaultCats() {
+  const used = items.map(i => i.cat).filter(Boolean);
+  // หมวดที่ใช้บ่อยขึ้นก่อน แล้วตามด้วยหมวดตั้งต้นที่เหลือ
+  const cnt = {}; used.forEach(c => { cnt[c] = (cnt[c] || 0) + 1; });
+  const mine = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+  return [...new Set([...mine, ...DEFAULT_CATS])];
+}
+function catChips(box, getVal, setVal) {
+  const cur = getVal();
+  const all = allVaultCats();
+  const open = box.dataset.open === '1';
+  const LIMIT = 8;
+  let list = open ? all : all.slice(0, LIMIT);
+  if (cur && !list.includes(cur)) list = [...list, cur];
+  box.innerHTML = '';
+  list.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = c; b.className = c === cur ? 'on' : '';
+    b.onclick = () => { setVal(getVal() === c ? '' : c); catChips(box, getVal, setVal); };
+    box.appendChild(b);
+  });
+  if (all.length > LIMIT) {
+    const m = document.createElement('button');
+    m.type = 'button'; m.className = 'more';
+    m.textContent = open ? '▴ ย่อ' : `▾ อีก ${all.length - list.length} หมวด`;
+    m.onclick = () => { box.dataset.open = open ? '' : '1'; catChips(box, getVal, setVal); };
+    box.appendChild(m);
+  }
+}
+function paintCatChips() { catChips($('#vCatChips'), () => $('#vCatIn').value.trim(), v => { $('#vCatIn').value = v; }); }
+$('#vCatIn').addEventListener('input', paintCatChips);
+/* ยังไม่ได้เลือกหมวด: พิมพ์ชื่อ/เว็บแล้วเดาให้ */
+['name', 'url', 'user'].forEach(n => form.elements[n].addEventListener('change', () => {
+  if ($('#vCatIn').value.trim() || editing) return;
+  const g = guessVaultCat({ name: form.elements.name.value, url: form.elements.url.value, user: form.elements.user.value });
+  if (g) { $('#vCatIn').value = g; paintCatChips(); }
+}));
 
 /* ---------- นำเข้า: วางหลายรายการ (แยกช่องในเครื่องนี้ แล้วเข้ารหัสก่อนส่ง) ---------- */
 const FIELD_ALIASES = {
@@ -530,6 +597,7 @@ function renderImp() {
     nm.value = nameFrom(o);
     nm.oninput = () => { o.name = nm.value.trim(); };
     nm.onclick = e => e.preventDefault();
+    if (!o.cat) o.cat = guessVaultCat(o);
     el.querySelector('small').textContent = [o.user || '(ไม่มีผู้ใช้)', o.pass ? '•'.repeat(Math.min(10, o.pass.length)) : '(ไม่มีรหัส)', o.url ? o.url.replace(/^https?:\/\//, '') : '', o.cat || ''].filter(Boolean).join(' · ');
     el.querySelector('.imp-sw').onclick = e => { e.preventDefault(); [o.user, o.pass] = [o.pass || '', o.user || '']; o.on = undefined; renderImp(); };
     el.querySelector('.imp-flag').textContent = dup ? 'มีแล้ว' : !nameFrom(o) ? 'ใส่ชื่อ' : !o.pass ? 'ไม่มีรหัส' : '';
@@ -548,6 +616,7 @@ $('#impNext').onclick = async () => {
     impRows = parseImport($('#impText').value);
     if (!impRows.length) { alert('อ่านไม่เจอรายการ ลองให้แต่ละบรรทัดมี ผู้ใช้ และ รหัส คั่นด้วย Tab, | หรือ ,'); return; }
     impStep(2); renderImp();
+    catChips($('#impCats'), () => $('#impCat').value, v => { $('#impCat').value = v; });
     return;
   }
   if (!key) return;
@@ -558,7 +627,7 @@ $('#impNext').onclick = async () => {
   const btn = $('#impNext'); btn.disabled = true; btn.textContent = 'กำลังเข้ารหัส…';
   const sealedAll = [], plain = [];
   for (const o of pick) {
-    const data = { name: nameFrom(o), cat: o.cat || def, user: o.user || '', pass: o.pass || '', url: o.url || '', note: o.note || '' };
+    const data = { name: nameFrom(o), cat: o.cat || def || '🔖 อื่นๆ', user: o.user || '', pass: o.pass || '', url: o.url || '', note: o.note || '' };
     const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9]/g, '');
     sealedAll.push({ id, ...(await encryptJSON(key, data)) });
     plain.push({ id, ...data });
