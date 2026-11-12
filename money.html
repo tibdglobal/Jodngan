@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=42">
+  <link rel="stylesheet" href="style.css?v=43">
 </head>
 <body class="money">
   <header class="top">
@@ -69,11 +69,26 @@
   <nav class="seg mo-tabs" id="vTabs">
     <button class="chip" data-v="list">รายการ</button>
     <button class="chip" data-v="cal">ปฏิทิน</button>
-    <button class="chip" data-v="chart">สรุปและกราฟ</button>
+    <button class="chip" data-v="chart">สรุป</button>
+    <button class="chip" data-v="owe">🤝 ค้างกัน</button>
   </nav>
   <main id="vList"></main>
   <section id="vCal" hidden></section>
   <section id="vChart" hidden></section>
+  <section id="vOwe" hidden>
+    <div class="ow-hero">
+      <button type="button" class="ow-k" id="owTheyBox"><small>คนอื่นค้างเรา</small><b id="owThey" class="in">฿0</b></button>
+      <button type="button" class="ow-k" id="owMeBox"><small>เราค้างคนอื่น</small><b id="owMe" class="out">฿0</b></button>
+    </div>
+    <div class="ow-add">
+      <button type="button" class="ow-new" data-k="they">💸 ให้ยืม</button>
+      <button type="button" class="ow-new" data-k="me">🙏 ยืมเขา</button>
+      <button type="button" class="ow-new" data-k="split">🍜 หารกัน</button>
+    </div>
+    <div id="owList"></div>
+    <details id="owClosed" class="ow-closed"><summary></summary><div id="owClosedList"></div></details>
+    <div id="owSplits"></div>
+  </section>
 
   <!-- แก้ไขรายการ -->
   <dialog id="mDlg">
@@ -104,6 +119,86 @@
     </form>
   </dialog>
 
+
+  <!-- 🤝 ให้ยืม / ยืมเขา -->
+  <dialog id="oDlg">
+    <form id="oForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus id="oTitle">ให้ยืม</h2>
+      <div class="seg" id="oDir"><button type="button" data-v="they">💸 ให้เขายืม</button><button type="button" data-v="me">🙏 เรายืมเขา</button></div>
+      <label>ชื่อคน <input name="person" list="owPeople" required placeholder="เช่น ต้น"></label>
+      <div class="row">
+        <label>จำนวนเงิน <input name="amount" inputmode="decimal" required placeholder="0"></label>
+        <label>วันที่ <input name="date" type="date" required></label>
+      </div>
+      <label>ค่าอะไร / เหตุผล <input name="title" placeholder="เช่น ค่าเทอมน้อง"></label>
+      <label>นัดคืนวันที่ (ไม่ใส่ก็ได้) <input name="due" type="date"></label>
+      <label>โน้ต <input name="note"></label>
+      <div class="dlg-actions">
+        <button type="button" id="oDel" class="danger" hidden>ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="oCancel" class="ghost">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+  <datalist id="owPeople"></datalist>
+
+  <!-- 🍜 หารกัน -->
+  <dialog id="sDlg" class="wide">
+    <form id="sForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus>🍜 หารกัน</h2>
+      <div class="row">
+        <label>ชื่อ (ร้าน / ทริป) <input name="title" required placeholder="เช่น หมูกระทะ"></label>
+        <label>วันที่ <input name="date" type="date" required></label>
+      </div>
+      <div class="field">
+        <span class="lbl">ใครบ้าง (แตะเพิ่ม/ลบ)</span>
+        <div id="sPeople" class="when-chips wrap"></div>
+        <div class="s-addp"><input id="sNewP" list="owPeople" placeholder="พิมพ์ชื่อเพื่อน แล้วกด ＋"><button type="button" id="sAddP" class="mini">＋</button></div>
+      </div>
+      <div id="sBills"></div>
+      <button type="button" id="sAddBill" class="ghost s-addbill">＋ เพิ่มบิล (คนอื่นจ่าย / ทริปหลายบิล)</button>
+      <div id="sSum" class="s-sum"></div>
+      <div class="dlg-actions">
+        <button type="button" id="sDel" class="danger" hidden>ลบ</button>
+        <span class="spacer"></span>
+        <button type="button" id="sCancel" class="ghost">ยกเลิก</button>
+        <button type="submit" class="primary">บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- รายละเอียดคน -->
+  <dialog id="pDlg">
+    <form id="pForm" method="dialog" autocomplete="off">
+      <div class="p-head"><span class="av" id="pAv"></span><div><h2 tabindex="-1" autofocus id="pName"></h2><p id="pBal" class="hint"></p></div></div>
+      <div class="ow-bar"><i id="pBar"></i></div>
+      <div id="pPay" class="p-pay">
+        <b id="pPayTitle">💵 รับคืนเงิน</b>
+        <div id="pAmts" class="when-chips wrap"></div>
+        <div class="row">
+          <label>ยอด <input id="pAmt" inputmode="decimal" placeholder="0"></label>
+          <label>วันที่ <input id="pDate" type="date"></label>
+        </div>
+        <div class="row">
+          <label>ทาง <select id="pVia"><option>โอน</option><option>เงินสด</option><option>QR/พร้อมเพย์</option><option>หักกลบ</option></select></label>
+          <label>สลิป <button type="button" id="pSlipBtn" class="ghost">📷 แนบ</button></label>
+        </div>
+        <button type="button" id="pSave" class="primary">บันทึก</button>
+      </div>
+      <h3 class="p-h">รายการที่ยังค้าง</h3>
+      <div id="pOpen"></div>
+      <h3 class="p-h">ประวัติ</h3>
+      <div id="pTl" class="tl"></div>
+      <div class="p-nudge" id="pNudge"><b>💬 ข้อความทวง</b><p id="pMsg"></p><div class="btns"><button type="button" id="pCopy" class="mini">📋 ก็อป</button><a id="pLine" class="mini" target="_blank" rel="noopener">ส่งใน LINE</a></div></div>
+      <div class="dlg-actions">
+        <span class="spacer"></span>
+        <button type="button" id="pClose" class="ghost">ปิด</button>
+      </div>
+    </form>
+  </dialog>
+  <input type="file" id="pSlip" accept="image/*,application/pdf" hidden>
+
   <div id="busy" class="busy" hidden role="status" aria-live="polite">
     <div class="busy-card"><img id="busyImg" alt="" hidden><div class="spin"></div><b id="busyMsg">กำลังอ่านสลิป…</b><small id="busySub"></small></div>
   </div>
@@ -118,6 +213,7 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="money.js?v=42"></script>
+  <script src="money.js?v=43"></script>
+  <script src="owe.js?v=43"></script>
 </body>
 </html>

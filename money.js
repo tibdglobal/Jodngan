@@ -121,6 +121,9 @@ function render() {
   $('#vList').hidden = view !== 'list';
   $('#vCal').hidden = view !== 'cal';
   $('#vChart').hidden = view !== 'chart';
+  $('#vOwe').hidden = view !== 'owe';
+  ['#hero', '.mo-comp', '.m-bar'].forEach(q => { const el = $(q); if (el) el.hidden = view === 'owe'; });
+  if (view === 'owe' && typeof renderOwe === 'function') renderOwe();
   if (view === 'list') renderList(mm);
   if (view === 'cal') renderCal(mm);
   if (view === 'chart') renderChart(mm);
