@@ -15,32 +15,40 @@ const CHECK_TEXT = 'jodngan-vault-ok';
 const LOCK_IDLE_MS = 5 * 60 * 1000;    // ไม่ได้ใช้ 5 นาที = ล็อก
 const LOCK_HIDDEN_MS = 60 * 1000;      // สลับไปแอปอื่นเกิน 1 นาที = ล็อก
 /* หมวดตั้งต้น + คำที่ใช้เดาหมวดจากชื่อ/เว็บ/อีเมล */
-const CAT_RULES = [
-  ['🏢 งาน', /tibd|งาน|office|work|slack|teams|zoom|notion|trello|asana|jira|canva|figma|adobe|chillpay|silk/i],
-  ['📧 อีเมล', /gmail|outlook|hotmail|yahoo|mail|อีเมล|proton/i],
-  ['🏦 ธนาคาร', /bank|ธนาคาร|กสิกร|kbank|k plus|kplus|scb|ไทยพาณิชย์|กรุงเทพ|bbl|กรุงไทย|ktb|krungthai|ttb|ทหารไทย|กรุงศรี|krungsri|ออมสิน|gsb|uob|cimb|ธกส|baac|เกียรตินาคิน|lh bank|แลนด์|mymo|paotang|เป๋าตัง/i],
-  ['💳 บัตร/e-Wallet', /บัตร|card|visa|master|amex|truemoney|true money|wallet|rabbit|linepay|line pay|paypal|shopeepay|airpay|dolfin/i],
-  ['📈 ลงทุน', /หุ้น|ลงทุน|กองทุน|fund|stock|settrade|streaming|bitkub|binance|crypto|คริปโต|finnomena|dime|webull|interactive|ib\b|gold|ทอง|liberator|innovestx/i],
-  ['💬 โซเชียล/แชท', /facebook|fb\b|instagram|ig\b|tiktok|twitter|x\.com|threads|line\b|ไลน์|discord|telegram|whatsapp|messenger|youtube|pantip|reddit|linkedin/i],
-  ['🛒 ช้อปปิ้ง', /shopee|lazada|amazon|aliexpress|temu|jd|central|robinson|ikea|lotus|bigc|makro|tops|uniqlo|nike|adidas|ช้อป|shop/i],
-  ['🍜 อาหาร/เดลิเวอรี่', /grab|lineman|line man|foodpanda|robinhood|starbucks|mcdonald|kfc|the1|ร้านอาหาร|เดลิเวอรี่/i],
-  ['🎬 ดูหนัง/ฟังเพลง', /netflix|spotify|disney|hbo|max\b|prime video|viu|wetv|iqiyi|trueid|monomax|apple music|joox|youtube premium|bugaboo|3plus/i],
-  ['🎮 เกม', /steam|epic|playstation|psn|xbox|nintendo|garena|riot|valorant|rov|genshin|hoyoverse|roblox|minecraft|battle\.net|ea\b|ubisoft|เกม/i],
-  ['✈️ เดินทาง', /airasia|thai airways|การบินไทย|nok|lion|bangkok airways|agoda|booking|traveloka|trip\.com|airbnb|klook|bolt|bts|mrt|รถไฟ|เดินทาง|โรงแรม/i],
-  ['🏛 ราชการ/ภาษี', /กรมสรรพากร|rd\.go|ภาษี|ประกันสังคม|sso|ทะเบียน|dopa|ราชการ|go\.th|ไทยดี|thaid|หมอพร้อม|กยศ/i],
-  ['📱 มือถือ/เน็ต', /ais|true\b|dtac|nt\b|3bb|ais fibre|truemove|ทรู|เอไอเอส|ดีแทค|อินเทอร์เน็ต|internet/i],
-  ['📶 Wi-Fi/อุปกรณ์', /wifi|wi-fi|router|เราเตอร์|กล้อง|cctv|tapo|xiaomi|mi home|smart|printer|tv|ทีวี|แอร์|nas/i],
-  ['☁️ คลาวด์/เครื่องมือ', /google|icloud|apple id|apple|microsoft|onedrive|dropbox|github|gitlab|aws|cloudflare|godaddy|wordpress|hosting|domain|chatgpt|openai|claude|anthropic|cpanel|vercel/i],
-  ['🎓 การศึกษา', /udemy|coursera|skooldio|มหาวิทยาลัย|university|\.ac\.th|เรียน|คอร์ส|school|duolingo/i],
-  ['🏥 สุขภาพ/ประกัน', /โรงพยาบาล|hospital|ประกัน|insurance|aia|เมืองไทย|allianz|fwd|คลินิก|ฟิตเนส|fitness|gym/i],
-  ['🏠 บ้าน/ค่าน้ำไฟ', /การไฟฟ้า|pea|mea|ประปา|pwa|คอนโด|นิติ|บ้าน|หอ|ค่าเช่า/i],
+/* หมวดของตู้งาน */
+const CAT_RULES_WORK = [
+  ['🏢 ระบบบริษัท', /tibd|erp|\bhr\b|intranet|ระบบ|portal|admin|odoo|sap|backoffice|หลังบ้าน/i],
+  ['📧 อีเมลงาน', /mail|outlook|gmail|workspace|อีเมล|exchange|zimbra/i],
+  ['🌐 เว็บไซต์/โดเมน', /wordpress|wp-admin|domain|โดเมน|godaddy|namecheap|cloudflare|hosting|cpanel|plesk|เว็บ|website|wix|webflow/i],
+  ['☁️ คลาวด์/เซิร์ฟเวอร์', /aws|azure|gcp|google cloud|firebase|vercel|netlify|railway|digitalocean|server|vps|ssh|database|github|gitlab|apps script/i],
+  ['🛠 เครื่องมือทำงาน', /slack|teams|zoom|notion|trello|asana|jira|clickup|canva|figma|adobe|miro|drive|dropbox|onedrive|chatgpt|claude|openai|capcut/i],
+  ['📣 เพจ/โซเชียล/โฆษณา', /facebook|\bfb\b|page|เพจ|meta|business|ads|instagram|tiktok|line oa|line official|youtube|linkedin|x\.com|twitter/i],
+  ['💳 การเงิน/ชำระเงิน', /bank|ธนาคาร|chillpay|omise|2c2p|stripe|paypal|payment|ชำระ|kbiz|business net|bizchannel|cash/i],
+  ['🧾 ภาษี/ราชการ', /สรรพากร|rd\.go|ภาษี|e-?filing|dbd|พาณิชย์|ประกันสังคม|sso|go\.th|ราชการ|e-?tax/i],
+  ['🤝 ลูกค้า/พาร์ทเนอร์', /ลูกค้า|client|partner|vendor|supplier|ซัพ|โครงการ|project/i],
+  ['🖨 อุปกรณ์/Wi-Fi ออฟฟิศ', /wifi|wi-fi|router|printer|ปริ้น|เครื่องพิมพ์|cctv|กล้อง|nas|switch|vpn/i],
 ];
-const DEFAULT_CATS = [...CAT_RULES.map(r => r[0]), '🔖 อื่นๆ'];
-const LEGACY_CATS = { 'งาน': '🏢 งาน', 'ธนาคาร/การเงิน': '🏦 ธนาคาร', 'อีเมล': '📧 อีเมล', 'โซเชียล': '💬 โซเชียล/แชท', 'ช้อปปิ้ง': '🛒 ช้อปปิ้ง', 'อื่นๆ': '🔖 อื่นๆ' };
+const CAT_RULES_PERSONAL = [
+  ['📧 อีเมล/บัญชีหลัก', /gmail|outlook|hotmail|yahoo|mail|อีเมล|proton|apple id|icloud|google|microsoft/i],
+  ['🏦 ธนาคาร/บัตร', /bank|ธนาคาร|กสิกร|kbank|k plus|kplus|scb|ไทยพาณิชย์|กรุงเทพ|bbl|กรุงไทย|ktb|krungthai|ttb|กรุงศรี|krungsri|ออมสิน|gsb|uob|cimb|ธกส|baac|mymo|paotang|เป๋าตัง|บัตร|card|visa|master|truemoney|true money|wallet|rabbit|line ?pay|paypal|shopeepay/i],
+  ['📈 ลงทุน', /หุ้น|ลงทุน|กองทุน|fund|stock|settrade|streaming|bitkub|binance|crypto|คริปโต|finnomena|dime|webull|ทอง|gold|innovestx/i],
+  ['💬 โซเชียล/แชท', /facebook|\bfb\b|instagram|\big\b|tiktok|twitter|x\.com|threads|\bline\b|ไลน์|discord|telegram|whatsapp|messenger|pantip|reddit|linkedin/i],
+  ['🛒 ช้อปปิ้ง/เดลิเวอรี่', /shopee|lazada|amazon|aliexpress|temu|central|ikea|lotus|bigc|makro|tops|uniqlo|nike|adidas|ช้อป|shop|grab|lineman|line man|foodpanda|robinhood|starbucks|the1/i],
+  ['🎬 ดูหนัง/ฟังเพลง', /netflix|spotify|disney|hbo|\bmax\b|prime video|viu|wetv|iqiyi|trueid|monomax|apple music|joox|youtube/i],
+  ['🎮 เกม', /steam|epic|playstation|psn|xbox|nintendo|garena|riot|valorant|rov|genshin|hoyoverse|roblox|minecraft|battle\.net|ubisoft|เกม/i],
+  ['✈️ เดินทาง', /airasia|thai airways|การบินไทย|nok|lion|bangkok airways|agoda|booking|traveloka|trip\.com|airbnb|klook|bolt|bts|mrt|รถไฟ|โรงแรม/i],
+  ['📱 มือถือ/เน็ต/บ้าน', /\bais\b|true\b|dtac|\bnt\b|3bb|ทรู|เอไอเอส|ดีแทค|internet|wifi|wi-fi|router|การไฟฟ้า|\bpea\b|\bmea\b|ประปา|คอนโด|นิติ|บ้าน|tapo|xiaomi|smart|ทีวี/i],
+  ['🏛 ราชการ/สุขภาพ/ประกัน', /สรรพากร|ภาษี|ประกันสังคม|go\.th|ไทยดี|thaid|หมอพร้อม|กยศ|โรงพยาบาล|hospital|ประกัน|insurance|aia|เมืองไทย|allianz|fwd|คลินิก|ฟิตเนส|fitness|gym/i],
+  ['🎓 เรียน/แอปอื่นๆ', /udemy|coursera|skooldio|duolingo|มหาวิทยาลัย|\.ac\.th|เรียน|คอร์ส|chatgpt|openai|claude|canva|notion|dropbox/i],
+];
+let space = (() => { try { return localStorage.getItem('vaultSpace') === 'personal' ? 'personal' : 'work'; } catch { return 'work'; } })();
+const rules = () => space === 'personal' ? CAT_RULES_PERSONAL : CAT_RULES_WORK;
+const defaultCats = () => [...rules().map(r => r[0]), '🔖 อื่นๆ'];
+const LEGACY_CATS = { 'งาน': '🏢 ระบบบริษัท', '🏢 งาน': '🏢 ระบบบริษัท', 'ธนาคาร/การเงิน': '💳 การเงิน/ชำระเงิน', 'อีเมล': '📧 อีเมลงาน', 'โซเชียล': '📣 เพจ/โซเชียล/โฆษณา', 'ช้อปปิ้ง': '🔖 อื่นๆ', 'อื่นๆ': '🔖 อื่นๆ', '🏦 ธนาคาร': '🏦 ธนาคาร/บัตร', '💳 บัตร/e-Wallet': '🏦 ธนาคาร/บัตร', '📧 อีเมล': '📧 อีเมล/บัญชีหลัก', '🛒 ช้อปปิ้ง': '🛒 ช้อปปิ้ง/เดลิเวอรี่', '🍜 อาหาร/เดลิเวอรี่': '🛒 ช้อปปิ้ง/เดลิเวอรี่' };
 function guessVaultCat(o) {
   // ชื่อ/เว็บก่อน (Netflix ที่ใช้อีเมล @gmail ต้องเป็นหมวดดูหนัง ไม่ใช่อีเมล) แล้วค่อยดูโดเมนอีเมล
   const tries = [[o.name, o.url].filter(Boolean).join(' '), o.user && /@/.test(o.user) && !(o.name || o.url) ? o.user.split('@')[1] : ''];
-  for (const t of tries) { const r = t && CAT_RULES.find(x => x[1].test(t)); if (r) return r[0]; }
+  for (const t of tries) { const r = t && rules().find(x => x[1].test(t)); if (r) return r[0]; }
   return '';
 }
 
@@ -50,6 +58,36 @@ let items = [];          // รายการที่ถอดรหัสแ�
 let cat = '';
 let editing = null;
 let idleTimer = null, hiddenTimer = null;
+const stash = { work: null, personal: null };   // สถานะของตู้ที่ไม่ได้เปิดอยู่ (กุญแจอยู่ในหน่วยความจำเท่านั้น)
+const SPACE_NAME = { work: '🏢 ตู้งาน', personal: '🔒 ตู้ส่วนตัว' };
+function paintSpace() {
+  document.querySelectorAll('#vSpace button').forEach(b => b.classList.toggle('on', b.dataset.s === space));
+  document.body.classList.toggle('vault-personal', space === 'personal');
+  $('#vTitle').textContent = space === 'personal' ? 'รหัสส่วนตัว' : 'รหัสงาน';
+  $('#vSetupTitle').textContent = 'ตั้งรหัสหลัก · ' + SPACE_NAME[space];
+  const minLen = space === 'personal' ? 8 : 12;
+  ['p1', 'p2'].forEach(n => { $('#vSetup').elements[n].minLength = minLen; $('#vSetup').elements[n].placeholder = `อย่างน้อย ${minLen} ตัว`; });
+  $('#vSetupHint').textContent = space === 'personal'
+    ? 'ตู้ส่วนตัวใช้รหัสหลักแยกจากตู้งาน (ควรตั้งให้ต่างกัน) ยาวอย่างน้อย 8 ตัว รหัสหลักไม่ถูกส่งไปที่ไหน'
+    : 'ใช้ปลดล็อกตู้รหัสงานทุกครั้ง ยาวอย่างน้อย 12 ตัว รหัสหลักไม่ถูกส่งไปที่ไหน';
+  $('#vUnlockTitle').textContent = '🔒 ' + SPACE_NAME[space] + ' ล็อกอยู่';
+  $('#vSub').textContent = 'เข้ารหัสในเครื่องก่อนบันทึก';
+}
+async function switchSpace(s) {
+  if (s === space) return;
+  stash[space] = { vault, key, items, cat };
+  if ($('#vDlg').open) $('#vDlg').close();
+  space = s;
+  try { localStorage.setItem('vaultSpace', s); } catch {}
+  const st = stash[s] || { vault: null, key: null, items: [], cat: '' };
+  ({ vault, key, items, cat } = st);
+  editing = null;
+  $('#vSearch').value = '';
+  $('#vList').innerHTML = '';
+  paintSpace();
+  showStatus('');
+  if (vault && key) { show('#vMain'); render(); } else await load();
+}
 
 /* ---------- base64 / crypto ---------- */
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -75,7 +113,7 @@ async function decryptJSON(k, iv, ct) {
 
 /* ---------- API ---------- */
 async function api(action, payload = {}) {
-  const res = await fetch(cfg.url, { method: 'POST', body: JSON.stringify({ action, key: cfg.key, ...payload }), redirect: 'follow' });
+  const res = await fetch(cfg.url, { method: 'POST', body: JSON.stringify({ action, key: cfg.key, ...(action.startsWith('vault_') ? { space } : {}), ...payload }), redirect: 'follow' });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
   return data;
@@ -124,6 +162,7 @@ $('#vSetup').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.elements;
   if (f.p1.value !== f.p2.value) { showStatus('รหัสหลักทั้งสองช่องไม่ตรงกัน'); return; }
+  if (f.p1.value.length < (space === 'personal' ? 8 : 12)) { showStatus(`รหัสหลักของ${SPACE_NAME[space]}ต้องยาวอย่างน้อย ${space === 'personal' ? 8 : 12} ตัว`); return; }
   showStatus('กำลังตั้งค่า…', true);
   const salt = b64(rand(16));
   const k = await deriveKey(f.p1.value, salt);
@@ -165,7 +204,7 @@ $('#vUnlock').addEventListener('submit', async e => {
 $('#btnForgot').onclick = async () => {
   const n = (vault && vault.items || []).length;
   const msg = n
-    ? `รหัสหลักกู้คืนไม่ได้ เพราะไม่ได้ถูกส่งไปเก็บที่ไหน\n\nถ้าตั้งใหม่ รหัสผ่านที่เก็บไว้ ${n} รายการจะถูกลบทั้งหมด และกู้คืนไม่ได้\n\nพิมพ์คำว่า ลบ เพื่อยืนยัน`
+    ? `[${SPACE_NAME[space]}] รหัสหลักกู้คืนไม่ได้ เพราะไม่ได้ถูกส่งไปเก็บที่ไหน\n\nถ้าตั้งใหม่ รหัสผ่านที่เก็บไว้ ${n} รายการจะถูกลบทั้งหมด และกู้คืนไม่ได้\n\nพิมพ์คำว่า ลบ เพื่อยืนยัน`
     : 'ยังไม่มีรหัสผ่านที่เก็บไว้ ตั้งรหัสหลักใหม่ได้เลย\n\nพิมพ์คำว่า ลบ เพื่อยืนยัน';
   if ((prompt(msg) || '').trim() !== 'ลบ') return;
   try {
@@ -180,6 +219,7 @@ $('#btnForgot').onclick = async () => {
 function lock() {
   key = null;
   items = [];
+  ['work', 'personal'].forEach(s => { if (stash[s]) { stash[s].key = null; stash[s].items = []; } });
   editing = null;
   if ($('#vDlg').open) $('#vDlg').close();
   if ($('#vImp').open) { $('#impText').value = ''; impRows = []; $('#impList').innerHTML = ''; $('#vImp').close(); }
@@ -291,6 +331,8 @@ function openDlg(it) {
   const f = form.elements;
   $('#vDlgTitle').textContent = it ? 'แก้ไขรหัส' : 'เพิ่มรหัส';
   $('#btnVDelete').hidden = !it;
+  $('#btnVMove').hidden = !it;
+  $('#btnVMove').textContent = space === 'work' ? '↔ ย้ายไปตู้ส่วนตัว' : '↔ ย้ายไปตู้งาน';
   f.name.value = it ? it.name : '';
   $('#vCatIn').value = it ? (it.cat || '') : (cat || '');
   paintCatChips();
@@ -357,7 +399,7 @@ function allVaultCats() {
   // หมวดที่ใช้บ่อยขึ้นก่อน แล้วตามด้วยหมวดตั้งต้นที่เหลือ
   const cnt = {}; used.forEach(c => { cnt[c] = (cnt[c] || 0) + 1; });
   const mine = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
-  return [...new Set([...mine, ...DEFAULT_CATS])];
+  return [...new Set([...mine, ...defaultCats()])];
 }
 function catChips(box, getVal, setVal) {
   const cur = getVal();
@@ -643,6 +685,36 @@ $('#impNext').onclick = async () => {
   } catch (e) { showStatus('นำเข้าไม่สำเร็จ: ' + e.message); }
   finally { btn.disabled = false; impSum(); }
 };
+
+/* ---------- ย้ายรายการไปอีกตู้ (ต้องปลดล็อกทั้งสองตู้) ---------- */
+$('#btnVMove').onclick = async () => {
+  if (!editing || !key) return;
+  const other = space === 'work' ? 'personal' : 'work';
+  const st = stash[other];
+  if (!st || !st.key || !st.vault) { alert(`ต้องปลดล็อก${SPACE_NAME[other]}ก่อน\n\nแตะแท็บ "${other === 'work' ? '🏢 งาน' : '🔒 ส่วนตัว'}" ด้านบน ใส่รหัสหลัก แล้วกลับมาที่ตู้นี้กดย้ายอีกครั้ง`); return; }
+  const it = editing;
+  const f = form.elements;
+  const data = { name: f.name.value.trim() || it.name, cat: '', user: f.user.value.trim(), pass: f.pass.value, url: f.url.value.trim(), note: f.note.value };
+  const R = other === 'personal' ? CAT_RULES_PERSONAL : CAT_RULES_WORK;
+  const g = R.find(x => x[1].test([data.name, data.url].join(' ')));
+  data.cat = g ? g[0] : '🔖 อื่นๆ';
+  if (!confirm(`ย้าย "${data.name}" ไป${SPACE_NAME[other]}?`)) return;
+  try {
+    const sealed = await encryptJSON(st.key, data);
+    await api('vault_save', { item: { id: it.id, ...sealed }, space: other });
+    await api('vault_delete', { id: it.id });
+    st.vault.items.push({ id: it.id, ...sealed });
+    st.items.push({ id: it.id, ...data });
+    items = items.filter(x => x.id !== it.id);
+    vault.items = vault.items.filter(x => x.id !== it.id);
+    editing = null;
+    dlg.close();
+    render();
+    showStatus(`✓ ย้าย "${data.name}" ไป${SPACE_NAME[other]}แล้ว`, true);
+  } catch (e) { showStatus('ย้ายไม่สำเร็จ: ' + e.message); }
+};
+document.querySelectorAll('#vSpace button').forEach(b => b.onclick = () => switchSpace(b.dataset.s));
+paintSpace();
 
 /* ---------- เริ่มต้น ---------- */
 if (!window.crypto || !crypto.subtle) {

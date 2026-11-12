@@ -1389,3 +1389,13 @@ body.inbox #iList { display: grid; gap: 10px; margin-top: 10px; }
 #owMe.zero, #owThey.zero { color: var(--muted) !important; }
 .imp-side { display: grid; justify-items: end; gap: 4px; }
 .imp-sw { min-height: 32px !important; padding: 0 10px; }
+/* ---------- 🔐 2 ตู้: งาน / ส่วนตัว ---------- */
+.v-space { display: grid !important; grid-template-columns: 1fr 1fr; gap: 0; margin: 0 0 12px; padding: 3px; background: var(--line); border: 0; border-radius: 12px; }
+.v-space button { border: 0; border-radius: 9px; padding: 9px 4px; background: transparent; color: var(--muted); font-size: 15px; font-weight: 500; min-height: 42px; }
+.v-space button.on { background: var(--card); color: var(--accent); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+body.vault.vault-personal { --accent: #8a3a6e; --accent-soft: color-mix(in srgb, #8a3a6e 12%, transparent); --accent-line: color-mix(in srgb, #8a3a6e 30%, transparent); }
+@media (prefers-color-scheme: dark) { body.vault.vault-personal { --accent: #e59ccb; --accent-soft: color-mix(in srgb, #e59ccb 16%, transparent); } }
+#btnVMove { font-size: 13px; padding: 0 10px; white-space: nowrap; }
+#vDlg .dlg-actions { flex-wrap: wrap; }
+#vDlg #btnVMove { order: -1; flex: 1 0 100%; min-height: 40px; border: 1px dashed var(--accent-line, var(--line)); border-radius: 12px; background: transparent; color: var(--accent); }
+#vDlg { overflow-x: hidden; }

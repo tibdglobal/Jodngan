@@ -176,12 +176,12 @@ function doPost(e) {
       case 'delete': deleteTask_(body.id); return json_({ ok: true });
       case 'events': return json_({ ok: true, events: listEvents_(body.days || CAL_DAYS), missing: missingCalendars_() });
       case 'import': return json_({ ok: true, tasks: importEvents_(body.meetings || [], body.skip || [], body.project || '') });
-      case 'vault_list':   return json_({ ok: true, ...vaultList_() });
-      case 'vault_init':   vaultInit_(body.salt, body.check); return json_({ ok: true });
-      case 'vault_save':   vaultSave_(body.item); return json_({ ok: true });
-      case 'vault_save_many': return json_({ ok: true, saved: vaultSaveMany_(body.items) });
-      case 'vault_delete': vaultDelete_(body.id); return json_({ ok: true });
-      case 'vault_reset':  return json_({ ok: true, removed: vaultReset_() });
+      case 'vault_list':   return json_({ ok: true, ...vaultList_(body.space) });
+      case 'vault_init':   vaultInit_(body.salt, body.check, body.space); return json_({ ok: true });
+      case 'vault_save':   vaultSave_(body.item, body.space); return json_({ ok: true });
+      case 'vault_save_many': return json_({ ok: true, saved: vaultSaveMany_(body.items, body.space) });
+      case 'vault_delete': vaultDelete_(body.id, body.space); return json_({ ok: true });
+      case 'vault_reset':  return json_({ ok: true, removed: vaultReset_(body.space) });
       case 'bills_list':   return json_({ ok: true, bills: billsListFixed_() });
       case 'bill_save':    return json_({ ok: true, bill: billSave_(body.bill) });
       case 'bill_upload':  return json_({ ok: true, ...billUpload_(body) });
@@ -607,12 +607,20 @@ function skipped_() {
 const VAULT_SHEET = 'Vault';
 const VAULT_HEADERS = ['id', 'iv', 'ct', 'updated'];
 
-function vaultSheet_() {
+/** ตู้รหัส 2 ตู้: work = งาน (ตู้เดิม) · personal = ส่วนตัว (รหัสหลักแยก ชีตแยก) */
+function vs_(space) {
+  return space === 'personal'
+    ? { sheet: 'Vault2', salt: 'VAULT2_SALT', check: 'VAULT2_CHECK' }
+    : { sheet: VAULT_SHEET, salt: 'VAULT_SALT', check: 'VAULT_CHECK' };
+}
+
+function vaultSheet_(space) {
+  const V = vs_(space);
   const id = props.getProperty('SHEET_ID');
   const ss = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName(VAULT_SHEET);
+  let sh = ss.getSheetByName(V.sheet);
   if (!sh) {
-    sh = ss.insertSheet(VAULT_SHEET);
+    sh = ss.insertSheet(V.sheet);
     sh.getRange(1, 1, sh.getMaxRows(), VAULT_HEADERS.length).setNumberFormat('@');
     sh.getRange(1, 1, 1, VAULT_HEADERS.length).setValues([VAULT_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
@@ -621,26 +629,28 @@ function vaultSheet_() {
   return sh;
 }
 
-function vaultList_() {
-  const sh = vaultSheet_();
+function vaultList_(space) {
+  const V = vs_(space), sh = vaultSheet_(space);
   const last = sh.getLastRow();
   const items = last < 2 ? [] : sh.getRange(2, 1, last - 1, VAULT_HEADERS.length).getDisplayValues()
     .filter(r => r[0]).map(r => ({ id: r[0], iv: r[1], ct: r[2], updated: r[3] }));
-  return { salt: props.getProperty('VAULT_SALT') || '', check: props.getProperty('VAULT_CHECK') || '', items: items };
+  return { salt: props.getProperty(V.salt) || '', check: props.getProperty(V.check) || '', items: items };
 }
 
-function vaultInit_(salt, check) {
-  if (props.getProperty('VAULT_SALT')) throw new Error('ตั้งรหัสหลักไว้แล้ว');
+function vaultInit_(salt, check, space) {
+  const V = vs_(space);
+  if (props.getProperty(V.salt)) throw new Error('ตั้งรหัสหลักไว้แล้ว');
   if (!/^[A-Za-z0-9+/=]{16,64}$/.test(String(salt || '')) || !check) throw new Error('ข้อมูลไม่ถูกต้อง');
-  props.setProperties({ VAULT_SALT: salt, VAULT_CHECK: String(check) });
-  vaultSheet_();
+  props.setProperty(V.salt, salt);
+  props.setProperty(V.check, String(check));
+  vaultSheet_(space);
 }
 
-function vaultSave_(it) {
-  if (!props.getProperty('VAULT_SALT')) throw new Error('ยังไม่ได้ตั้งรหัสหลัก');
+function vaultSave_(it, space) {
+  if (!props.getProperty(vs_(space).salt)) throw new Error('ยังไม่ได้ตั้งรหัสหลัก');
   if (!it || !/^[A-Za-z0-9]{8,64}$/.test(String(it.id || '')) || !it.iv || !it.ct) throw new Error('ข้อมูลไม่ถูกต้อง');
   if (String(it.ct).length > 40000) throw new Error('ข้อมูลยาวเกินไป');
-  const sh = vaultSheet_();
+  const sh = vaultSheet_(space);
   const row = [String(it.id), String(it.iv), String(it.ct), stamp_()];
   const last = sh.getLastRow();
   const ids = last < 2 ? [] : sh.getRange(2, 1, last - 1, 1).getDisplayValues().map(r => r[0]);
@@ -650,8 +660,8 @@ function vaultSave_(it) {
 }
 
 /** นำเข้าหลายรายการ (รายการใหม่ทั้งหมด เข้ารหัสมาจากเครื่องแล้ว) */
-function vaultSaveMany_(list) {
-  if (!props.getProperty('VAULT_SALT')) throw new Error('ยังไม่ได้ตั้งรหัสหลัก');
+function vaultSaveMany_(list, space) {
+  if (!props.getProperty(vs_(space).salt)) throw new Error('ยังไม่ได้ตั้งรหัสหลัก');
   if (!Array.isArray(list) || !list.length) return 0;
   if (list.length > 500) throw new Error('นำเข้าได้ครั้งละไม่เกิน 500 รายการ');
   const now = stamp_();
@@ -662,25 +672,25 @@ function vaultSaveMany_(list) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sh = vaultSheet_();
+    const sh = vaultSheet_(space);
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, VAULT_HEADERS.length).setNumberFormat('@').setValues(rows);
   } finally { lock.releaseLock(); }
   return rows.length;
 }
 
 /** ลืมรหัสหลัก: ลบรหัสหลักและรายการที่เข้ารหัสไว้ทั้งหมด (ถอดรหัสไม่ได้อยู่แล้ว) แล้วตั้งใหม่ได้ */
-function vaultReset_() {
-  const sh = vaultSheet_();
+function vaultReset_(space) {
+  const V = vs_(space), sh = vaultSheet_(space);
   const last = sh.getLastRow();
   const n = last < 2 ? 0 : last - 1;
   if (n) sh.deleteRows(2, n);
-  props.deleteProperty('VAULT_SALT');
-  props.deleteProperty('VAULT_CHECK');
+  props.deleteProperty(V.salt);
+  props.deleteProperty(V.check);
   return n;
 }
 
-function vaultDelete_(id) {
-  const sh = vaultSheet_();
+function vaultDelete_(id, space) {
+  const sh = vaultSheet_(space);
   const last = sh.getLastRow();
   if (last < 2) return;
   const ids = sh.getRange(2, 1, last - 1, 1).getDisplayValues().map(r => r[0]);

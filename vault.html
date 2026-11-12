@@ -13,13 +13,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=45">
+  <link rel="stylesheet" href="style.css?v=46">
 </head>
 <body class="vault">
   <header class="top">
     <div>
       <a href="./" class="back">‹ จดครบ</a>
-      <h1>รหัสผ่าน</h1>
+      <h1 id="vTitle">รหัสผ่าน</h1>
       <p class="sub" id="vSub">เข้ารหัสในเครื่องก่อนบันทึก</p>
     </div>
     <div class="top-actions">
@@ -27,6 +27,10 @@
     </div>
   </header>
 
+  <nav class="seg v-space" id="vSpace" aria-label="เลือกตู้รหัส">
+    <button type="button" data-s="work">🏢 งาน</button>
+    <button type="button" data-s="personal">🔒 ส่วนตัว</button>
+  </nav>
   <div id="status" class="status" hidden></div>
 
   <!-- ยังไม่เชื่อมเครื่อง -->
@@ -38,8 +42,8 @@
 
   <!-- ตั้งรหัสหลักครั้งแรก -->
   <form id="vSetup" class="v-card" hidden autocomplete="off">
-    <h2>ตั้งรหัสหลัก</h2>
-    <p class="hint">ใช้ปลดล็อกหน้ารหัสผ่านทุกครั้ง ยาวอย่างน้อย 8 ตัว รหัสหลักไม่ถูกส่งไปที่ไหน</p>
+    <h2 id="vSetupTitle">ตั้งรหัสหลัก</h2>
+    <p class="hint" id="vSetupHint">ใช้ปลดล็อกหน้ารหัสผ่านทุกครั้ง ยาวอย่างน้อย 8 ตัว รหัสหลักไม่ถูกส่งไปที่ไหน</p>
     <label>รหัสหลัก <input type="password" name="p1" minlength="8" required autocomplete="new-password"></label>
     <label>ยืนยันรหัสหลัก <input type="password" name="p2" minlength="8" required autocomplete="new-password"></label>
     <p class="warn-box">⚠️ ถ้าลืมรหัสหลัก จะกู้รหัสผ่านที่เก็บไว้ไม่ได้ ควรจดเก็บไว้ในที่ปลอดภัย</p>
@@ -48,7 +52,7 @@
 
   <!-- ปลดล็อก -->
   <form id="vUnlock" class="v-card" hidden autocomplete="off">
-    <h2>🔒 ล็อกอยู่</h2>
+    <h2 id="vUnlockTitle">🔒 ล็อกอยู่</h2>
     <label>รหัสหลัก <input type="password" name="pw" required autocomplete="current-password"></label>
     <button type="submit" class="btn primary">ปลดล็อก</button>
     <button type="button" id="btnForgot" class="link-btn forgot">ลืมรหัสหลัก?</button>
@@ -87,6 +91,7 @@
       <label>โน้ต <textarea name="note" rows="2"></textarea></label>
       <div class="dlg-actions">
         <button type="button" id="btnVDelete" class="danger">ลบ</button>
+        <button type="button" id="btnVMove" class="ghost" title="ย้ายรายการนี้ไปอีกตู้">↔ ย้ายตู้</button>
         <span class="spacer"></span>
         <button type="button" id="btnVCancel" class="ghost">ยกเลิก</button>
         <button type="submit" class="primary">บันทึก</button>
@@ -143,6 +148,6 @@ shopee.co.th"></textarea>
     <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="vault.js?v=45"></script>
+  <script src="vault.js?v=46"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@
 |---|---|
 | หน้าเว็บ (PWA) | repo นี้ (root) → GitHub Pages `https://tibdglobal.github.io/Jodngan/` |
 | หลังบ้าน | Google Apps Script โปรเจกต์ **"จดงาน API"** ผูกกับ Google Sheet **"จดงาน"** (เจ้าของ pm01@tibdglobal.com) · โค้ดต้นฉบับอยู่ที่ `apps-script/` ใน repo นี้ |
-| ฐานข้อมูล | Google Sheet "จดงาน" แท็บ: `Tasks`, `Bills`, `Money`, `Inbox`, `Owe`, `Vault` |
+| ฐานข้อมูล | Google Sheet "จดงาน" แท็บ: `Tasks`, `Bills`, `Money`, `Inbox`, `Owe`, `Vault`, `Vault2` |
 | ไฟล์รูป | Google Drive: `จดงาน - หลักฐานเบิกเงิน/` (มี `รอจัด/`), `จดครบ - รายรับรายจ่าย/ปี-เดือน/`, `จดครบ - กล่องฝาก/` |
 | แชท | LINE OA "EZP BOT" → webhook = Web App URL ของ Apps Script |
 
@@ -18,7 +18,7 @@
 - `inbox.html` + `inbox.js` — 📌 กล่องฝาก (ลิงก์/โน้ต/รูป)
 - `money.html` + `money.js` — รายรับรายจ่าย · `owe.js` — 🤝 ค้างกัน (ให้ยืม/ยืม/หารกัน เท่ากัน·ระบุเอง·ตามเมนู·ทริปหลายบิล/ทยอยคืน)
 - `bills.html` + `bills.js` — บิลเบิกบริษัท, OCR, คลังหลักฐาน, พิมพ์ใบเบิก (ใบสำคัญรับเงิน TIBD + รายงาน) แบบ preview ในแอป
-- `vault.html` + `vault.js` — ตู้รหัสผ่าน **เข้ารหัสในเครื่อง** (PBKDF2 → AES-GCM) + นำเข้าแบบวางหลายรายการ
+- `vault.html` + `vault.js` — ตู้รหัสผ่าน **เข้ารหัสในเครื่อง** (PBKDF2 → AES-GCM) มี **2 ตู้**: 🏢 งาน (แท็บ `Vault`, รหัสหลัก ≥12 ตัว) และ 🔒 ส่วนตัว (แท็บ `Vault2`, ≥8 ตัว) รหัสหลักแยกกัน หมวดแยกกัน (`CAT_RULES_WORK` / `CAT_RULES_PERSONAL`) · API `vault_*` ส่ง `space: 'work'|'personal'` · นำเข้าแบบวางหลายรายการ + ย้ายรายการข้ามตู้
 - `style.css` — สไตล์รวม (สีประจำหมวด, โหมดมืด, tabbar ล่าง 5 แท็บ)
 - `sw.js` — service worker (cache-first)
 
@@ -47,7 +47,7 @@
 
 ## กฎความปลอดภัย (สำคัญ)
 - repo นี้ **เปิดสาธารณะ** — ห้ามใส่ token, API key, เลขบัตรประชาชน, รหัสผ่าน หรือข้อมูลส่วนตัวลงไฟล์ใดๆ
-- ความลับทั้งหมดอยู่ใน **Script Properties** ของ Apps Script: `API_KEY`, `LINE_TOKEN`, `LINE_USER_ID`, `SHEET_ID`, `BRIDGE_URL`, `BRIDGE_KEY`, `CLAIM_CFG`, `VAULT_SALT`, `VAULT_CHECK`, `*_FOLDER_ID` — อย่าคัดลอกค่าออกมาในแชทหรือไฟล์
+- ความลับทั้งหมดอยู่ใน **Script Properties** ของ Apps Script: `API_KEY`, `LINE_TOKEN`, `LINE_USER_ID`, `SHEET_ID`, `BRIDGE_URL`, `BRIDGE_KEY`, `CLAIM_CFG`, `VAULT_SALT`, `VAULT_CHECK`, `VAULT2_SALT`, `VAULT2_CHECK`, `*_FOLDER_ID` — อย่าคัดลอกค่าออกมาในแชทหรือไฟล์
 - การเข้าแอปใช้ "ลิงก์ส่วนตัว" ที่มี key (พิมพ์ `ลิงก์` ใน LINE) — ห้ามแชร์ลิงก์นี้ต่อ
 - ตู้รหัส: รหัสหลักไม่ถูกส่งไปไหน ห้ามขอรหัสผ่านจริงของเจ้าของ ห้ามรับรหัสมากรอกแทน ให้เจ้าของใช้ปุ่มนำเข้าในแอปเอง
 - LINE webhook ตอบเฉพาะ `LINE_USER_ID` ของเจ้าของ
