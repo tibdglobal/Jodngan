@@ -14,6 +14,7 @@ function readDoc_(file, ctx) {
   try { text = ocrText_(file); } catch (e) {}
   const o = readReceipt_(text);
   o.via = 'ocr';
+  o.memo = slipMemo_(text);
   o.text = String(text).slice(0, 1500);
   o.kind = text ? guessKind_(text) : '';
   return o;
@@ -39,7 +40,9 @@ function aiRead_(file, ctx) {
     '- time: HH:MM ถ้ามี',
     '- amount: ยอดที่จ่ายจริงสุดท้าย (หลังส่วนลด รวม VAT/service) เป็นตัวเลขล้วน ห้ามเอาเงินที่ลูกค้าให้มาหรือเงินทอน สลิปโอนเงิน = จำนวนเงินที่โอน',
     '- vendor: ชื่อร้าน/บริษัทผู้ขาย (ไม่ใช่ชื่อสาขา ไม่ใช่ที่อยู่) สลิปโอน = ชื่อผู้รับเงิน',
-    '- desc: สรุปสั้นๆ ภาษาไทยว่าซื้ออะไร ไม่เกิน 40 ตัวอักษร เช่น "ค่าอาหารกลางวัน", "ค่าน้ำมันรถ", "โอนค่าห้อง"',
+    '- memo: ข้อความบันทึก/โน้ตที่คนโอนพิมพ์ไว้เองในสลิป (ช่อง บันทึกช่วยจำ, บันทึก, ข้อความ, หมายเหตุ, Note, Memo, รายละเอียด) คัดลอกตามที่เขียนทุกตัวอักษร ไม่มีให้ ""',
+    '- desc: สรุปสั้นๆ ภาษาไทยว่าจ่าย/รับค่าอะไร ไม่เกิน 40 ตัวอักษร ถ้ามี memo ให้ยึดตาม memo เป็นหลัก (เช่น memo "เงินค่าห้อง พ.ย." → desc "ค่าห้อง พ.ย.") ไม่มี memo ค่อยสรุปจากรายการสินค้า เช่น "ค่าอาหารกลางวัน", "ค่าน้ำมันรถ"',
+    '- cat: ถ้ามี memo ให้ใช้ memo ช่วยเลือกหมวดด้วย',
     '- vat: yes ถ้ามีการแสดงภาษีมูลค่าเพิ่ม/VAT หรือเป็นใบกำกับภาษี, no ถ้าไม่มี · vat_amount: ยอด VAT ถ้ามี · prices_include_vat: ราคาสินค้าแต่ละรายการรวม VAT แล้วหรือยัง',
     '- service_charge, discount: ยอดเงิน (ไม่ใช่ %) ถ้ามี',
     '- items: รายการสินค้า/เมนูทุกบรรทัด ชื่อตามที่เขียน qty จำนวน price = ราคารวมของบรรทัดนั้น (ไม่ใช่ราคาต่อหน่วย) ไม่ต้องใส่บรรทัดยอดรวม/ภาษี/ส่วนลด',
@@ -58,7 +61,7 @@ function aiRead_(file, ctx) {
       vat: S('STRING', { enum: ['yes', 'no', ''] }), vat_amount: S('NUMBER'), prices_include_vat: S('BOOLEAN'),
       service_charge: S('NUMBER'), discount: S('NUMBER'),
       items: S('ARRAY', { items: S('OBJECT', { properties: { name: S('STRING'), qty: S('NUMBER'), price: S('NUMBER') }, required: ['name', 'price'] }) }),
-      pay: S('STRING'), payer: S('STRING'), payee: S('STRING'), bank: S('STRING'), ref: S('STRING'), tax_id: S('STRING'),
+      pay: S('STRING'), memo: S('STRING'), payer: S('STRING'), payee: S('STRING'), bank: S('STRING'), ref: S('STRING'), tax_id: S('STRING'),
       cat: S('STRING'), confidence: S('NUMBER'),
     },
     required: ['kind', 'date', 'amount', 'vendor', 'desc', 'vat', 'items', 'confidence'],
@@ -113,7 +116,7 @@ function aiNormalize_(j, cats, model) {
     amount: amount ? String(amount) : '', vendor: String(j.vendor || '').trim().slice(0, 80), desc: String(j.desc || '').trim().slice(0, 60),
     vat: vat, vatAmt: vatAmt ? String(vatAmt) : '', pricesIncVat: j.prices_include_vat !== false,
     service: n(j.service_charge), discount: n(j.discount), items: items,
-    pay: String(j.pay || ''), payer: String(j.payer || '').slice(0, 80), payee: String(j.payee || '').slice(0, 80), bank: String(j.bank || '').slice(0, 40), ref: String(j.ref || '').slice(0, 40),
+    memo: String(j.memo || '').trim().slice(0, 120), pay: String(j.pay || ''), payer: String(j.payer || '').slice(0, 80), payee: String(j.payee || '').slice(0, 80), bank: String(j.bank || '').slice(0, 40), ref: String(j.ref || '').slice(0, 40),
     taxId: String(j.tax_id || '').replace(/\D/g, '').slice(0, 13), cat: cat, confidence: Math.max(0, Math.min(1, Number(j.confidence) || 0)),
   };
 }
@@ -139,4 +142,26 @@ function billCatList_() {
 function moneyCatList_(type) {
   const base = (MONEY_CATS[type === 'in' ? 'in' : 'out'] || []).map(c => Array.isArray(c) ? c[0] : c);
   return Array.from(new Set(base.concat(['อื่นๆ'])));
+}
+
+/** โน้ตที่ผู้โอนพิมพ์ไว้ในสลิป (OCR แบบเดิม) */
+function slipMemo_(text) {
+  const lines = String(text || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const KEY = /^(บันทึกช่วยจำ|บันทึก|ข้อความ|หมายเหตุ|รายละเอียด|note|memo)\s*[:：]?\s*/i;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(KEY);
+    if (!m) continue;
+    const v = lines[i].slice(m[0].length).trim() || (lines[i + 1] && !KEY.test(lines[i + 1]) ? lines[i + 1] : '');
+    if (v && !/^\d[\d,.\s]*$/.test(v)) return v.slice(0, 120);
+  }
+  return '';
+}
+
+/** ข้อความที่จะใช้เป็นรายละเอียด/โน้ต: โน้ตในสลิปก่อน แล้วค่อยเป็นสรุปของ AI + ชื่อร้าน/ผู้รับ */
+function docNote_(o) {
+  o = o || {};
+  const memo = String(o.memo || '').replace(/^(เงิน|โอน)\s*(?=ค่า)/, '').trim();
+  if (memo) return [memo, o.vendor && memo.indexOf(o.vendor) < 0 ? o.vendor : ''].filter(Boolean).join(' · ');
+  if (o.via === 'ai') return [o.desc, o.vendor].filter(Boolean).join(' · ');
+  return o.vendor || '';
 }

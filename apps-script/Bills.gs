@@ -140,7 +140,7 @@ function billSnap_(p) {
     id: t.id,
     date: t.date || o.date || todayStr_(),
     amount: typedAmt ? t.amount : (o.amount || 0),
-    desc: t.desc || (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : o.vendor) || 'รอใส่รายละเอียด',
+    desc: t.desc || docNote_(o) || 'รอใส่รายละเอียด',
     project: t.project || '',
     cat: t.cat || o.cat || '',
     vendor: o.vendor || '',
@@ -292,7 +292,7 @@ function billPendPrompt_(fid, waiting) {
   rest.slice(0, 11 - items.length).forEach(b => items.push(qr_(lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
   items.push(qr_('🗑 ไม่ใช้', 'drop|' + fid, 'ไม่ใช้รูปนี้'));
 
-  const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor, ocr.desc && ocr.desc !== vendor ? ocr.desc : ''].filter(Boolean).join(' · ');
+  const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor, ocr.memo ? '📝 ' + ocr.memo : (ocr.desc && ocr.desc !== vendor ? ocr.desc : '')].filter(Boolean).join(' · ');
   const text = (got ? '🧾 ดูเหมือน' + (KIND_NAME[kind] || 'ใบเสร็จ') + (ocr.via === 'ai' ? ' (AI อ่าน)' : '') + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
     '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
     (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง' : '');
@@ -663,7 +663,7 @@ function billAutoFill_(b, ocr) {
   if (ocr.date && ocr.date !== b.date && (!b.date || b.date === created)) set('date', ocr.date);
   if (ocr.vendor && !String(b.vendor || '').trim()) set('vendor', ocr.vendor);
   if (ocr.cat && !String(b.cat || '').trim()) set('cat', ocr.cat);
-  const d = ocr.via === 'ai' ? [ocr.desc, ocr.vendor].filter(Boolean).join(' · ') : ocr.vendor;
+  const d = docNote_(ocr);
   if (d && /^(รอใส่รายละเอียด|ใบเสร็จจาก LINE)$/.test(String(b.desc || '').trim())) set('desc', d);
   if (ocr.vat && !b.vat) set('vat', ocr.vat);
   if (ocr.vatAmt && !Number(b.vatAmt) && b.vat === 'yes') set('vatAmt', ocr.vatAmt);

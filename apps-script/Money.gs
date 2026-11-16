@@ -147,7 +147,7 @@ function moneySnap_(p) {
   try { o = readDoc_(file, { cats: moneyCatList_(type) }); } catch (e) { o = {}; }
   const text = [o.text || '', o.desc || '', o.vendor || '', (o.items || []).map(i => i.name).join(' ')].join(' ');
   const t = p.item || {};
-  const note = t.note || (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : o.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
+  const note = t.note || docNote_(o) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
   const m = moneySave_({
     id: t.id, type: type, date: t.date || o.date || todayStr_(),
     amount: t.amount !== undefined && t.amount !== null && t.amount !== '' ? t.amount : (o.amount || 0),
@@ -203,7 +203,7 @@ function moneySummaryText_() {
 function moneyFromPending_(fid, type, pend) {
   const file = DriveApp.getFileById(fid);
   const o = (pend && pend.ocr) || {};
-  const note = (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : '') || (pend && pend.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
+  const note = (o.via === 'ai' || o.memo ? docNote_(o) : '') || (pend && pend.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
   const m = moneySave_({ type: type, date: o.date || todayStr_(), amount: o.amount || 0, note: note,
     cat: (type === 'out' && o.mcat) || moneyGuessCat_(type, note, moneyAll_()), pay: o.pay || (pend && pend.kind === 'slip' ? 'โอน' : '') });
   return moneyAttach_(m, file, (pend && pend.mime) || file.getMimeType(), '');
