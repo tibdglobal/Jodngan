@@ -40,6 +40,8 @@ function render() {
   renderQCats();
   // มุมมอง
   $('#vTabs').querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === view));
+  $('#vTabs').hidden = view === 'owe';
+  document.querySelectorAll('#mSec a').forEach(a => { if (a.dataset.s === (view === 'owe' ? 'owe' : 'money')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   $('#vList').hidden = view !== 'list';
   $('#vCal').hidden = view !== 'cal';
   $('#vChart').hidden = view !== 'chart';
@@ -379,6 +381,18 @@ $('#qdInput').addEventListener('change', () => {
 });
 
 $('#vTabs').querySelectorAll('button').forEach(c => c.onclick = () => { view = c.dataset.v; LS.set('moneyView', view); render(); });
+/* แถบบน: รายรับ-จ่าย / หารกัน (หน้าแยก) / ค้างกัน */
+function secFromHash() {
+  const h = location.hash.slice(1);
+  if (h === 'owe') view = 'owe';
+  else if (h === 'money' && view === 'owe') view = 'list';
+  else return false;
+  LS.set('moneyView', view);
+  return true;
+}
+secFromHash();
+window.addEventListener('hashchange', () => { if (secFromHash()) render(); });
+document.querySelectorAll('#mSec a[href^="money.html#"]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); history.replaceState(null, '', '#' + a.dataset.s); secFromHash(); render(); }));
 $('#btnSync').onclick = sync;
 render();
 sync();

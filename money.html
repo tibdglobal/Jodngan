@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=49">
+  <link rel="stylesheet" href="style.css?v=50">
 </head>
 <body class="money">
   <header class="top">
@@ -26,6 +26,12 @@
       <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
     </div>
   </header>
+
+  <nav class="mo-sec" id="mSec" aria-label="ส่วนของเงิน">
+    <a href="money.html#money" data-s="money" aria-current="page">💰 รายรับ-จ่าย</a>
+    <a href="split.html" data-s="split">🍜 หารกัน</a>
+    <a href="money.html#owe" data-s="owe">🤝 ค้างกัน</a>
+  </nav>
 
   <div class="m-bar">
     <button id="mPrev" class="icon-btn" aria-label="เดือนก่อน">‹</button>
@@ -70,7 +76,6 @@
     <button class="chip" data-v="list">รายการ</button>
     <button class="chip" data-v="cal">ปฏิทิน</button>
     <button class="chip" data-v="chart">สรุป</button>
-    <button class="chip" data-v="owe">🤝 ค้างกัน</button>
   </nav>
   <main id="vList"></main>
   <section id="vCal" hidden></section>
@@ -183,13 +188,12 @@
     <a href="./"><span aria-hidden="true">✓</span>งาน</a>
     <a href="inbox.html"><span aria-hidden="true">📌</span>ฝาก</a>
     <a href="money.html" aria-current="page"><span aria-hidden="true">💰</span>เงิน</a>
-    <a href="split.html"><span aria-hidden="true">🍜</span>หาร</a>
     <a href="bills.html"><span aria-hidden="true">🧾</span>เบิก</a>
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="mcore.js?v=49"></script>
-  <script src="money.js?v=49"></script>
-  <script src="owe.js?v=49"></script>
+  <script src="mcore.js?v=50"></script>
+  <script src="money.js?v=50"></script>
+  <script src="owe.js?v=50"></script>
 </body>
 </html>
