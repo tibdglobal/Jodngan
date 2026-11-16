@@ -165,3 +165,23 @@ function docNote_(o) {
   if (o.via === 'ai') return [o.desc, o.vendor].filter(Boolean).join(' · ');
   return o.vendor || '';
 }
+
+/** ทดสอบเทียบ (อ่านอย่างเดียว ไม่บันทึกอะไร): ไฟล์ที่มีอยู่แล้วใน Drive → ผล OCR แบบเดิม vs AI */
+function aiCompare_(ids) {
+  const pick = o => o ? { kind: o.kind || '', date: o.date || '', amount: o.amount || '', vendor: o.vendor || '', desc: o.desc || '', memo: o.memo || '', vat: o.vat || '', cat: o.cat || '', items: (o.items || []).length } : null;
+  return (ids || []).slice(0, 4).map(id => {
+    const out = { id: id };
+    try {
+      const file = DriveApp.getFileById(id);
+      const t0 = Date.now();
+      let text = '';
+      try { text = ocrText_(file); } catch (e) {}
+      const old = readReceipt_(text); old.memo = slipMemo_(text);
+      out.old = pick(old); out.oldMs = Date.now() - t0;
+      const t1 = Date.now();
+      out.ai = pick(aiRead_(file, { cats: billCatList_() }));
+      out.aiMs = Date.now() - t1;
+    } catch (e) { out.error = String(e.message || e); }
+    return out;
+  });
+}
