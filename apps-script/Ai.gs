@@ -167,7 +167,11 @@ function docNote_(o) {
 }
 
 /** ทดสอบเทียบ (อ่านอย่างเดียว ไม่บันทึกอะไร): ไฟล์ที่มีอยู่แล้วใน Drive → ผล OCR แบบเดิม vs AI */
-function aiCompare_(ids) {
+function aiCompare_(ids, data, mime) {
+  if (data) {   // ไฟล์ทดสอบที่ส่งมาตรงๆ: สร้างไฟล์ชั่วคราว อ่าน แล้วทิ้งลงถังขยะทันที
+    const tmp = DriveApp.createFile(Utilities.newBlob(Utilities.base64Decode(String(data)), String(mime || 'application/pdf'), 'ai-test-tmp'));
+    try { return aiCompare_([tmp.getId()]); } finally { try { tmp.setTrashed(true); } catch (e) {} }
+  }
   const pick = o => o ? { kind: o.kind || '', date: o.date || '', amount: o.amount || '', vendor: o.vendor || '', desc: o.desc || '', memo: o.memo || '', vat: o.vat || '', cat: o.cat || '', items: (o.items || []).length } : null;
   return (ids || []).slice(0, 4).map(id => {
     const out = { id: id };
