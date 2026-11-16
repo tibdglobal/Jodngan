@@ -1,5 +1,5 @@
 /* เก็บไฟล์หน้าแอปไว้ในเครื่อง ให้เปิดเร็ว (ข้อมูลงานยังดึงจาก Google Sheet ทุกครั้ง) */
-const CACHE = 'jodngan-v48';
+const CACHE = 'jodngan-v49';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'vault.html', 'vault.js', 'bills.html', 'bills.js', 'money.html', 'inbox.html', 'inbox.js', 'money.js', 'owe.js', 'split.html', 'mcore.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'icon-180.png', 'logo-tibd.png'];
 
 self.addEventListener('install', e => {
@@ -17,7 +17,8 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   // ลองโหลดจากเน็ตก่อน (ได้เวอร์ชันล่าสุด) ถ้าไม่ได้ค่อยใช้ของในเครื่อง
   e.respondWith(
-    fetch(e.request)
+    // no-cache = ถามเซิร์ฟเวอร์ทุกครั้งว่าไฟล์เปลี่ยนไหม (กันได้ CSS/JS เก่าจากแคชของเบราว์เซอร์)
+    fetch(e.request.mode === 'navigate' ? e.request : new Request(e.request, { cache: 'no-cache' }))
       .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return res; })
       .catch(() => caches.match(e.request))
   );
