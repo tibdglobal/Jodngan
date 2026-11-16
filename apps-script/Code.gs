@@ -207,6 +207,8 @@ function doPost(e) {
       case 'owe_list':     return json_({ ok: true, docs: oweAll_() });
       case 'owe_save':     return json_({ ok: true, docs: oweSave_(body.docs) });
       case 'owe_delete':   oweDelete_(body.ids); return json_({ ok: true });
+      case 'ai_read':      return json_({ ok: true, ...aiReadUpload_(body) });
+      case 'ai_status':    return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'owe_slip':     return json_({ ok: true, file: oweSlip_(body) });
       case 'money_snap':   return json_({ ok: true, ...moneySnap_(body) });
       case 'inbox_list':   return json_({ ok: true, items: inboxAll_() });

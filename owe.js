@@ -22,20 +22,21 @@ const fmtD = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('th-TH', { da
 
 async function syncOwe() {
   if (!cfg.key) return;
-  try { owe = (await api('owe_list')).docs; LS.set('owe', owe); oweLoaded = true; if (view === 'owe') renderOwe(); }
+  try { owe = (await api('owe_list')).docs; LS.set('owe', owe); oweLoaded = true; rerender(); }
   catch (e) { showStatus('ดึงข้อมูลค้างกันไม่สำเร็จ: ' + e.message); }
 }
 function putLocal(docs) { docs.forEach(d => { const i = owe.findIndex(x => x.id === d.id); if (i > -1) owe[i] = d; else owe.push(d); }); LS.set('owe', owe); }
 async function saveDocs(docs) {
-  putLocal(docs); renderOwe();
+  putLocal(docs); rerender();
   try { const r = await api('owe_save', { docs }); putLocal(r.docs); }
   catch (e) { showStatus('บันทึกไม่สำเร็จ: ' + e.message); }
 }
 async function delDocs(ids) {
-  owe = owe.filter(d => !ids.includes(d.id)); LS.set('owe', owe); renderOwe();
+  owe = owe.filter(d => !ids.includes(d.id)); LS.set('owe', owe); rerender();
   try { await api('owe_delete', { ids }); } catch (e) { showStatus('ลบไม่สำเร็จ: ' + e.message); }
 }
 /* รายจ่ายในหน้าเงิน (ส่วนของเราในบิลหาร / ยอดที่ไม่ทวงแล้ว) */
+function rerender() { if ($('#vOwe') && view === 'owe') renderOwe(); if ($('#spList')) renderSplits(); }
 async function moneyPut(id, data) {
   const m = { id: id || uid(), type: 'out', pay: '', ...data };
   upsert(m);
@@ -75,26 +76,14 @@ function renderOwe() {
   const closed = ps.filter(p => !p.open.length);
   const box = $('#owList');
   if (!open.length) {
-    box.innerHTML = `<p class="empty">${debts().length ? 'ไม่มีใครค้างแล้ว 🎉' : 'ยังไม่มีรายการ<br>แตะ 💸 ให้ยืม · 🙏 ยืมเขา · 🍜 หารกัน ด้านบนเพื่อเริ่มจด'}</p>`;
+    box.innerHTML = `<p class="empty">${debts().length ? 'ไม่มีใครค้างแล้ว 🎉' : 'ยังไม่มีรายการ<br>แตะ 💸 ให้ยืม · 🙏 ยืมเขา ด้านบนเพื่อเริ่มจด<br><small>หารค่าใช้จ่ายกับเพื่อน ไปที่เมนู 🍜 หาร ด้านล่าง</small>'}</p>`;
   } else box.innerHTML = '';
   open.forEach(p => box.appendChild(personCard(p)));
   $('#owClosed').hidden = !closed.length;
   $('#owClosed summary').textContent = `▾ ปิดบัญชีแล้ว ${closed.length} คน`;
   $('#owClosedList').innerHTML = '';
   closed.forEach(p => $('#owClosedList').appendChild(personCard(p, true)));
-  // บิลหาร/ทริปที่มีการโอนระหว่างคนอื่นยังไม่ครบ
-  const sp = splits().filter(s => (s.transfers || []).some(t => t.from !== ME && t.to !== ME && !t.done));
-  $('#owSplits').innerHTML = sp.length ? '<h3 class="p-h">โอนกันเองในกลุ่ม (ยังไม่ครบ)</h3>' : '';
-  sp.forEach(s => {
-    const el = document.createElement('div');
-    el.className = 'ow-card';
-    el.innerHTML = `<b>${esc(s.title)}</b><div class="meta">${esc(fmtD(s.date))}</div>` + s.transfers.map((t, i) => t.from === ME || t.to === ME ? '' :
-      `<label class="ow-tr"><input type="checkbox" data-i="${i}" ${t.done ? 'checked' : ''}><span>${esc(t.from)} → ${esc(t.to)}</span><b>${bahtS(toS(t.amount))}</b></label>`).join('') +
-      `<button type="button" class="mini ow-edit">✏️ ดู / แก้บิล</button>`;
-    el.querySelectorAll('input[data-i]').forEach(cb => cb.onchange = () => { s.transfers[+cb.dataset.i].done = cb.checked; saveDocs([s]); });
-    el.querySelector('.ow-edit').onclick = () => openSplit(s);
-    $('#owSplits').appendChild(el);
-  });
+  const hint = $('#owSplitHint'); if (hint) hint.hidden = !splits().length;
 }
 
 function personCard(p, closed) {
@@ -137,9 +126,9 @@ function openLoan(dir, d) {
   $('#oDlg').showModal();
 }
 function paintDir() { $('#oDir').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === $('#oForm').dataset.dir)); }
-$('#oDir').onclick = e => { const b = e.target.closest('button'); if (b) { $('#oForm').dataset.dir = b.dataset.v; paintDir(); } };
-$('#oCancel').onclick = () => $('#oDlg').close();
-$('#oForm').addEventListener('submit', e => {
+if ($('#oDlg')) $('#oDir').onclick = e => { const b = e.target.closest('button'); if (b) { $('#oForm').dataset.dir = b.dataset.v; paintDir(); } };
+if ($('#oDlg')) $('#oCancel').onclick = () => $('#oDlg').close();
+if ($('#oDlg')) $('#oForm').addEventListener('submit', e => {
   e.preventDefault();
   const f = e.target.elements;
   const a = toS(f.amount.value);
@@ -154,14 +143,14 @@ $('#oForm').addEventListener('submit', e => {
   saveDocs([d]);
   toast(`${d.dir === 'they' ? '💸 ' + d.person + ' ยืม' : '🙏 ยืม ' + d.person} ${bahtS(a)}`, () => delDocs([d.id]));
 });
-$('#oDel').onclick = () => {
+if ($('#oDlg')) $('#oDel').onclick = () => {
   if (!oEditing) return;
   if (oEditing.splitId) { alert('รายการนี้มาจากบิลหารกัน ให้ลบหรือแก้ที่บิลแทน'); return; }
   if (!confirm('ลบรายการนี้ (รวมประวัติการคืน)?')) return;
   const d = oEditing; $('#oDlg').close(); moneyDel(d.moneyId); delDocs([d.id]);
   if ($('#pDlg').open) $('#pDlg').close();
 };
-document.querySelectorAll('.ow-new').forEach(b => b.onclick = () => b.dataset.k === 'split' ? openSplit() : openLoan(b.dataset.k));
+document.querySelectorAll('.ow-new').forEach(b => b.onclick = () => b.dataset.k === 'split' ? (location.href = 'split.html') : openLoan(b.dataset.k));
 
 /* ---------- รายละเอียดคน + ทยอยคืน ---------- */
 let pName = '', pSlip = null;
@@ -195,7 +184,7 @@ function paintPerson() {
     el.className = 'p-debt';
     el.innerHTML = `<div class="grow"><b>${esc(d.title || (d.dir === 'they' ? 'ยืม' : 'เรายืม'))}</b><div class="meta">${fmtD(d.date)} · ${d.dir === 'they' ? 'เขาค้าง' : 'เราค้าง'} ${bahtS(leftS(d))} จาก ${bahtS(toS(d.amount))}${d.due ? ' · นัดคืน ' + fmtD(d.due) : ''}</div></div>
       <button type="button" class="mini e" aria-label="แก้">✏️</button><button type="button" class="mini f">${d.dir === 'they' ? 'ไม่ทวงแล้ว' : 'เขายกให้'}</button>`;
-    el.querySelector('.e').onclick = () => d.splitId ? openSplit(splits().find(s => s.id === d.splitId)) : openLoan(null, d);
+    el.querySelector('.e').onclick = () => d.splitId ? ($('#sDlg') ? openSplit(splits().find(s => s.id === d.splitId)) : (location.href = 'split.html#' + d.splitId)) : ($('#oDlg') ? openLoan(null, d) : (location.href = 'money.html'));
     el.querySelector('.f').onclick = () => forgive(d);
     $('#pOpen').appendChild(el);
   });
@@ -303,13 +292,14 @@ function openSplit(s) {
   if (!sp.bills.length) sp.bills.push(blankBill(ME));
   const f = $('#sForm').elements;
   f.title.value = sp.title; f.date.value = sp.date;
+  f.date.oninput = () => { sp.dateTouched = true; };
   $('#sDel').hidden = !s;
   paintSplit();
   $('#sDlg').showModal();
 }
-$('#sCancel').onclick = () => $('#sDlg').close();
-$('#sAddP').onclick = () => addPerson($('#sNewP').value);
-$('#sNewP').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson($('#sNewP').value); } });
+if ($('#sDlg')) $('#sCancel').onclick = () => $('#sDlg').close();
+if ($('#sDlg')) $('#sAddP').onclick = () => addPerson($('#sNewP').value);
+if ($('#sDlg')) $('#sNewP').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson($('#sNewP').value); } });
 function addPerson(n) {
   n = String(n || '').trim();
   $('#sNewP').value = '';
@@ -318,7 +308,7 @@ function addPerson(n) {
   sp.bills.forEach(b => { if (b.method !== 'custom') b.who.push(n); b.items.forEach(it => it.all && it.who.push(n)); });
   paintSplit();
 }
-$('#sAddBill').onclick = () => { sp.bills.push(blankBill(sp.people.find(p => p !== ME) || ME)); paintSplit(); };
+if ($('#sDlg')) $('#sAddBill').onclick = () => { sp.bills.push(blankBill(sp.people.find(p => p !== ME) || ME)); paintSplit(); };
 
 /* แบ่งสตางค์ให้ลงตัวพอดียอดรวม (เศษไปที่ยอดที่ตัดทิ้งมากสุด) */
 function apportion(totalS, weights, unit) {
@@ -405,6 +395,9 @@ function paintSplit() {
     el.className = 's-bill';
     el.innerHTML = `
       ${many ? `<div class="s-bh"><input class="s-btitle" placeholder="บิลที่ ${bi + 1} เช่น ที่พัก" value="${esc(b.title)}"><button type="button" class="mini s-rm" aria-label="ลบบิล">🗑</button></div>` : ''}
+      <div class="s-rcpt">${b.file ? `<a href="${esc(b.file.url)}" target="_blank" rel="noopener" class="s-rthumb">${b.file.thumb ? `<img src="${b.file.thumb}" alt="">` : '🧾'}</a>` : ''}
+        <button type="button" class="s-read">${b.file ? '📷 อ่านใบเสร็จใหม่' : '📷 ถ่าย/อัปใบเสร็จ ให้ AI อ่านเมนู'}</button>
+        ${b.rTotal ? `<small>ยอดในใบเสร็จ ${bahtS(toS(b.rTotal))}</small>` : ''}</div>
       <label>ใครจ่ายไปก่อน <select class="s-payer">${sp.people.map(p => `<option ${p === b.payer ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
       <div class="seg s-method">${[['equal', 'หารเท่ากัน'], ['custom', 'ระบุเอง'], ['menu', 'ตามเมนู']].map(([v, t]) => `<button type="button" data-v="${v}" class="${b.method === v ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="s-body"></div>`;
@@ -435,6 +428,7 @@ function paintSplit() {
       body.querySelector('.s-disc').oninput = e => { b.disc = e.target.value; paintSum(); };
     }
     el.querySelector('.s-payer').onchange = e => { b.payer = e.target.value; paintSum(); };
+    el.querySelector('.s-read').onclick = () => readReceiptFor(b);
     el.querySelector('.s-method').onclick = e => {
       const c = e.target.closest('button'); if (!c) return;
       b.method = c.dataset.v;
@@ -448,16 +442,61 @@ function paintSplit() {
   });
   paintSum();
 }
+/* 📷 อ่านใบเสร็จด้วย AI → เติมชื่อร้าน ยอด และรายการเมนู */
+let readTarget = null;
+function readReceiptFor(b) {
+  readTarget = b;
+  let inp = $('#sFile');
+  if (!inp) { inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*,application/pdf'; inp.id = 'sFile'; inp.hidden = true; document.body.appendChild(inp); inp.addEventListener('change', onReceiptFile); }
+  inp.click();
+}
+async function onReceiptFile(e) {
+  const file = e.target.files[0]; e.target.value = '';
+  const b = readTarget;
+  if (!file || !b) return;
+  let p;
+  try { p = await prepare(file); } catch (err) { alert(err.message); return; }
+  busyStart(p.thumb);
+  $('#busyMsg').textContent = 'AI กำลังอ่านใบเสร็จ…';
+  try {
+    const r = await api('ai_read', { data: p.data, mime: p.mime, thumb: p.thumb, for: 'split' });
+    const o = r.ocr || {};
+    b.file = r.file;
+    if (o.amount) b.rTotal = Number(o.amount);
+    if (!b.title && o.vendor && sp.bills.length > 1) b.title = o.vendor;
+    if (!$('#sForm').elements.title.value.trim() && (o.vendor || o.desc)) $('#sForm').elements.title.value = o.vendor || o.desc;
+    if (o.date && !sp.dateTouched) $('#sForm').elements.date.value = o.date;
+    const items = (o.items || []).filter(it => it.price > 0);
+    if (items.length >= 2) {
+      b.method = 'menu';
+      b.items = items.map(it => ({ name: (it.qty > 1 ? it.qty + '× ' : '') + it.name, price: String(it.price), who: [...sp.people], all: true }));
+      // ค่าบริการ / VAT ที่ยังไม่รวมในราคาเมนู
+      const itemSum = items.reduce((s2, it) => s2 + it.price, 0);
+      b.svc = !!o.service && Math.abs(o.service - itemSum * 0.1) <= Math.max(2, itemSum * 0.01);
+      b.vat = o.vat === 'yes' && o.pricesIncVat === false;
+      if (o.discount) b.disc = String(o.discount);
+    } else if (o.amount) { b.method = 'equal'; b.total = String(o.amount); }
+    paintSplit();
+    const msg = !r.ai ? '⚠️ ยังไม่ได้ตั้งค่า AI (อ่านแบบเดิม) ตรวจรายการอีกครั้ง'
+      : items.length >= 2 ? `🧾 AI อ่านได้ ${items.length} รายการ แตะชื่อคนใต้แต่ละเมนูให้ตรงกับคนกิน`
+      : o.amount ? `🧾 อ่านยอดได้ ${bahtS(toS(o.amount))} (ไม่เจอรายการเมนู)` : '📷 เก็บรูปแล้ว แต่อ่านไม่ได้ กรอกเองได้เลย';
+    toast(msg);
+  } catch (err) { showStatus('อ่านใบเสร็จไม่สำเร็จ: ' + err.message); }
+  finally { busyEnd(); }
+}
+
 function paintSum() {
   const r = calcSplit();
   const rows = sp.people.map(p => `<div><span>${esc(p)}</span><b>${bahtS(r.share[p] || 0)}</b></div>`).join('');
   const tr = r.transfers.length ? '<h4>สรุปโอนให้จบ</h4>' + r.transfers.map(t => `<div><span>${esc(t.from)} → ${esc(t.to)}</span><b>${bahtS(t.amountS)}</b></div>`).join('') : '';
   const mine = r.share[ME] || 0;
-  $('#sSum').innerHTML = `<h4>ส่วนของแต่ละคน</h4>${rows}<div class="tot"><span>รวม</span><b>${bahtS(r.total)}</b></div>${tr}
+  const rcpt = sp.bills.reduce((s2, b) => s2 + toS(b.rTotal || 0), 0);
+  const diff = rcpt && Math.abs(rcpt - r.total) >= 100 ? `<p class="note warn">⚠️ ยอดที่หาร ${bahtS(r.total)} ไม่ตรงกับยอดในใบเสร็จ ${bahtS(rcpt)} (ต่าง ${bahtS(Math.abs(rcpt - r.total))}) ลองเช็ก Service / VAT / ส่วนลด หรือเมนูที่ขาด</p>` : '';
+  $('#sSum').innerHTML = `<h4>ส่วนของแต่ละคน</h4>${rows}<div class="tot"><span>รวม</span><b>${bahtS(r.total)}</b></div>${diff}${tr}
     <p class="note">📒 จดลงรายจ่ายเฉพาะส่วนของเรา <b>${bahtS(mine)}</b> · ที่เหลือเป็น "ค้างกัน" ไม่ทำให้ยอดใช้จ่ายเพี้ยน</p>`;
 }
 
-$('#sForm').addEventListener('submit', async e => {
+if ($('#sDlg')) $('#sForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target.elements;
   sp.title = f.title.value.trim(); sp.date = f.date.value || today();
@@ -487,8 +526,9 @@ $('#sForm').addEventListener('submit', async e => {
   await saveDocs([sp, ...newDebts]);
   toast(`🍜 ${sp.title} · จดรายจ่ายส่วนของเรา ${bahtS(mine)}`);
   if ($('#pDlg').open) paintPerson();
+  if ($('#dDlg')) openDetail(sp.id);
 });
-$('#sDel').onclick = async () => {
+if ($('#sDlg')) $('#sDel').onclick = async () => {
   if (!sp || !confirm(`ลบบิล "${sp.title}" และยอดค้างที่มาจากบิลนี้ทั้งหมด?`)) return;
   const ids = [sp.id, ...debts().filter(d => d.splitId === sp.id).map(d => d.id)];
   moneyDel(sp.moneyId);
@@ -497,6 +537,136 @@ $('#sDel').onclick = async () => {
   await delDocs(ids);
 };
 
-if (view === 'owe') renderOwe();
+rerender();
 syncOwe();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncOwe(); });
+
+/* ===================== 🍜 หน้า "หาร" (split.html) ===================== */
+function payDebt(d, amountS, date, via, file) {
+  const take = Math.min(amountS, leftS(d));
+  if (take <= 0) return null;
+  d.payments = [...(d.payments || []), { id: uid(), date: date || today(), amount: fromS(take), via: via || 'โอน', file: file || null }];
+  d.status = leftS(d) ? 'open' : 'done';
+  return d;
+}
+const splitDebt = (s, t) => debts().find(d => d.splitId === s.id && d.person === (t.from === ME ? t.to : t.from) && d.dir === (t.from === ME ? 'me' : 'they'));
+function splitProgress(s) {
+  const tr = s.transfers || [];
+  const done = tr.filter(t => (t.from === ME || t.to === ME) ? (() => { const d = splitDebt(s, t); return !d || !isOpen(d); })() : t.done).length;
+  return { done, all: tr.length };
+}
+
+function renderSplits() {
+  const list = splits().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
+  const sd = debts().filter(d => d.splitId);
+  const T = sd.filter(d => d.dir === 'they').reduce((s, d) => s + leftS(d), 0);
+  const M = sd.filter(d => d.dir === 'me').reduce((s, d) => s + leftS(d), 0);
+  $('#spThey').textContent = bahtS(T); $('#spMe').textContent = bahtS(M);
+  $('#spThey').classList.toggle('zero', !T); $('#spMe').classList.toggle('zero', !M);
+  if ($('#owPeople')) $('#owPeople').innerHTML = peopleAll().map(p => `<option value="${esc(p)}">`).join('');
+  const box = $('#spList');
+  box.innerHTML = list.length ? '' : '<p class="empty">ยังไม่มีบิลหาร<br>แตะ 🍜 หารบิลใหม่ หรือ 📷 ถ่ายใบเสร็จ ด้านบน</p>';
+  const open = [], closed = [];
+  list.forEach(s => { const pg = splitProgress(s); (pg.done < pg.all ? open : closed).push([s, pg]); });
+  const card = ([s, pg]) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'ow-card sp-card' + (pg.done >= pg.all ? ' closed' : '');
+    const mine = toS((s.bills || []).reduce((x, b) => x + Number((b.shares || {})[ME] || 0), 0));
+    const pics = (s.bills || []).filter(b => b.file && b.file.thumb).slice(0, 1).map(b => `<img src="${b.file.thumb}" alt="">`).join('');
+    el.innerHTML = `<div class="ow-row">${pics ? `<span class="sp-pic">${pics}</span>` : '<span class="av">🍜</span>'}
+      <div class="ow-mid"><b>${esc(s.title)}</b> ${pg.all ? (pg.done >= pg.all ? '<span class="tag ok">โอนครบ</span>' : `<span class="tag">รอโอน ${pg.all - pg.done}</span>`) : ''}
+      <div class="meta">${fmtD(s.date)} · ${(s.people || []).length} คน${(s.bills || []).length > 1 ? ' · ' + s.bills.length + ' บิล' : ''} · ส่วนเรา ${bahtS(mine)}</div></div>
+      <b>${bahtS(toS(s.total))}</b></div>
+      ${pg.all ? `<div class="ow-bar"><i style="width:${Math.round(pg.done / pg.all * 100)}%"></i></div>` : ''}`;
+    el.onclick = () => openDetail(s.id);
+    return el;
+  };
+  open.forEach(x => box.appendChild(card(x)));
+  if (closed.length) {
+    const det = document.createElement('details');
+    det.className = 'ow-closed';
+    det.innerHTML = `<summary>▾ โอนครบแล้ว ${closed.length} บิล</summary><div></div>`;
+    closed.forEach(x => det.lastElementChild.appendChild(card(x)));
+    box.appendChild(det);
+  }
+}
+
+let dId = '', dSlipFor = null;
+function openDetail(id) {
+  dId = id;
+  paintDetail();
+  if (!$('#dDlg').open) $('#dDlg').showModal();
+}
+function paintDetail() {
+  const s = splits().find(x => x.id === dId);
+  if (!s) { if ($('#dDlg').open) $('#dDlg').close(); return; }
+  $('#dTitle').textContent = '🍜 ' + s.title;
+  $('#dMeta').textContent = `${fmtD(s.date)} · รวม ${bahtS(toS(s.total))} · ${(s.people || []).length} คน`;
+  // ใบเสร็จ
+  const pics = (s.bills || []).filter(b => b.file);
+  $('#dPics').innerHTML = pics.map(b => `<a href="${esc(b.file.url)}" target="_blank" rel="noopener" class="s-rthumb">${b.file.thumb ? `<img src="${b.file.thumb}" alt="">` : '🧾'}<small>${esc(b.title || 'ใบเสร็จ')}</small></a>`).join('');
+  $('#dPics').hidden = !pics.length;
+  // ส่วนของแต่ละคน
+  const share = {};
+  (s.bills || []).forEach(b => Object.entries(b.shares || {}).forEach(([p, v]) => { share[p] = (share[p] || 0) + toS(v); }));
+  $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(p)}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('');
+  // การโอน
+  const box = $('#dTr');
+  box.innerHTML = (s.transfers || []).length ? '' : '<p class="hint">ไม่มีใครต้องโอน (ทุกคนจ่ายส่วนตัวเองแล้ว)</p>';
+  (s.transfers || []).forEach((t, i) => {
+    const mine = t.from === ME || t.to === ME;
+    const d = mine ? splitDebt(s, t) : null;
+    const amtS = toS(t.amount);
+    const leftT = d ? leftS(d) : (t.done ? 0 : amtS);
+    const paid = amtS - leftT;
+    const slips = d ? (d.payments || []).filter(x => x.file) .map(x => x.file) : (t.file ? [t.file] : []);
+    const el = document.createElement('div');
+    el.className = 'd-tr' + (leftT ? '' : ' ok');
+    const verb = t.to === ME ? 'ได้รับแล้ว' : t.from === ME ? 'จ่ายแล้ว' : 'โอนแล้ว';
+    el.innerHTML = `<div class="d-row"><span class="d-who">${esc(t.from)} <i>→</i> ${esc(t.to)}</span><b>${bahtS(amtS)}</b></div>
+      <div class="meta">${leftT ? (paid ? `ได้แล้ว ${bahtS(paid)} · เหลือ ${bahtS(leftT)}` : 'ยังไม่ได้โอน') : '✓ ' + verb}${d && d.status === 'forgiven' ? ' · ไม่ทวงแล้ว' : ''}
+        ${slips.map(f => ` <a class="tag ok" href="${esc(f.url)}" target="_blank" rel="noopener">สลิป</a>`).join('')}</div>
+      ${leftT ? `<div class="btns"><button type="button" class="mini p">✓ ${verb}</button><button type="button" class="mini sl">📎 แนบสลิป</button>${d ? '<button type="button" class="mini pt">ทยอย…</button>' : ''}</div>`
+        : (!d ? '<div class="btns"><button type="button" class="mini un">↩ ยังไม่ได้โอน</button></div>' : '')}`;
+    const done = async file => {
+      if (d) { payDebt(d, leftT, today(), file ? 'โอน' : 'ครบ', file); await saveDocs([d]); }
+      else { t.done = true; if (file) t.file = file; await saveDocs([s]); }
+      paintDetail();
+      toast(`✓ ${t.from} → ${t.to} ${bahtS(leftT)}`);
+    };
+    const q = sel => el.querySelector(sel);
+    if (q('.p')) q('.p').onclick = () => done(null);
+    if (q('.sl')) q('.sl').onclick = () => { dSlipFor = done; $('#dSlip').click(); };
+    if (q('.pt')) q('.pt').onclick = () => openPerson(t.from === ME ? t.to : t.from, true);
+    if (q('.un')) q('.un').onclick = async () => { t.done = false; delete t.file; await saveDocs([s]); paintDetail(); };
+    box.appendChild(el);
+  });
+  // ข้อความสรุปส่งเข้ากลุ่ม
+  const lines = [`🍜 ${s.title} (${fmtD(s.date)}) รวม ${fromS(toS(s.total)).toLocaleString('th-TH')} บาท`, '', 'ส่วนของแต่ละคน:']
+    .concat((s.people || []).map(p => `• ${p === ME ? 'ผม' : p} ${fromS(share[p] || 0).toLocaleString('th-TH')}`))
+    .concat((s.transfers || []).length ? ['', 'โอนให้จบ:'].concat(s.transfers.map(t => `• ${t.from === ME ? 'ผม' : t.from} → ${t.to === ME ? 'ผม' : t.to} ${Number(t.amount).toLocaleString('th-TH')} บาท`)) : []);
+  const msg = lines.join('\n');
+  $('#dMsg').textContent = msg;
+  $('#dLine').href = 'https://line.me/R/share?text=' + encodeURIComponent(msg);
+}
+if ($('#dDlg')) {
+  $('#dClose').onclick = () => { $('#dDlg').close(); history.replaceState(null, '', location.pathname); };
+  $('#dEdit').onclick = () => { const s = splits().find(x => x.id === dId); if (s) { $('#dDlg').close(); openSplit(s); } };
+  $('#dDel').onclick = async () => { const s = splits().find(x => x.id === dId); if (!s) return; sp = s; $('#sDel').onclick(); $('#dDlg').close(); };
+  $('#dCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#dMsg').textContent); $('#dCopy').textContent = '✓ ก็อปแล้ว'; setTimeout(() => $('#dCopy').textContent = '📋 ก็อป', 1500); } catch {} };
+  $('#dSlip').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f || !dSlipFor) return;
+    let p; try { p = await prepare(f); } catch (err) { alert(err.message); return; }
+    busyStart(p.thumb); $('#busyMsg').textContent = 'กำลังเก็บสลิป…';
+    try { const r = await api('owe_slip', { ...p, date: today(), label: 'หาร' }); await dSlipFor(r.file); }
+    catch (err) { showStatus('แนบสลิปไม่สำเร็จ: ' + err.message); }
+    finally { busyEnd(); dSlipFor = null; }
+  });
+  $('#spNew').onclick = () => openSplit();
+  $('#spSnap').onclick = () => { openSplit(); setTimeout(() => readReceiptFor(sp.bills[0]), 60); };
+  // เปิดจากลิงก์ split.html#<id>
+  const h = location.hash.slice(1);
+  if (h) setTimeout(() => { if (splits().some(x => x.id === h)) openDetail(h); }, 300);
+}

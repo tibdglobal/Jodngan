@@ -117,7 +117,7 @@ function billUpload_(p) {
   if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
   const file = billFolder_(String(b.date).slice(0, 7)).createFile(Utilities.newBlob(bytes, mime, 'upload'));
   let ocr = null;
-  try { ocr = readReceipt_(ocrText_(file)); } catch (e) { ocr = null; }
+  try { ocr = readDoc_(file, { cats: billCatList_() }); } catch (e) { ocr = null; }
   const kind = p.kind === 'auto' ? ((ocr && ocr.kind) || 'receipt') : p.kind;   // 📷 = เดาชนิดจากเอกสาร
   const fill = billAutoFill_(b, ocr);
   billAttach_(b, row, file, kind, mime, p.thumb);   // บันทึกค่าที่เติม + ตั้งชื่อไฟล์ตามวันที่/ยอดใหม่
@@ -133,14 +133,14 @@ function billSnap_(p) {
   if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
   const file = billInbox_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
   let ocr = null;
-  try { ocr = readReceipt_(ocrText_(file)); } catch (e) { ocr = null; }
+  try { ocr = readDoc_(file, { cats: billCatList_() }); } catch (e) { ocr = null; }
   const o = ocr || {};
   const typedAmt = t.amount !== undefined && t.amount !== null && t.amount !== '';
   const b = billSave_({
     id: t.id,
     date: t.date || o.date || todayStr_(),
     amount: typedAmt ? t.amount : (o.amount || 0),
-    desc: t.desc || o.vendor || 'รอใส่รายละเอียด',
+    desc: t.desc || (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : o.vendor) || 'รอใส่รายละเอียด',
     project: t.project || '',
     cat: t.cat || o.cat || '',
     vendor: o.vendor || '',
@@ -248,11 +248,13 @@ function billFromLineMedia_(ev) {
   const file = billInbox_().createFile(blob);
   const fid = file.getId();
 
-  let text = '';
-  try { text = ocrText_(file); } catch (e) {}
-  const ocr = readReceipt_(text);
-  const kind = guessKind_(text);
-  const vendor = guessVendor_(text);
+  let ocr = {};
+  try { ocr = readDoc_(file, { cats: billCatList_().concat(moneyCatList_('out').map(c => 'ส่วนตัว:' + c)) }); } catch (e) { ocr = {}; }
+  // หมวดส่วนตัวที่ AI เลือก (ส่วนตัว:อาหาร) ใช้ตอนกด "💸 จ่ายส่วนตัว"
+  if (/^ส่วนตัว:/.test(ocr.cat || '')) { ocr.mcat = ocr.cat.slice(7); ocr.cat = ''; }
+  const kind = ocr.kind || 'receipt';
+  const vendor = ocr.vendor || '';
+  delete ocr.text;
   CacheService.getScriptCache().put('pend:' + fid, JSON.stringify({ mime: mime, ocr: ocr, kind: kind, vendor: vendor }), 21600);
 
   const n = billPendingIds_().length;
@@ -286,12 +288,12 @@ function billPendPrompt_(fid, waiting) {
   items.push(qr_('💰 รายรับ' + (amt ? ' ' + fmtBaht_(amt) : ''), 'min|' + fid, 'จดเป็นรายรับ'));
   // อ่านวันที่/ยอดไม่ได้ = น่าจะไม่ใช่ใบเสร็จ → เสนอ "เก็บไว้เฉยๆ" ไว้ปุ่มแรก
   const keep = qr_('📌 เก็บไว้เฉยๆ', 'keep|' + fid, 'เก็บรูปไว้ในกล่องฝาก');
-  if (!amt && !ocr.date) items.unshift(keep); else items.push(keep);
+  if ((!amt && !ocr.date) || ocr.docType === 'other') items.unshift(keep); else items.push(keep);
   rest.slice(0, 11 - items.length).forEach(b => items.push(qr_(lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
   items.push(qr_('🗑 ไม่ใช้', 'drop|' + fid, 'ไม่ใช้รูปนี้'));
 
-  const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor].filter(Boolean).join(' · ');
-  const text = (got ? '🧾 ดูเหมือน' + KIND_NAME[kind] + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
+  const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor, ocr.desc && ocr.desc !== vendor ? ocr.desc : ''].filter(Boolean).join(' · ');
+  const text = (got ? '🧾 ดูเหมือน' + (KIND_NAME[kind] || 'ใบเสร็จ') + (ocr.via === 'ai' ? ' (AI อ่าน)' : '') + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
     '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
     (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง' : '');
   const msg = { type: 'text', text: text.slice(0, 4900) };
@@ -661,7 +663,8 @@ function billAutoFill_(b, ocr) {
   if (ocr.date && ocr.date !== b.date && (!b.date || b.date === created)) set('date', ocr.date);
   if (ocr.vendor && !String(b.vendor || '').trim()) set('vendor', ocr.vendor);
   if (ocr.cat && !String(b.cat || '').trim()) set('cat', ocr.cat);
-  if (ocr.vendor && /^(รอใส่รายละเอียด|ใบเสร็จจาก LINE)$/.test(String(b.desc || '').trim())) set('desc', ocr.vendor);
+  const d = ocr.via === 'ai' ? [ocr.desc, ocr.vendor].filter(Boolean).join(' · ') : ocr.vendor;
+  if (d && /^(รอใส่รายละเอียด|ใบเสร็จจาก LINE)$/.test(String(b.desc || '').trim())) set('desc', d);
   if (ocr.vat && !b.vat) set('vat', ocr.vat);
   if (ocr.vatAmt && !Number(b.vatAmt) && b.vat === 'yes') set('vatAmt', ocr.vatAmt);
   return { filled, prev };

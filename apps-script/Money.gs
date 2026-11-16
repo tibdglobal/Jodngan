@@ -142,15 +142,16 @@ function moneySnap_(p) {
   const bytes = Utilities.base64Decode(String(p.data || ''));
   if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
   const file = moneyFolder_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
-  let text = '', o = {};
-  try { text = ocrText_(file); o = readReceipt_(text); } catch (e) { o = {}; }
   const type = p.type === 'in' ? 'in' : 'out';
+  let o = {};
+  try { o = readDoc_(file, { cats: moneyCatList_(type) }); } catch (e) { o = {}; }
+  const text = [o.text || '', o.desc || '', o.vendor || '', (o.items || []).map(i => i.name).join(' ')].join(' ');
   const t = p.item || {};
-  const note = t.note || o.vendor || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
+  const note = t.note || (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : o.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
   const m = moneySave_({
     id: t.id, type: type, date: t.date || o.date || todayStr_(),
     amount: t.amount !== undefined && t.amount !== null && t.amount !== '' ? t.amount : (o.amount || 0),
-    note: note, cat: t.cat || moneyGuessCat_(type, note + ' ' + text.slice(0, 400), moneyAll_()), pay: t.pay || (/โอน|พร้อมเพย์|promptpay|transfer/i.test(text) ? 'โอน' : ''),
+    note: note, cat: t.cat || o.cat || moneyGuessCat_(type, note + ' ' + text.slice(0, 400), moneyAll_()), pay: t.pay || o.pay || (/โอน|พร้อมเพย์|promptpay|transfer/i.test(text) ? 'โอน' : ''),
   });
   moneyAttach_(m, file, mime, p.thumb);
   return { item: m, ocr: o };
@@ -202,8 +203,8 @@ function moneySummaryText_() {
 function moneyFromPending_(fid, type, pend) {
   const file = DriveApp.getFileById(fid);
   const o = (pend && pend.ocr) || {};
-  const note = (pend && pend.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
+  const note = (o.via === 'ai' ? [o.desc, o.vendor].filter(Boolean).join(' · ') : '') || (pend && pend.vendor) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
   const m = moneySave_({ type: type, date: o.date || todayStr_(), amount: o.amount || 0, note: note,
-    cat: moneyGuessCat_(type, note, moneyAll_()), pay: pend && pend.kind === 'slip' ? 'โอน' : '' });
+    cat: (type === 'out' && o.mcat) || moneyGuessCat_(type, note, moneyAll_()), pay: o.pay || (pend && pend.kind === 'slip' ? 'โอน' : '') });
   return moneyAttach_(m, file, (pend && pend.mime) || file.getMimeType(), '');
 }
