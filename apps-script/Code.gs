@@ -43,11 +43,12 @@ const HELP = [
   '• โควตา = ดูโควตาข้อความ LINE เดือนนี้',
   '• เบิก 350 ค่าแท็กซี่ = จดบิลรอเบิก',
   '• บิล = สรุปยอดเบิกเงิน',
-  '• ส่งรูป/PDF = เลือกได้: แนบบิล / จ่ายส่วนตัว / 📌 เก็บไว้เฉยๆ',
+  '• ส่งรูป/PDF = เลือกได้: แนบบิล / จ่ายส่วนตัว / 📌 เก็บไว้เฉยๆ / 📇 การ์ดข้อมูล (นามบัตร)',
   '',
   'บอทเดาประเภทให้ ถ้าผิดแตะ ↔ เปลี่ยนได้ทันที',
   '• ส่งลิงก์ = 📌 ฝากไว้ (ไม่กลายเป็นงาน)',
   '• ฝาก ข้อความ = 📌 ฝากไว้ (โน้ต/ไอเดีย)',
+  '• ข้อมูล ชื่อ เบอร์ อีเมล ... = 📇 การ์ดข้อมูล (AI แยกช่องให้)',
   '• งาน ข้อความ = บังคับเป็นงาน',
   '• ฝาก = ดูของที่ฝากไว้ล่าสุด',
   '• ข้าว 60 (ไม่บอกจ่าย/รับ) = นับเป็นรายจ่าย',
@@ -175,6 +176,7 @@ function doPost(e) {
       case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
       case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
       case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
+      case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
       case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
@@ -270,6 +272,12 @@ function handleLine_(events) {
       catch (err) { reply_(ev.replyToken, 'รับรูปไม่สำเร็จ: ' + (err.message || err) + '\nลองส่งรูปนี้ใหม่อีกครั้ง'); }
       return;
     }
+    if (ev.type === 'postback' && /^icard\|/.test(String(ev.postback && ev.postback.data))) {
+      // 📇 อ่านรูปด้วย AI นอกล็อก (ล็อกเฉพาะตอนบันทึก)
+      try { lineCardPhoto_(ev, String(ev.postback.data).split('|')[1]); }
+      catch (err) { reply_(ev.replyToken, 'ทำการ์ดไม่สำเร็จ: ' + (err.message || err)); }
+      return;
+    }
     if (ev.type === 'postback') {
       const lk = LockService.getScriptLock();
       if (!lk.tryLock(25000)) { reply_(ev.replyToken, 'ระบบกำลังยุ่ง แตะปุ่มเดิมอีกครั้งได้เลย'); return; }
@@ -319,6 +327,11 @@ function handleLine_(events) {
     if ((m = text.match(/^#(\S+)$/))) {
       const name = m[1];
       return reply_(ev.replyToken, buildUpcoming_(readAll_(), name) || 'ไม่มีงานค้างใน #' + name);
+    }
+
+    if ((m = text.match(/^(?:ข้อมูล|การ์ด|นามบัตร|📇)\s*[:：]?\s+([\s\S]+)$/))) {
+      try { return lineCardText_(ev.replyToken, m[1]); }
+      catch (err) { return reply_(ev.replyToken, 'บันทึกการ์ดไม่สำเร็จ: ' + (err.message || err)); }
     }
 
     routeText_(ev.replyToken, text);

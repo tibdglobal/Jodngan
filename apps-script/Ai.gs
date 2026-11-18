@@ -284,8 +284,9 @@ function preRead_(p, folderFn, cats) {
 function aiJson_(bytes, mime, prompt, schema) {
   const key = props.getProperty('GEMINI_API_KEY');
   if (!key) throw new Error('ยังไม่ได้ใส่ GEMINI_API_KEY');
+  const parts = bytes ? [{ inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } }, { text: prompt }] : [{ text: prompt }];
   const body = {
-    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } }, { text: prompt }] }],
+    contents: [{ role: 'user', parts: parts }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
   };
   const models = [props.getProperty('GEMINI_MODEL')].concat(AI_MODELS).filter((m, i, a) => m && a.indexOf(m) === i);
@@ -299,11 +300,13 @@ function aiJson_(bytes, mime, prompt, schema) {
       let r = aiFetch_(model, req, key);
       if (r.getResponseCode() === 400 && /thinking/i.test(r.getContentText())) { delete req.generationConfig.thinkingConfig; r = aiFetch_(model, req, key); }
       if ((r.getResponseCode() === 429 || r.getResponseCode() === 503) && Date.now() - start < 30000) { Utilities.sleep(2500); r = aiFetch_(model, req, key); }
-      if (r.getResponseCode() !== 200) { last = model + ' ' + r.getResponseCode(); continue; }
+      if (r.getResponseCode() !== 200) { last += model + ' ' + r.getResponseCode() + ': ' + r.getContentText().replace(/\s+/g, ' ').slice(0, 160) + ' | '; continue; }
       const res = JSON.parse(r.getContentText());
-      const raw = ((((res.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.thought ? '' : (p.text || '')).join('');
-      return JSON.parse(raw.replace(/^```(?:json)?|```$/g, '').trim());
-    } catch (e) { last = model + ' ' + e; }
+      const cand = (res.candidates || [])[0] || {};
+      const raw = ((cand.content || {}).parts || []).map(p => p.thought ? '' : (p.text || '')).join('');
+      try { return JSON.parse(raw.replace(/^```(?:json)?|```$/g, '').trim()); }
+      catch (e) { last += model + ' อ่านคำตอบไม่ได้ (' + (cand.finishReason || '') + '): ' + raw.slice(0, 120) + ' | '; }
+    } catch (e) { last += model + ' ' + e + ' | '; }
   }
   throw new Error('AI อ่านไม่สำเร็จ ลองใหม่อีกครั้ง (' + last + ')');
 }
@@ -338,4 +341,101 @@ function aiFields_(p) {
   let photo = null;
   if (p.keep) photo = inboxPhoto_({ data: p.data, mime: mime, thumb: p.thumb, name: j.title || 'การ์ด' });
   return { tpl: j.tpl || 'custom', title: String(j.title || ''), fields: (j.fields || []).filter(f => f && f.k && f.v).slice(0, 30), photo: photo };
+}
+
+/* ===================== 📇 การ์ดจากข้อความ/รูปใน LINE · ✨ สรุปบันทึกประชุม ===================== */
+
+const CARD_TPL_FIELDS = {
+  contact: ['บริษัท', 'ตำแหน่ง', 'เบอร์', 'อีเมล', 'LINE'], place: ['ที่อยู่', 'ลิงก์แผนที่', 'เวลาเปิด', 'เบอร์'],
+  company: ['เลขผู้เสียภาษี', 'ที่อยู่ออกใบกำกับ', 'ผู้ติดต่อ', 'เบอร์', 'อีเมล'], product: ['ร้าน', 'ราคา', 'ลิงก์', 'สเปก'],
+  asset: ['รุ่น', 'เลขเครื่อง/ทะเบียน', 'วันซื้อ', 'ประกันหมด'], custom: [],
+};
+const CARD_ICON = { contact: '👤', place: '📍', company: '🏢', product: '🛒', asset: '🚗', custom: '✏️' };
+
+/** ข้อความอิสระ → การ์ด (AI ก่อน ไม่มี key/ล่ม → แยก "หัวข้อ: ค่า" แบบง่าย) */
+function cardFromText_(text) {
+  text = String(text || '').trim().slice(0, 4000);
+  try {
+    const S = (type, extra) => Object.assign({ type: type }, extra || {});
+    const j = aiJson_(null, null, [
+      'แปลงข้อความนี้เป็นการ์ดข้อมูลสำหรับจดเก็บไว้ (ข้อความ:)', text, '',
+      'tpl: contact = คน, place = ร้าน/สถานที่, company = บริษัท/ผู้ขาย, product = สินค้า/ราคา, asset = เครื่อง/อุปกรณ์/รถ, custom = อื่นๆ',
+      'title = ชื่อหลัก · fields = หัวข้อภาษาไทยสั้นๆ กับค่า (เบอร์, อีเมล, บริษัท, ตำแหน่ง, ที่อยู่, ราคา ฯลฯ) · note = ส่วนที่เหลือที่ไม่เข้าช่องไหน',
+      'ใช้เฉพาะข้อมูลที่อยู่ในข้อความ ห้ามแต่งเพิ่ม ตอบเป็น JSON',
+    ].join('\n'), S('OBJECT', { properties: {
+      tpl: S('STRING', { enum: Object.keys(CARD_TPL_FIELDS) }), title: S('STRING'), note: S('STRING'),
+      fields: S('ARRAY', { items: S('OBJECT', { properties: { k: S('STRING'), v: S('STRING') }, required: ['k', 'v'] }) }) }, required: ['tpl', 'title', 'fields'] }));
+    return { tpl: CARD_TPL_FIELDS[j.tpl] ? j.tpl : 'custom', title: String(j.title || '').slice(0, 200), note: String(j.note || ''), fields: (j.fields || []).filter(f => f && f.k && f.v).slice(0, 30), via: 'ai' };
+  } catch (e) {
+    const out = { tpl: 'custom', title: '', note: '', fields: [], via: 'text' };
+    text.split(/\n/).map(s => s.trim()).filter(Boolean).forEach(s => {
+      const m = s.match(/^([^:：]{1,30})[:：]\s*(.+)$/);
+      if (m) out.fields.push({ k: m[1].trim(), v: m[2].trim() });
+      else if (!out.title) out.title = s.slice(0, 200);
+      else out.note += (out.note ? '\n' : '') + s;
+    });
+    return out;
+  }
+}
+
+/** บันทึกการ์ด (เรียกขณะถือล็อก) */
+function saveCard_(c, photo) {
+  const fields = (c.fields || []).slice();
+  (CARD_TPL_FIELDS[c.tpl] || []).forEach(k => { if (!fields.some(f => f.k === k)) fields.push({ k: k, v: '' }); });
+  const data = { tpl: c.tpl || 'custom', title: c.title || '', fields: fields, note: c.note || '' };
+  if (photo) data.photo = photo;
+  const text = [(CARD_ICON[data.tpl] || '📇') + ' ' + data.title].concat(fields.filter(f => f.v).map(f => f.k + ': ' + f.v), data.note ? [data.note] : []).join('\n');
+  return inboxSave_({ kind: 'card', data: data, text: text });
+}
+function cardLine_(o) {
+  const d = o.data || {};
+  return '📇 บันทึกการ์ดแล้ว' + (d.title ? '\n' + (CARD_ICON[d.tpl] || '') + ' ' + d.title : '') +
+    (d.fields || []).filter(f => f.v).slice(0, 8).map(f => '\n• ' + f.k + ': ' + f.v).join('') +
+    '\n\nแก้/เพิ่มช่องได้ในแอป หน้า 📌 ฝาก';
+}
+
+/** LINE: พิมพ์ "ข้อมูล ..." (อ่านด้วย AI นอกล็อก แล้วค่อยล็อกตอนบันทึก) */
+function lineCardText_(token, text) {
+  const c = cardFromText_(text);
+  return withLock_(LockService.getScriptLock(), token, () => {
+    const o = saveCard_(c);
+    line_('reply', { replyToken: token, messages: [{ type: 'text', text: cardLine_(o).slice(0, 4900), quickReply: { items: [qr_('🗑 ยกเลิก', 'chg|i|' + o.id + '|x', 'ยกเลิกการ์ดนี้')] } }] });
+  });
+}
+
+/** LINE: รูปรอจัด → 📇 การ์ดข้อมูล (นามบัตร/ป้ายร้าน) */
+function lineCardPhoto_(ev, fid) {
+  let file;
+  try { file = DriveApp.getFileById(fid); } catch (e) { return reply_(ev.replyToken, 'ไม่พบรูปนี้แล้ว ลองส่งใหม่'); }
+  if (file.isTrashed() || (file.getParents().hasNext() && file.getParents().next().getName() !== 'รอจัด')) return reply_(ev.replyToken, 'รูปนี้จัดไปแล้ว');
+  const blob = file.getBlob();
+  let r;
+  try { r = aiFields_({ data: Utilities.base64Encode(blob.getBytes()), mime: blob.getContentType() || 'image/jpeg', mode: 'card' }); }
+  catch (e) { return reply_(ev.replyToken, 'AI อ่านรูปไม่สำเร็จ: ' + (e.message || e) + '\nแตะปุ่มเดิมอีกครั้ง หรือเลือก 📌 เก็บไว้เฉยๆ'); }
+  return withLock_(LockService.getScriptLock(), ev.replyToken, () => {
+    try { file.moveTo(inboxFolder_()); file.setName((r.title || 'การ์ด') + '.jpg'); } catch (e) {}
+    const photo = { id: file.getId(), url: file.getUrl(), thumb: inboxThumb_(file.getId(), 6000) };
+    const o = saveCard_(r, photo);
+    CacheService.getScriptCache().remove('pend:' + fid);
+    billNextPending_(ev.replyToken, cardLine_(o), []);
+  });
+}
+
+/** ✨ สรุปบันทึกประชุม/ดูงานเป็นรายงานสั้น (ข้อความดิบจาก meetText ฝั่งหน้าเว็บ) */
+function aiMeetSummary_(p) {
+  const raw = String(p.text || '').trim().slice(0, 20000);
+  if (!raw) throw new Error('บันทึกยังว่างอยู่');
+  const S = (type, extra) => Object.assign({ type: type }, extra || {});
+  const j = aiJson_(null, null, [
+    'นี่คือบันทึกดิบที่จดระหว่าง' + (p.type === 'visit' ? 'ไปดูงาน' : p.type === 'talk' ? 'คุยกับลูกค้า' : 'ประชุม') + ' (จดเร็วๆ อาจไม่เรียบร้อย):',
+    '"""', raw, '"""', '',
+    'เขียนเป็นรายงานสรุปภาษาไทย สุภาพ กระชับ สำหรับส่งหัวหน้าทาง LINE โดย:',
+    '- บรรทัดแรก: หัวข้อ · บรรทัดถัดมา: วันที่ สถานที่ ผู้เข้าร่วม (ถ้ามี)',
+    '- 📌 ประเด็นสำคัญ: 3–7 ข้อ เรียบเรียงจากโน้ตให้อ่านรู้เรื่อง',
+    '- 📊 ข้อมูล/สเปก: แยกตามส่วน (เช่น ชั้น/เครื่อง) แต่ละบรรทัด "• หัวข้อ: ค่า หน่วย" คงตัวเลขและหน่วยตามที่จดทุกตัว',
+    '- ✅ ข้อตกลง · ☐ งานต่อ · ❓ คำถามที่ยังค้าง (เฉพาะหัวข้อที่มีข้อมูล)',
+    '- ห้ามเพิ่มข้อมูลหรือตัวเลขที่ไม่มีในบันทึก ห้ามใช้ markdown (** หรือ #) ใช้ขึ้นบรรทัดใหม่และ • แทน',
+    'ตอบเป็น JSON: summary = รายงานทั้งก้อน',
+  ].join('\n'), S('OBJECT', { properties: { summary: S('STRING') }, required: ['summary'] }));
+  return { summary: String(j.summary || '').replace(/\*\*/g, '').trim() };
 }

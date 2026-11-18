@@ -1541,3 +1541,5 @@ dialog.full { max-height: 100dvh; border-radius: 0; box-shadow: none; inset: 0; 
 dialog.full::before { display: none; }
 dialog.full .m-wrap { flex: 1; min-height: 0; }
 #cDlg form { overflow-y: auto; }
+.m-sum textarea { line-height: 1.6; }
+.m-sum .hint[hidden] { display: none; }

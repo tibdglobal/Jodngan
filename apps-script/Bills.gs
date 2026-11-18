@@ -304,12 +304,14 @@ function billPendPrompt_(fid, waiting) {
   // อ่านวันที่/ยอดไม่ได้ = น่าจะไม่ใช่ใบเสร็จ → เสนอ "เก็บไว้เฉยๆ" ไว้ปุ่มแรก
   const keep = qr_('📌 เก็บไว้เฉยๆ', 'keep|' + fid, 'เก็บรูปไว้ในกล่องฝาก');
   if ((!amt && !ocr.date) || ocr.docType === 'other') items.unshift(keep); else items.push(keep);
+  const card = qr_('📇 การ์ดข้อมูล', 'icard|' + fid, 'ทำเป็นการ์ดข้อมูล (นามบัตร/ป้ายร้าน)');
+  if ((!amt && !ocr.date) || ocr.docType === 'other') items.splice(1, 0, card); else items.push(card);
   rest.slice(0, 11 - items.length).forEach(b => items.push(qr_(lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
   items.push(qr_('🗑 ไม่ใช้', 'drop|' + fid, 'ไม่ใช้รูปนี้'));
 
   const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor, ocr.memo ? '📝 ' + ocr.memo : (ocr.desc && ocr.desc !== vendor ? ocr.desc : '')].filter(Boolean).join(' · ');
   const text = (got ? '🧾 ดูเหมือน' + (KIND_NAME[kind] || 'ใบเสร็จ') + (ocr.via === 'ai' ? ' (AI อ่าน)' : '') + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
-    '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
+    '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)\n• 📇 การ์ดข้อมูล (นามบัตร/ป้ายร้าน)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
     (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง' : '');
   const msg = { type: 'text', text: text.slice(0, 4900) };
   msg.quickReply = { items: items.slice(0, 13) };

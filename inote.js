@@ -86,7 +86,7 @@ function meetHtml(o) {
       <div><b>${esc(d.title || ty[1])}</b><small>${esc(meta || ty[1])}</small></div>
     </div>
     ${ppl.length ? `<p class="mt-ppl">👥 ${esc(ppl.slice(0, 3).join(', '))}${ppl.length > 3 ? ` +${ppl.length - 3}` : ''}</p>` : ''}
-    <p class="mt-stat" data-act="open">${[secs.length ? secs.length + ' ส่วน' : '', nRows ? nRows + ' ข้อมูล' : '', nPh ? '📷 ' + nPh : '', open ? '☐ ' + open + ' งานต่อ' : ''].filter(Boolean).join(' · ') || 'แตะเพื่อจดต่อ'}</p>
+    <p class="mt-stat" data-act="open">${[secs.length ? secs.length + ' ส่วน' : '', nRows ? nRows + ' ข้อมูล' : '', nPh ? '📷 ' + nPh : '', open ? '☐ ' + open + ' งานต่อ' : '', d.summary ? '✨ มีสรุป' : ''].filter(Boolean).join(' · ') || 'แตะเพื่อจดต่อ'}</p>
     <footer><small>${o._pending ? '⏳ ยังไม่ได้ส่งขึ้น' : when(o.created)}</small><span class="spacer"></span>
       <button class="mini" data-act="share" title="คัดลอกเป็นข้อความ">📤 ส่งต่อ</button>
       <button class="mini" data-act="open">✏️ เปิด</button>
@@ -127,7 +127,7 @@ $('#iList').addEventListener('click', e => {
   const o = items.find(x => x.id === card.dataset.id);
   if (!o || (o.kind !== 'card' && o.kind !== 'meet')) return;
   e.stopImmediatePropagation();
-  if (b.dataset.act === 'share') copyText(o.kind === 'card' ? cardText(o.data || {}) : meetText(o.data || {}), '📋 คัดลอกแล้ว วางใน LINE ได้เลย');
+  if (b.dataset.act === 'share') copyText(o.kind === 'card' ? cardText(o.data || {}) : ((o.data || {}).summary || meetText(o.data || {})), (o.data || {}).summary ? '📋 คัดลอกสรุปแล้ว วางใน LINE ได้เลย' : '📋 คัดลอกแล้ว วางใน LINE ได้เลย');
   else if (o.kind === 'card') openCard(o);
   else openMeet(o);
 }, true);
@@ -198,6 +198,15 @@ document.body.insertAdjacentHTML('beforeend', `
       <section class="m-box" data-list="todos"><h3>☐ งานต่อ</h3><div class="m-list"></div><input class="m-new" data-list="todos" placeholder="＋ งาน เช่น ขอใบเสนอราคา ศุกร์นี้" enterkeyhint="done"></section>
       <section class="m-box" data-list="asks"><h3>❓ คำถามที่ยังค้าง</h3><div class="m-list"></div><input class="m-new" data-list="asks" placeholder="＋ คำถาม" enterkeyhint="done"></section>
       <section class="m-box" data-list="decs"><h3>✅ สิ่งที่ตกลงกัน</h3><div class="m-list"></div><input class="m-new" data-list="decs" placeholder="＋ ข้อตกลง" enterkeyhint="done"></section>
+      <section class="m-box m-sum">
+        <h3>✨ สรุปรายงาน</h3>
+        <p class="hint" id="mSumHint">จดเสร็จแล้วกด ✨ ให้ AI เรียบเรียงเป็นรายงานสั้นๆ พร้อมส่งต่อใน LINE (บันทึกดิบยังอยู่ครบ)</p>
+        <textarea id="mSum" rows="10" hidden aria-label="สรุปรายงาน"></textarea>
+        <div class="c-btns">
+          <button type="button" class="mini" id="mSumGo">✨ สรุปให้</button>
+          <button type="button" class="mini" id="mSumCopy" hidden>📋 คัดลอกสรุป</button>
+        </div>
+      </section>
       <button type="button" id="mDel" class="m-del">🗑 ลบบันทึกนี้</button>
     </div>
     <form id="mQuick" class="m-quick" autocomplete="off">
@@ -382,6 +391,7 @@ function openMeet(o, type) {
   $('#mPlace').value = m.place || '';
   $('#mPerson').value = ''; $('#mIn').value = '';
   $('#mDel').hidden = !o;
+  mRenderSum();
   mState(dr ? '⏳ มีส่วนที่ยังไม่ได้ส่งขึ้น' : o ? '' : 'ใหม่');
   mRenderAll();
   $('#mDlg').showModal();
@@ -568,6 +578,29 @@ $('#mBody').addEventListener('click', async e => {
     const tasks = LS.get('tasks', []); tasks.push(task); LS.set('tasks', tasks);
     mRenderList(k); mDirty(); toast('✓ ส่งเข้างานแล้ว: ' + task.title);
   } catch (err) { b.disabled = false; b.textContent = '→ งาน'; showStatus('ส่งเข้างานไม่สำเร็จ: ' + err.message); }
+});
+
+/* ✨ สรุปรายงาน */
+function mRenderSum() {
+  const has = !!(m.summary || '').trim();
+  $('#mSum').value = m.summary || '';
+  $('#mSum').hidden = !has; $('#mSumCopy').hidden = !has; $('#mSumHint').hidden = has;
+  $('#mSumGo').textContent = has ? '🔄 สรุปใหม่' : '✨ สรุปให้';
+}
+$('#mSum').addEventListener('input', e => { m.summary = e.target.value; mDirty(); });
+$('#mSumCopy').addEventListener('click', () => copyText(m.summary || '', '📋 คัดลอกสรุปแล้ว วางใน LINE ได้เลย'));
+$('#mSumGo').addEventListener('click', async () => {
+  const raw = meetText(m);
+  if (raw.split('\n').length < 3) return toast('ยังจดน้อยไป จดเพิ่มอีกนิดก่อนนะครับ');
+  if ((m.summary || '').trim() && !confirm('สรุปใหม่ทับของเดิม? (ถ้าแก้สรุปเองไว้จะหาย)')) return;
+  const b = $('#mSumGo');
+  b.disabled = true; b.textContent = '✨ กำลังสรุป…';
+  try {
+    const r = await api('ai_meet_sum', { text: raw, type: m.type });
+    m.summary = r.summary; mRenderSum(); mDirty(true);
+    $('#mSum').scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } catch (err) { showStatus('สรุปไม่สำเร็จ: ' + err.message); mRenderSum(); }
+  finally { b.disabled = false; }
 });
 
 /* ช่องจดเร็ว */
