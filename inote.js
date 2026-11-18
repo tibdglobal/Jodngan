@@ -207,6 +207,16 @@ document.body.insertAdjacentHTML('beforeend', `
           <button type="button" class="mini" id="mSumCopy" hidden>📋 คัดลอกสรุป</button>
         </div>
       </section>
+      <section class="m-box m-arc">
+        <h3>🏢 ส่งเข้าคลังรายงาน TIBD</h3>
+        <p class="hint" id="mArcHint">AI เรียบเรียงบันทึกเป็นรายงานตามแบบฟอร์มบริษัท (วาระ · ประเด็น · มติ · สิ่งที่ต้องทำ) แล้ววางไว้ที่ "1 รอยืนยัน" ของคลัง ให้ตรวจจุดสีเหลืองและกดยืนยันในเมนู ยืนยันรายงาน</p>
+        <div id="mArcPrev" class="arc-prev"></div>
+        <div class="c-btns">
+          <button type="button" class="mini" id="mArcGo">🏢 ทำร่างรายงาน</button>
+          <button type="button" class="mini arc-send" id="mArcSend" hidden>📤 ส่งเข้าคลัง</button>
+          <a class="mini" id="mArcLink" target="_blank" rel="noopener" hidden>เปิดหน้ายืนยัน ↗</a>
+        </div>
+      </section>
       <button type="button" id="mDel" class="m-del">🗑 ลบบันทึกนี้</button>
     </div>
     <form id="mQuick" class="m-quick" autocomplete="off">
@@ -391,7 +401,7 @@ function openMeet(o, type) {
   $('#mPlace').value = m.place || '';
   $('#mPerson').value = ''; $('#mIn').value = '';
   $('#mDel').hidden = !o;
-  mRenderSum();
+  mRenderSum(); mRenderArc();
   mState(dr ? '⏳ มีส่วนที่ยังไม่ได้ส่งขึ้น' : o ? '' : 'ใหม่');
   mRenderAll();
   $('#mDlg').showModal();
@@ -601,6 +611,52 @@ $('#mSumGo').addEventListener('click', async () => {
     $('#mSum').scrollIntoView({ block: 'center', behavior: 'smooth' });
   } catch (err) { showStatus('สรุปไม่สำเร็จ: ' + err.message); mRenderSum(); }
   finally { b.disabled = false; }
+});
+
+/* 🏢 ส่งเข้าคลังรายงาน TIBD */
+function mRenderArc() {
+  const a = m.arc || {}, d = a.minute;
+  $('#mArcSend').hidden = !d;
+  $('#mArcSend').textContent = a.fileId ? '📤 ส่งฉบับแก้ทับ' : '📤 ส่งเข้าคลัง';
+  $('#mArcGo').textContent = d ? '🔄 ทำร่างใหม่' : '🏢 ทำร่างรายงาน';
+  $('#mArcLink').hidden = !a.confirmUrl; if (a.confirmUrl) $('#mArcLink').href = a.confirmUrl;
+  $('#mArcHint').hidden = !!d;
+  if (!d) { $('#mArcPrev').innerHTML = ''; return; }
+  const v = (d.verify_items || []).length;
+  $('#mArcPrev').innerHTML = `
+    <p class="arc-st">${a.fileId ? `✅ ส่งแล้ว ${esc(a.name || '')} · ${esc(new Date(a.sentAt).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }))}` : '📝 ร่าง (ยังไม่ได้ส่ง)'}</p>
+    <b>${esc(d.meeting_name)}</b>
+    <small>${esc([d.meeting_date, d.start_time && d.start_time + ' น.', d.location].filter(Boolean).join(' · '))}</small>
+    ${(d.attendees || []).map(x => `<small>👥 ${esc(x.side)}: ${esc(x.people || '…')}</small>`).join('')}
+    <ol>${(d.agenda || []).map(x => `<li><b>${esc(x.topic)}</b><br><small>${esc(x.summary)}</small><br><small>มติ: ${esc(x.decision)}</small></li>`).join('')}</ol>
+    ${(d.actions || []).length ? `<p class="arc-h">สิ่งที่ต้องทำ</p><ul>${d.actions.map(x => `<li>${esc(x.task)} <small>— ${esc([x.owner, x.team && 'ฝ่าย ' + x.team].filter(Boolean).join(', ') || 'ยังไม่มีผู้รับผิดชอบ')}${x.due ? ' · ' + esc(x.due) : ''}</small></li>`).join('')}</ul>` : ''}
+    ${v ? `<p class="arc-v">⚠ จุดที่ต้องตรวจในหน้ายืนยัน ${v} จุด: ${esc(d.verify_items.slice(0, 4).map(x => x.item).join(' · '))}</p>` : ''}`;
+}
+$('#mArcGo').addEventListener('click', async () => {
+  const raw = meetText(m);
+  if (raw.split('\n').length < 3) return toast('ยังจดน้อยไป จดเพิ่มอีกนิดก่อนนะครับ');
+  if ((m.arc || {}).fileId && !confirm('ทำร่างใหม่จากบันทึกล่าสุด? (ต้องกดส่งอีกครั้ง ระบบจะเขียนทับไฟล์เดิมถ้ายังไม่ได้ยืนยัน)')) return;
+  const b = $('#mArcGo'); b.disabled = true; b.textContent = '🏢 AI กำลังเรียบเรียง…';
+  try {
+    const r = await api('meet_draft', { text: raw, date: (m.when || '').slice(0, 10), time: (m.when || '').slice(11, 16) });
+    m.arc = Object.assign({}, m.arc || {}, { minute: r.minute });
+    mRenderArc(); mDirty(true);
+    $('#mArcPrev').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } catch (err) { showStatus('ทำร่างไม่สำเร็จ: ' + err.message); }
+  finally { b.disabled = false; mRenderArc(); }
+});
+$('#mArcSend').addEventListener('click', async () => {
+  const a = m.arc || {};
+  if (!a.minute) return;
+  const b = $('#mArcSend'); b.disabled = true; b.textContent = '📤 กำลังส่ง…';
+  try {
+    const key = (m.when || '').slice(0, 10).replace(/-/g, '') + '-' + mId.slice(-6);
+    const r = await api('meet_send', { minute: a.minute, fileId: a.fileId || '', name: key });
+    m.arc = Object.assign({}, a, { fileId: r.fileId, name: r.name, sentAt: Date.now(), confirmUrl: r.confirmUrl });
+    mRenderArc(); mDirty(true);
+    toast(r.updated ? '📤 ส่งฉบับแก้ทับแล้ว' : '📤 ส่งเข้า "1 รอยืนยัน" แล้ว เปิดหน้ายืนยันในคลังเพื่อตรวจและกดยืนยัน');
+  } catch (err) { showStatus('ส่งไม่สำเร็จ: ' + err.message); }
+  finally { b.disabled = false; mRenderArc(); }
 });
 
 /* ช่องจดเร็ว */

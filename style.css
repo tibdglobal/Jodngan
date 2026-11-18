@@ -1543,3 +1543,30 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 #cDlg form { overflow-y: auto; }
 .m-sum textarea { line-height: 1.6; }
 .m-sum .hint[hidden] { display: none; }
+
+/* ---------- 🏢 คลังรายงานการประชุม ---------- */
+.arc-prev:empty { display: none; }
+.arc-prev { display: grid; gap: 4px; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.arc-prev small { color: var(--muted); }
+.arc-prev ol, .arc-prev ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.arc-st { margin: 0; font-size: 13px; color: var(--accent); }
+.arc-h { margin: 6px 0 0; font-weight: 600; }
+.arc-v { margin: 6px 0 0; padding: 6px 8px; border-radius: 8px; background: #fff3b0; color: #6b4e00; font-size: 13px; }
+.arc-send { background: var(--accent) !important; color: var(--on-accent) !important; border-color: var(--accent) !important; }
+.m-box .hint[hidden] { display: none; }
+.mt-h { font-size: 16px; }
+.mt-chips { padding: 8px 12px 0; margin: 0; background: var(--card); }
+.mt-g { gap: 6px; }
+.mt-gh { display: grid; gap: 2px; }
+.mt-gh small { color: var(--muted); }
+.mt-gh .mini { justify-self: start; text-decoration: none; color: var(--accent); min-height: 30px; display: inline-flex; align-items: center; }
+.mt-t { border-top: 1px dashed var(--line); padding-top: 8px; display: grid; gap: 4px; }
+.mt-t p { margin: 0; line-height: 1.5; }
+.mt-t.late { border-left: 3px solid var(--danger); padding-left: 8px; }
+.mt-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; color: var(--muted); }
+.mt-due { color: var(--accent); }
+.mt-t.late .mt-due { color: var(--danger); font-weight: 600; }
+.mt-act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mt-act select { padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; }
+.mt-foot { margin: 4px 2px 0; font-size: 12px; }
+#mtOpen { text-decoration: none; color: var(--accent); display: inline-flex; align-items: center; }

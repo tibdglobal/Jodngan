@@ -177,6 +177,8 @@ function doPost(e) {
       case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
       case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
+      case 'meet_tasks': return json_({ ok: true, ...meetTasks_(!!body.all) });
+      case 'meet_draft': return json_({ ok: true, minute: meetDraft_(body) });
       case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
@@ -234,6 +236,11 @@ function doPost(e) {
       case 'inbox_task':   return json_({ ok: true, task: inboxToTask_(body.id) });
       case 'inbox_photo':  return json_({ ok: true, photo: inboxPhoto_(body) });
       case 'inbox_todo':   return json_({ ok: true, task: inboxTodo_(body) });
+      case 'meet_setup':   return json_({ ok: true, ...meetSetup_(body) });
+      case 'meet_status':  return json_({ ok: true, ...meetSetStatus_(body.meetingId, body.index, body.status) });
+      case 'meet_pin':     return json_({ ok: true, task: meetPin_(body.task) });
+      case 'meet_sync':    return json_({ ok: true, ...(meetSync_(true) || {}) });
+      case 'meet_send':    return json_({ ok: true, ...meetSend_(body) });
       case 'bill_mark':    return json_({ ok: true, bills: billMark_(body.ids, body.status, body.claim) });
       default:       return json_({ ok: false, error: 'unknown action' });
     }
@@ -346,9 +353,10 @@ function morningSummary() {
   const pre = buildPre_(tasks);
   const q = quota_();
   const warn = q && q.limit && q.used >= q.limit * 0.8 ? quotaText_(q) : '';   // ใกล้เต็ม = เติมไว้ท้ายสรุป ไม่ส่งแยก
-  let bills = '';
+  let bills = '', meet = '';
   try { bills = billLine_(); } catch (e) {}
-  const msg = [buildToday_(tasks), pre.text, bills, warn].filter(Boolean).join('\n\n');
+  try { meetSync_(true); meet = meetLine_(); } catch (e) {}
+  const msg = [buildToday_(tasks), pre.text, meet, bills, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
   const sh = sheet_(), col = HEADERS.indexOf('prenoted') + 1;
@@ -401,6 +409,7 @@ function checkReminders() {
       const at = t.date + ' ' + t.time;
       return at >= from && at <= to;
     }).sort(byWhen_);
+    try { meetSync_(false); } catch (e) { console.warn('meetSync: ' + e); }   // งานจากคลังประชุม (ทุก 1 ชม.)
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
@@ -793,6 +802,7 @@ function updateTask_(t) {
   const vals = rng.getDisplayValues()[0];
   const cur = Object.fromEntries(HEADERS.map((h, i) => [h, vals[i]]));
   const before = [cur.date, cur.time, cur.due, cur.dep].join('|');
+  const wasDone = cur.done;
   const beforePre = cur.pre;
 
   ['title', 'note', 'date', 'time', 'project', 'due', 'dep', 'pre'].forEach(k => { if (t[k] !== undefined) cur[k] = String(t[k]).trim(); });
@@ -804,6 +814,7 @@ function updateTask_(t) {
   cur.updated = stamp_();
 
   rng.setNumberFormat('@').setValues([HEADERS.map(h => cur[h])]);
+  if (/^meet:/.test(cur.id) && wasDone !== cur.done) meetOnLocalDone_(cur.id, cur.done === '1');   // งานจากคลังประชุม → อัปเดตสถานะในคลัง
   return cur;
 }
 
