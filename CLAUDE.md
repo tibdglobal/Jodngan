@@ -26,12 +26,12 @@
 - `sw.js` — service worker (cache-first)
 
 ### หลังบ้าน (`apps-script/`)
-- `Code.gs` — `doPost` (API แบบ `{action, key, ...}` + LINE webhook), งาน, แจ้งเตือน, ตู้รหัส, HELP
+- `Code.gs` — `doPost` (API แบบ `{action, key, ...}` + LINE webhook) · ⚠️ มีล็อกรวม (ScriptLock) — งานช้า (AI/OCR) ต้องทำ**ก่อน**เข้าล็อก (`preRead_`, `ai_*`) ไม่งั้นคำขออื่นและ LINE ค้าง, งาน, แจ้งเตือน, ตู้รหัส, HELP
 - `Bills.gs` — บิล/OCR (Drive OCR), รูปรอจัดจาก LINE, ใบเบิก
 - `Money.gs` — รายรับรายจ่าย + หมวด (regex คำสำคัญ)
 - `Inbox.gs` — กล่องฝาก + **แยกประเภทข้อความ LINE** (เดาก่อน แล้วมีปุ่ม ↔ เปลี่ยนได้)
 - `Owe.gs` — เก็บเอกสาร JSON ของ "ค้างกัน" (คำนวณทั้งหมดอยู่ใน `owe.js`)
-- `Ai.gs` — **อ่านใบเสร็จ/สลิปด้วย Gemini** (`readDoc_`: AI ก่อน ไม่มี key/ล่ม → OCR ของ Drive แบบเดิม) ใช้กับบิลเบิก, รายจ่าย, รูปจาก LINE, ใบเสร็จหารกัน (`ai_read`) · key อยู่ใน Script Property `GEMINI_API_KEY` (เจ้าของใส่เอง) · รุ่นตั้งได้ที่ `GEMINI_MODEL`
+- `Ai.gs` — **อ่านใบเสร็จ/สลิปด้วย Gemini** (`readDoc_`: AI ก่อน ไม่มี key/ล่ม → OCR ของ Drive แบบเดิม) ใช้กับบิลเบิก, รายจ่าย, รูปจาก LINE, ใบเสร็จหารกัน (`ai_read`) · key อยู่ใน Script Property `GEMINI_API_KEY` (เจ้าของใส่เอง) · รุ่นตั้งได้ที่ `GEMINI_MODEL` (ค่าเริ่ม `gemini-3.5-flash-lite` ~4 วิ แล้วสำรอง `gemini-3.8-flash` ซึ่งมักช้า/503) · ใช้ thinkingLevel low · 429/503 รอแล้วลองซ้ำ · หมวดบิลใช้ "ร้าน → หมวด" ที่เจ้าของเคยจัด (`aiCatHints_`) · ทดสอบ: `ai_debug` (รายชื่อรุ่น), `ai_bench {id, model}`, `ai_compare {ids|data}` (อ่านอย่างเดียว)
 - `Bridge.gs` — **โปรเจกต์แยก** (สะพานปฏิทินในอีกบัญชี) ไม่ได้อยู่ในโปรเจกต์หลัก
 
 ## วิธีอัปขึ้นระบบ

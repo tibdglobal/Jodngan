@@ -4,7 +4,8 @@
  * ไม่มี key / AI ล่ม → กลับไปใช้ OCR ของ Drive แบบเดิมให้อัตโนมัติ
  */
 
-const AI_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+const AI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];   // lite: ~4 วิ แม่นพอ · 3.8-flash ช้า/คนใช้เยอะ ใช้สำรอง
+let AI_ERRS = [];   // ข้อผิดพลาดล่าสุด (ไว้ดูตอนทดสอบ)
 
 /** อ่านเอกสาร: AI ก่อน ถ้าไม่ได้ค่อยใช้ OCR เดิม · คืนรูปแบบเดียวกับ readReceipt_ (+ ช่องเสริม) */
 function readDoc_(file, ctx) {
@@ -21,6 +22,7 @@ function readDoc_(file, ctx) {
 }
 
 function aiRead_(file, ctx) {
+  ctx = ctx || {};
   const key = props.getProperty('GEMINI_API_KEY');
   if (!key) return null;
   const blob = file.getBlob ? file.getBlob() : file;
@@ -50,6 +52,7 @@ function aiRead_(file, ctx) {
     '- payer / payee / bank / ref: สำหรับสลิป (ชื่อผู้โอน ผู้รับ ธนาคาร เลขอ้างอิง)',
     '- tax_id: เลขประจำตัวผู้เสียภาษีของผู้ขาย 13 หลักถ้ามี',
     cats.length ? '- cat: เลือกหมวดที่เหมาะที่สุดจากรายการนี้เท่านั้น: ' + cats.join(', ') + ' (ไม่เข้าหมวดไหนให้ "")' : '- cat: ""',
+    aiCatHints_(cats),
     '- confidence: ความมั่นใจโดยรวม 0-1',
   ].join('\n');
 
@@ -58,7 +61,7 @@ function aiRead_(file, ctx) {
     properties: {
       kind: S('STRING', { enum: ['receipt', 'tax_invoice', 'slip', 'invoice', 'quotation', 'other'] }),
       date: S('STRING'), time: S('STRING'), amount: S('NUMBER'), vendor: S('STRING'), desc: S('STRING'),
-      vat: S('STRING', { enum: ['yes', 'no', ''] }), vat_amount: S('NUMBER'), prices_include_vat: S('BOOLEAN'),
+      vat: S('STRING', { enum: ['yes', 'no', 'unknown'] }), vat_amount: S('NUMBER'), prices_include_vat: S('BOOLEAN'),
       service_charge: S('NUMBER'), discount: S('NUMBER'),
       items: S('ARRAY', { items: S('OBJECT', { properties: { name: S('STRING'), qty: S('NUMBER'), price: S('NUMBER') }, required: ['name', 'price'] }) }),
       pay: S('STRING'), memo: S('STRING'), payer: S('STRING'), payee: S('STRING'), bank: S('STRING'), ref: S('STRING'), tax_id: S('STRING'),
@@ -71,22 +74,25 @@ function aiRead_(file, ctx) {
     contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } }, { text: prompt }] }],
     generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
   };
-  const models = [props.getProperty('GEMINI_MODEL')].concat(AI_MODELS).filter((m, i, a) => m && a.indexOf(m) === i);
+  const models = ctx.models || [props.getProperty('GEMINI_MODEL')].concat(AI_MODELS).filter((m, i, a) => m && a.indexOf(m) === i);
+  const start = Date.now();
   for (const model of models) {
+    if (Date.now() - start > 60000) { AI_ERRS.push('หมดเวลา ข้าม ' + model); break; }   // อย่าให้ผู้ใช้รอนานเกินไป
     try {
-      const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-        method: 'post', contentType: 'application/json', payload: JSON.stringify(body),
-        headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
-      });
+      const think = ctx.think === undefined ? 'low' : ctx.think;
+      const req = JSON.parse(JSON.stringify(body));
+      if (think && /^gemini-[3-9]/.test(model)) req.generationConfig.thinkingConfig = { thinkingLevel: think };   // คิดน้อย = เร็วขึ้นมาก
+      let r = aiFetch_(model, req, key);
+      if ((r.getResponseCode() === 429 || r.getResponseCode() === 503) && Date.now() - start < 30000) { Utilities.sleep(2500); r = aiFetch_(model, req, key); }   // คนใช้เยอะ/ถี่ไป รอแป๊บแล้วลองอีกครั้ง
+      if (r.getResponseCode() === 400 && /thinking/i.test(r.getContentText())) { delete req.generationConfig.thinkingConfig; r = aiFetch_(model, req, key); }
       const code = r.getResponseCode();
-      if (code === 404 || code === 400 && /model/i.test(r.getContentText())) continue;   // รุ่นนี้ใช้ไม่ได้ ลองรุ่นถัดไป
-      if (code !== 200) { console.warn('Gemini ' + model + ' ' + code + ': ' + r.getContentText().slice(0, 300)); continue; }
+      if (code !== 200) { AI_ERRS.push(model + ' ' + code + ': ' + r.getContentText().slice(0, 300)); console.warn('Gemini ' + model + ' ' + code); continue; }   // ลองรุ่นถัดไป
       const res = JSON.parse(r.getContentText());
       const txt = (((res.candidates || [])[0] || {}).content || {}).parts;
-      const raw = (txt || []).map(p => p.text || '').join('');
+      const raw = (txt || []).map(p => p.thought ? '' : (p.text || '')).join('');
       const j = JSON.parse(raw.replace(/^```(?:json)?|```$/g, '').trim());
       return aiNormalize_(j, cats, model);
-    } catch (e) { console.warn('Gemini ' + model + ' error: ' + e); }
+    } catch (e) { AI_ERRS.push(model + ' error: ' + e); console.warn('Gemini ' + model + ' error: ' + e); }
   }
   return null;
 }
@@ -139,6 +145,19 @@ function billCatList_() {
   const base = ['เดินทาง', 'อาหาร/รับรอง', 'ค่าห้องประชุม', 'ที่พัก', 'อุปกรณ์/วัสดุ', 'ค่าบริการ', 'อื่นๆ'];
   return Array.from(new Set(base.concat(used))).slice(0, 40);
 }
+/** ตัวอย่างหมวดที่เจ้าของเคยจัดเอง (ร้าน → หมวด) ให้ AI เลือกหมวดแบบเดียวกัน */
+function aiCatHints_(cats) {
+  if (cats.indexOf('ค่าห้องประชุม') < 0) return '';   // เฉพาะบิลเบิก
+  try {
+    const seen = {}, pairs = [];
+    billsAll_().forEach(b => {
+      const v = String(b.vendor || '').trim().slice(0, 30), c = String(b.cat || '').trim();
+      if (!v || !c || /^\d|TH\d/.test(v) || seen[v]) return;
+      seen[v] = 1; pairs.push(v + ' → ' + c);
+    });
+    return pairs.length ? '- หมวดที่เจ้าของเคยจัดไว้ (ร้านเดียวกันหรือประเภทเดียวกันให้ใช้หมวดเดียวกัน): ' + pairs.slice(-40).join(' · ') : '';
+  } catch (e) { return ''; }
+}
 function moneyCatList_(type) {
   const base = (MONEY_CATS[type === 'in' ? 'in' : 'out'] || []).map(c => Array.isArray(c) ? c[0] : c);
   return Array.from(new Set(base.concat(['อื่นๆ'])));
@@ -183,7 +202,9 @@ function aiCompare_(ids, data, mime) {
       const old = readReceipt_(text); old.memo = slipMemo_(text);
       out.old = pick(old); out.oldMs = Date.now() - t0;
       const t1 = Date.now();
+      AI_ERRS = [];
       out.ai = pick(aiRead_(file, { cats: billCatList_() }));
+      if (AI_ERRS.length) out.aiErr = AI_ERRS.slice(0, 4);
       out.aiMs = Date.now() - t1;
     } catch (e) { out.error = String(e.message || e); }
     return out;
@@ -225,6 +246,22 @@ function aiDebug_() {
     } catch (e) { out.tries.push({ model: model, err: String(e) }); }
   });
   return out;
+}
+
+function aiFetch_(model, req, key) {
+  return UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+    method: 'post', contentType: 'application/json', payload: JSON.stringify(req),
+    headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
+  });
+}
+
+/** ทดสอบความเร็ว/ความแม่นของรุ่นเดียว (อ่านอย่างเดียว ไม่บันทึก) */
+function aiBench_(id, model, think) {
+  AI_ERRS = [];
+  const t0 = Date.now();
+  const o = aiRead_(DriveApp.getFileById(id), { cats: billCatList_(), models: [model], think: think });
+  return { model: model, think: think, ms: Date.now() - t0, errs: AI_ERRS.slice(0, 3),
+    ai: o ? { kind: o.kind, date: o.date, amount: o.amount, vendor: o.vendor, vat: o.vat, cat: o.cat, memo: o.memo || '', items: (o.items || []).length } : null };
 }
 
 /** สร้างไฟล์ + อ่านเอกสารทั้งหมดก่อนเข้าล็อก (คืน [{file, mime, thumb, o}]) */

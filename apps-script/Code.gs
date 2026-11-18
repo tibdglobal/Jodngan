@@ -170,6 +170,7 @@ function doPost(e) {
   try {
     switch (body.action) {
       case 'ai_debug':   return json_({ ok: true, ...aiDebug_() });
+      case 'ai_bench':   return json_({ ok: true, ...aiBench_(body.id, body.model, body.think) });
       case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
       case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
