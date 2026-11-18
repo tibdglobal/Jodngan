@@ -279,3 +279,63 @@ function preRead_(p, folderFn, cats) {
     return { file: file, mime: mime, thumb: f.thumb, o: o };
   });
 }
+
+/** เรียก Gemini ให้ตอบเป็น JSON ตาม schema (ใช้รุ่น/การลองซ้ำแบบเดียวกับ aiRead_) */
+function aiJson_(bytes, mime, prompt, schema) {
+  const key = props.getProperty('GEMINI_API_KEY');
+  if (!key) throw new Error('ยังไม่ได้ใส่ GEMINI_API_KEY');
+  const body = {
+    contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: Utilities.base64Encode(bytes) } }, { text: prompt }] }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: schema },
+  };
+  const models = [props.getProperty('GEMINI_MODEL')].concat(AI_MODELS).filter((m, i, a) => m && a.indexOf(m) === i);
+  const start = Date.now();
+  let last = '';
+  for (const model of models) {
+    if (Date.now() - start > 60000) break;
+    try {
+      const req = JSON.parse(JSON.stringify(body));
+      if (/^gemini-[3-9]/.test(model)) req.generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+      let r = aiFetch_(model, req, key);
+      if (r.getResponseCode() === 400 && /thinking/i.test(r.getContentText())) { delete req.generationConfig.thinkingConfig; r = aiFetch_(model, req, key); }
+      if ((r.getResponseCode() === 429 || r.getResponseCode() === 503) && Date.now() - start < 30000) { Utilities.sleep(2500); r = aiFetch_(model, req, key); }
+      if (r.getResponseCode() !== 200) { last = model + ' ' + r.getResponseCode(); continue; }
+      const res = JSON.parse(r.getContentText());
+      const raw = ((((res.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.thought ? '' : (p.text || '')).join('');
+      return JSON.parse(raw.replace(/^```(?:json)?|```$/g, '').trim());
+    } catch (e) { last = model + ' ' + e; }
+  }
+  throw new Error('AI อ่านไม่สำเร็จ ลองใหม่อีกครั้ง (' + last + ')');
+}
+
+/** 📷 นามบัตร / ป้ายร้าน / ป้ายเครื่อง → ช่องข้อมูล
+ *  p.mode: 'card' (การ์ดข้อมูล) หรือ 'plate' (ป้ายเครื่องในบันทึกดูงาน → แถว หัวข้อ/ค่า/หน่วย) */
+function aiFields_(p) {
+  const mime = String(p.mime || 'image/jpeg');
+  if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
+  const bytes = Utilities.base64Decode(String(p.data || ''));
+  if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
+  const S = (type, extra) => Object.assign({ type: type }, extra || {});
+  if (p.mode === 'plate') {
+    const j = aiJson_(bytes, mime, [
+      'รูปนี้เป็นป้ายเครื่องจักร/ฉลากสเปก/ป้ายข้อมูล ในการไปดูงาน',
+      'ดึงข้อมูลสำคัญเป็นแถว หัวข้อ (ภาษาไทยถ้าแปลได้ เช่น รุ่น, ยี่ห้อ, กำลังการผลิต, กำลังไฟ, แรงดันไฟ, ปีผลิต, น้ำหนัก, เลขเครื่อง) · ค่า · หน่วย',
+      'name = ชื่อเรียกสั้นๆ ของเครื่อง/สิ่งของ ถ้ารู้ (เช่น "เครื่องบด Retsch SM300") ถ้าไม่รู้ให้ ""',
+      'ห้ามเดาค่าที่มองไม่เห็น ตอบเป็น JSON',
+    ].join('\n'), S('OBJECT', { properties: { name: S('STRING'),
+      rows: S('ARRAY', { items: S('OBJECT', { properties: { k: S('STRING'), v: S('STRING'), u: S('STRING') }, required: ['k', 'v'] }) }) }, required: ['rows'] }));
+    return { name: String(j.name || ''), rows: (j.rows || []).filter(r => r && r.k && r.v).slice(0, 30) };
+  }
+  const j = aiJson_(bytes, mime, [
+    'อ่านรูปนี้ (นามบัตร ป้ายร้าน ใบปลิว หน้าจอ หรือเอกสาร) แล้วสรุปเป็นการ์ดข้อมูลสำหรับจดเก็บไว้',
+    'tpl: contact = คน/นามบัตร, place = ร้าน/สถานที่, company = บริษัท/ผู้ขาย (มีเลขผู้เสียภาษี/ที่อยู่ออกใบกำกับ), product = สินค้า/ราคา, asset = เครื่อง/อุปกรณ์/รถ, custom = อื่นๆ',
+    'title = ชื่อหลักของการ์ด (ชื่อคน / ชื่อร้าน / ชื่อบริษัท / ชื่อสินค้า)',
+    'fields = ช่องข้อมูล หัวข้อภาษาไทยสั้นๆ เช่น contact: บริษัท, ตำแหน่ง, เบอร์, อีเมล, LINE, เว็บ, ที่อยู่ · place: ที่อยู่, เบอร์, เวลาเปิด, ลิงก์แผนที่ · company: เลขผู้เสียภาษี, ที่อยู่ออกใบกำกับ, เบอร์, อีเมล · product: ร้าน, ราคา, รุ่น, ลิงก์',
+    'เบอร์โทรเขียนแบบ 081-234-5678 ถ้ามีหลายเบอร์แยกเป็นหลายช่อง (เบอร์มือถือ, เบอร์ออฟฟิศ) ห้ามเดาค่าที่มองไม่เห็น ตอบเป็น JSON',
+  ].join('\n'), S('OBJECT', { properties: {
+    tpl: S('STRING', { enum: ['contact', 'place', 'company', 'product', 'asset', 'custom'] }), title: S('STRING'),
+    fields: S('ARRAY', { items: S('OBJECT', { properties: { k: S('STRING'), v: S('STRING') }, required: ['k', 'v'] }) }) }, required: ['tpl', 'title', 'fields'] }));
+  let photo = null;
+  if (p.keep) photo = inboxPhoto_({ data: p.data, mime: mime, thumb: p.thumb, name: j.title || 'การ์ด' });
+  return { tpl: j.tpl || 'custom', title: String(j.title || ''), fields: (j.fields || []).filter(f => f && f.k && f.v).slice(0, 30), photo: photo };
+}

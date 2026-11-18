@@ -1,4 +1,4 @@
-/* จดครบ — 📌 กล่องฝาก: ลิงก์ โน้ต รูป ที่ยังไม่ใช่งาน */
+/* จดครบ — 📌 กล่องฝาก: ลิงก์ โน้ต รูป ที่ยังไม่ใช่งาน (+ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม อยู่ใน inote.js) */
 const $ = s => document.querySelector(s);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
@@ -17,7 +17,7 @@ let toastTimer = 0;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const KINDS = [['', 'ทั้งหมด'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
+const KINDS = [['', 'ทั้งหมด'], ['meet', '📋 บันทึก'], ['card', '📇 ข้อมูล'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
 
 async function api(action, payload = {}) {
   const res = await fetch(cfg.url, { method: 'POST', body: JSON.stringify({ action, key: cfg.key, ...payload }), redirect: 'follow' });
@@ -40,7 +40,7 @@ function busyEnd() { $('#busy').hidden = true; }
 async function sync() {
   if (!cfg.key) { showStatus('ยังไม่ได้เชื่อมเครื่องนี้ กลับไปหน้าหลักแล้วเปิดลิงก์จาก LINE ก่อน'); return; }
   $('#btnSync').classList.add('spin');
-  try { items = (await api('inbox_list')).items; LS.set('inbox', items); showStatus(''); render(); }
+  try { items = (await api('inbox_list')).items; LS.set('inbox', items); mergePending(); showStatus(''); render(); flushDrafts(); }
   catch (e) { showStatus('ดึงข้อมูลไม่สำเร็จ: ' + e.message); }
   finally { $('#btnSync').classList.remove('spin'); }
 }
@@ -74,6 +74,8 @@ function render() {
   }
   if (!list.length) { $('#iList').innerHTML = '<div class="empty small">ไม่เจอรายการที่ค้นหา</div>'; return; }
   $('#iList').innerHTML = list.map(o => {
+    if (o.kind === 'card') return cardHtml(o);
+    if (o.kind === 'meet') return meetHtml(o);
     const rest = String(o.text || '').replace(o.url ? URL_RE : /$^/, '').trim();
     const pic = o.file && o.file.thumb ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener"><img src="${o.file.thumb}" alt="" loading="lazy"></a>`
       : o.file ? `<a class="in-pic-big none" href="${esc(o.file.url)}" target="_blank" rel="noopener">🖼 เปิดรูป</a>` : '';
@@ -195,5 +197,5 @@ $('#iDlg').addEventListener('click', e => { if (e.target === $('#iDlg')) $('#iDl
 })();
 
 $('#btnSync').addEventListener('click', sync);
-render();
-sync();
+// เริ่มหลังโหลดสคริปต์ครบ (inote.js ต่อจากไฟล์นี้)
+document.addEventListener('DOMContentLoaded', () => { mergePending(); render(); sync(); });

@@ -174,6 +174,7 @@ function doPost(e) {
       case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
       case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
+      case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
       case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
@@ -229,6 +230,8 @@ function doPost(e) {
       case 'inbox_delete': inboxDelete_(body.id); return json_({ ok: true });
       case 'inbox_upload': return json_({ ok: true, item: inboxUpload_(body) });
       case 'inbox_task':   return json_({ ok: true, task: inboxToTask_(body.id) });
+      case 'inbox_photo':  return json_({ ok: true, photo: inboxPhoto_(body) });
+      case 'inbox_todo':   return json_({ ok: true, task: inboxTodo_(body) });
       case 'bill_mark':    return json_({ ok: true, bills: billMark_(body.ids, body.status, body.claim) });
       default:       return json_({ ok: false, error: 'unknown action' });
     }

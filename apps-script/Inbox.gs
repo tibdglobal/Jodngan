@@ -1,7 +1,7 @@
 /* ===================== 📌 กล่องฝาก (ลิงก์ / โน้ต / รูป ที่ไม่ใช่งาน) + แยกประเภทข้อความจาก LINE ===================== */
 
 const INBOX_SHEET = 'Inbox';
-const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated'];
+const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated', 'data'];   // data = JSON ของ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม
 const INBOX_FOLDER = 'จดครบ - กล่องฝาก';
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 
@@ -14,6 +14,9 @@ function inboxSheet_() {
     sh.getRange(1, 1, sh.getMaxRows(), INBOX_HEADERS.length).setNumberFormat('@');
     sh.getRange(1, 1, 1, INBOX_HEADERS.length).setValues([INBOX_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
+  } else if (sh.getRange(1, INBOX_HEADERS.length).getDisplayValue() !== INBOX_HEADERS[INBOX_HEADERS.length - 1]) {
+    sh.getRange(1, 1, 1, INBOX_HEADERS.length).setValues([INBOX_HEADERS]).setFontWeight('bold');   // เพิ่มคอลัมน์ใหม่ (data)
+    sh.getRange(1, INBOX_HEADERS.length, sh.getMaxRows(), 1).setNumberFormat('@');
   }
   return sh;
 }
@@ -24,6 +27,7 @@ function inboxAll_() {
   return sh.getRange(2, 1, last - 1, INBOX_HEADERS.length).getDisplayValues().filter(r => r[0]).map(r => {
     const o = Object.fromEntries(INBOX_HEADERS.map((h, i) => [h, r[i]]));
     try { o.file = o.file ? JSON.parse(o.file) : null; } catch (e) { o.file = null; }
+    try { o.data = o.data ? JSON.parse(o.data) : null; } catch (e) { o.data = null; }
     return o;
   });
 }
@@ -37,7 +41,7 @@ function inboxRow_(id) {
 
 function inboxWrite_(o, row) {
   const sh = inboxSheet_();
-  const out = Object.assign({}, o, { file: o.file ? JSON.stringify(o.file) : '' });
+  const out = Object.assign({}, o, { file: o.file ? JSON.stringify(o.file) : '', data: o.data ? JSON.stringify(o.data) : '' });
   const r = row || sh.getLastRow() + 1;
   sh.getRange(r, 1, 1, INBOX_HEADERS.length).setNumberFormat('@').setValues([INBOX_HEADERS.map(h => String(out[h] == null ? '' : out[h]).slice(0, 45000))]);
 }
@@ -74,6 +78,18 @@ function inboxSave_(t) {
   const cur = row ? inboxAll_().find(x => x.id === t.id) : null;
   const now = stamp_();
   const o = cur || { id: t.id || Utilities.getUuid().replace(/-/g, ''), created: now, file: null, title: '' };
+  if (t.kind === 'card' || t.kind === 'meet') {   // การ์ดข้อมูล / บันทึกประชุม: เก็บเป็น JSON + ข้อความไว้ค้นหา
+    const d = t.data || {};
+    if (JSON.stringify(d).length > 45000) throw new Error('บันทึกยาวเกินไป ลองแยกเป็น 2 บันทึก หรือลบรูปบางรูป');
+    o.kind = t.kind; o.data = d; o.url = ''; o.file = null;
+    o.title = String(d.title || '').trim().slice(0, 200);
+    o.text = String(t.text || o.title || '').trim().slice(0, 5000);
+    o.tags = inboxTags_(o.text);
+    if (!o.title && !o.text) throw new Error('ยังไม่มีข้อมูล');
+    o.updated = now;
+    inboxWrite_(o, row);
+    return o;
+  }
   if (t.text !== undefined) o.text = String(t.text).trim().slice(0, 5000);
   const u = String(o.text || '').match(URL_RE);
   let newUrl = u ? u[0].replace(/[).,]+$/, '') : '';
@@ -104,7 +120,7 @@ function inboxFolder_() {
   return f;
 }
 
-function inboxThumb_(fid) {
+function inboxThumb_(fid, max) {
   try {
     const meta = Drive.Files.get(fid, { fields: 'thumbnailLink' });
     if (!meta || !meta.thumbnailLink) return '';
@@ -114,7 +130,7 @@ function inboxThumb_(fid) {
       if (r.getResponseCode() !== 200) return '';
       const b = r.getBlob();
       const d = 'data:' + (b.getContentType() || 'image/jpeg') + ';base64,' + Utilities.base64Encode(b.getBytes());
-      if (d.length <= 30000) return d;
+      if (d.length <= (max || 30000)) return d;
     }
   } catch (e) {}
   return '';
@@ -149,6 +165,24 @@ function inboxUpload_(p) {
   const o = { id: Utilities.getUuid().replace(/-/g, ''), kind: 'image', text: String(p.text || '').trim().slice(0, 5000), url: '', title: '', file: null, tags: inboxTags_(p.text || ''), created: now, updated: now };
   inboxWrite_(o);
   return inboxAttach_(o, file, mime);
+}
+
+/** 📷 รูปในบันทึกประชุม/ดูงาน: เก็บไฟล์ คืน {id,url,thumb เล็ก} (ไม่สร้างรายการใหม่) */
+function inboxPhoto_(p) {
+  const mime = String(p.mime || 'image/jpeg');
+  if (!/^image\//.test(mime)) throw new Error('รองรับเฉพาะรูป');
+  const name = (String(p.name || 'บันทึก').replace(/[\\/:*?"<>|#]/g, ' ').slice(0, 60) || 'บันทึก') + '_' + stamp_().replace(/[:T]/g, '-') + '.jpg';
+  const file = inboxFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(String(p.data || '')), mime, name));
+  return { id: file.getId(), url: file.getUrl(), thumb: String(p.thumb || '').slice(0, 6000) || inboxThumb_(file.getId(), 6000) };
+}
+
+/** ☐ งานต่อจากบันทึก → งานจริง (อ่านวัน/เวลาจากข้อความ เช่น "ขอใบเสนอราคา ศุกร์นี้") */
+function inboxTodo_(p) {
+  const text = String(p.text || '').trim();
+  if (!text) throw new Error('ไม่มีข้อความงาน');
+  const q = parseQuick_(text);
+  return addTask_({ title: q.title || text, date: q.date, time: q.time, remind: q.time ? '1' : '', project: q.project, due: q.due,
+    note: String(p.note || '').slice(0, 1000) });
 }
 
 /** ย้ายของในกล่องฝากไปเป็นงาน */
