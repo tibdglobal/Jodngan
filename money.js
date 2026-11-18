@@ -119,7 +119,7 @@ function row(x) {
   ic.textContent = icon(x.type, x.cat);
   ic.style.setProperty('--c', catColor(x.type, x.cat));
   el.querySelector('.title').textContent = x.note || x.cat || (x.type === 'in' ? 'รายรับ' : 'รายจ่าย');
-  el.querySelector('.meta').textContent = [x.cat || 'ไม่มีหมวด', x.pay, x.file ? '📎 สลิป' : ''].filter(Boolean).join('  ·  ');
+  el.querySelector('.meta').textContent = [x.cat || 'ไม่มีหมวด', x.pay, x.file ? (Array.isArray(x.file) ? '📎 ' + x.file.length + ' ไฟล์' : '📎 สลิป') : ''].filter(Boolean).join('  ·  ');
   const a = el.querySelector('.mo-amt');
   a.textContent = (x.type === 'in' ? '+' : '−') + Number(x.amount || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
   a.classList.add(x.type === 'in' ? 'in' : 'out');
@@ -271,7 +271,8 @@ function openDlg(x) {
   $('#mSuggest').hidden = true;
   const ff = $('#fFile');
   ff.hidden = !x.file;
-  ff.innerHTML = x.file ? `<span class="field-label">สลิป / ใบเสร็จ</span><a class="mo-file" href="${esc(x.file.url)}" target="_blank" rel="noopener">${x.file.thumb ? `<img src="${x.file.thumb}" alt="">` : '<span class="ficon">PDF</span>'}<span>เปิดดูไฟล์</span></a>` : '';
+  const fl = !x.file ? [] : Array.isArray(x.file) ? x.file : [x.file];
+  ff.innerHTML = fl.length ? `<span class="field-label">สลิป / ใบเสร็จ${fl.length > 1 ? ' (' + fl.length + ' ไฟล์)' : ''}</span>` + fl.map((f, i) => `<a class="mo-file" href="${esc(f.url)}" target="_blank" rel="noopener">${f.thumb ? `<img src="${f.thumb}" alt="">` : `<span class="ficon">${f.mime === 'application/pdf' ? 'PDF' : '🖼'}</span>`}<span>${fl.length > 1 ? 'ไฟล์ ' + (i + 1) + (f.amount ? ' · ' + baht(Number(f.amount)) : '') : 'เปิดดูไฟล์'}</span></a>`).join('') : '';
   paintType(); renderFCats();
   if (!dlg.open) dlg.showModal();
   if (!Number(x.amount)) setTimeout(() => f.amount.focus(), 50);
@@ -320,12 +321,15 @@ async function del(id) {
 /* ---------- 📷 สลิป/ใบเสร็จ ---------- */
 $('#btnSnap').onclick = () => { $('#mFile').value = ''; $('#mFile').click(); };
 $('#mFile').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = [...e.target.files].slice(0, 10);
+  if (!files.length) return;
   const p = parseQuick($('#mInput').value);
-  let prep;
-  try { prep = await prepare(file); } catch (err) { showStatus(err.message); return; }
-  busyStart(prep.thumb);
+  let preps;
+  try { preps = await Promise.all(files.map(prepare)); } catch (err) { showStatus(err.message); return; }
+  // หลายรูป = รวมเป็นรายการเดียว (ยอดรวมทุกใบ)
+  const prep = preps.length === 1 ? preps[0] : { files: preps };
+  busyStart(preps[0].thumb);
+  if (preps.length > 1) $('#busyMsg').textContent = `กำลังอ่าน ${preps.length} รูป แล้วรวมยอด…`;
   const item = { id: uid() };
   if (p.note) item.note = p.note;
   if (p.amount !== null) item.amount = p.amount;
@@ -343,7 +347,9 @@ $('#mFile').addEventListener('change', async e => {
   openDlg(x);
   const box = $('#mSuggest');
   const got = [o.date && 'วันที่', o.amount && 'ยอดเงิน', o.vendor && 'ชื่อร้าน/ผู้รับ'].filter(Boolean);
-  box.innerHTML = `<p>${got.length ? '🔎 อ่านได้: ' + got.join(' · ') : '📷 เก็บรูปแล้ว แต่อ่านข้อมูลไม่ได้ กรอกเองได้เลย'}</p><p class="hint">${got.length ? 'บันทึกแล้ว · ตรวจอีกครั้ง ถ้าแก้อะไรกด บันทึก' : 'รูปชัด ไม่เอียง จะอ่านได้ดีขึ้น'}</p>`;
+  const parts = res.parts || [];
+  const sumLine = parts.length > 1 ? `<p>🧾 รวม ${parts.length} รูป: ${parts.map(x => x.amount ? baht(Number(x.amount)) : '?').join(' + ')} = <b>${baht(Number(x.amount || 0))}</b></p>` : '';
+  box.innerHTML = `${sumLine}<p>${got.length ? '🔎 อ่านได้: ' + got.join(' · ') : '📷 เก็บรูปแล้ว แต่อ่านข้อมูลไม่ได้ กรอกเองได้เลย'}</p><p class="hint">${got.length ? 'บันทึกแล้ว · ตรวจอีกครั้ง ถ้าแก้อะไรกด บันทึก' : 'รูปชัด ไม่เอียง จะอ่านได้ดีขึ้น'}${parts.some(x => !x.amount) ? ' · มีบางรูปอ่านยอดไม่ได้ ตรวจยอดรวมอีกครั้ง' : ''}</p>`;
   box.hidden = false;
 });
 

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=50">
+  <link rel="stylesheet" href="style.css?v=51">
 </head>
 <body class="money">
   <header class="top">
@@ -65,7 +65,7 @@
     </div>
     <form id="mQuick" class="mo-quick" autocomplete="off">
       <input id="mInput" type="text" placeholder="120 ข้าวมันไก่" enterkeyhint="done" aria-label="ยอดเงินและรายละเอียด">
-      <button type="button" id="btnSnap" class="mo-snap" aria-label="ถ่ายสลิปหรือใบเสร็จ" title="ถ่ายสลิป / ใบเสร็จ อ่านยอดให้อัตโนมัติ">📷<small>สลิป</small></button>
+      <button type="button" id="btnSnap" class="mo-snap" aria-label="ถ่ายสลิปหรือใบเสร็จ" title="ถ่าย/เลือกสลิป ใบเสร็จ (เลือกหลายรูปได้ ยอดรวมให้เอง)">📷<small>สลิป</small></button>
       <button type="submit" class="mo-add">จด</button>
     </form>
     <div id="qCats" class="mo-cats"></div>
@@ -182,7 +182,7 @@
     <div class="busy-card"><img id="busyImg" alt="" hidden><div class="spin"></div><b id="busyMsg">กำลังอ่านสลิป…</b><small id="busySub"></small></div>
   </div>
   <div id="toast" class="toast" hidden role="status" aria-live="polite"><span id="toastMsg"></span><button type="button" id="toastUndo">↩ ยกเลิก</button></div>
-  <input type="file" id="mFile" accept="image/*,application/pdf" hidden>
+  <input type="file" id="mFile" accept="image/*,application/pdf" multiple hidden>
 
   <nav class="tabbar" aria-label="ส่วนของแอป">
     <a href="./"><span aria-hidden="true">✓</span>งาน</a>
@@ -192,8 +192,8 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="mcore.js?v=50"></script>
-  <script src="money.js?v=50"></script>
-  <script src="owe.js?v=50"></script>
+  <script src="mcore.js?v=51"></script>
+  <script src="money.js?v=51"></script>
+  <script src="owe.js?v=51"></script>
 </body>
 </html>

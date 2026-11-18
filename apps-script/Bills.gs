@@ -127,27 +127,39 @@ function billUpload_(p) {
 /** 📷 ถ่ายใบเสร็จในแอป: สร้างบิล + เก็บไฟล์ + อ่านข้อมูล ในครั้งเดียว (เร็วกว่าเรียกหลายรอบ) */
 function billSnap_(p) {
   const t = p.bill || {};
-  const mime = String(p.mime || 'application/octet-stream');
-  if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
-  const bytes = Utilities.base64Decode(String(p.data || ''));
-  if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
-  const file = billInbox_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
-  let ocr = null;
-  try { ocr = readDoc_(file, { cats: billCatList_() }); } catch (e) { ocr = null; }
-  const o = ocr || {};
+  const list = Array.isArray(p.files) && p.files.length ? p.files.slice(0, 10) : [{ data: p.data, mime: p.mime, thumb: p.thumb }];
+  const cats = billCatList_();
+  const parts = list.map(f => {
+    const mime = String(f.mime || 'application/octet-stream');
+    if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
+    const bytes = Utilities.base64Decode(String(f.data || ''));
+    if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
+    const file = billInbox_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
+    let o = {};
+    try { o = readDoc_(file, { cats: cats }) || {}; } catch (e) { o = {}; }
+    return { file: file, mime: mime, thumb: f.thumb, o: o };
+  });
+  const os = parts.map(x => x.o);
+  // ใบเสร็จ/ใบกำกับมาก่อนสลิป (ร้าน/VAT/หมวดเอาจากใบเสร็จ)
+  const main = os.find(o => o.kind === 'taxinv') || os.find(o => o.kind === 'receipt') || os[0] || {};
+  const first = k => main[k] || (os.find(o => o[k]) || {})[k] || '';
+  const dates = os.map(o => o.date).filter(Boolean).sort();
+  const notes = [...new Set(os.filter(o => o.kind !== 'slip' || os.length === 1).map(o => docNote_(o)).filter(Boolean))];
   const typedAmt = t.amount !== undefined && t.amount !== null && t.amount !== '';
+  const vatAmt = os.reduce((s, o) => s + (Number(o.vatAmt) || 0), 0);
   const b = billSave_({
     id: t.id,
-    date: t.date || o.date || todayStr_(),
-    amount: typedAmt ? t.amount : (o.amount || 0),
-    desc: t.desc || docNote_(o) || 'รอใส่รายละเอียด',
+    date: t.date || main.date || dates[0] || todayStr_(),
+    amount: typedAmt ? t.amount : sumDocs_(os),
+    desc: t.desc || (notes.length ? notes.slice(0, 3).join(' + ') : docNote_(main)) || 'รอใส่รายละเอียด',
     project: t.project || '',
-    cat: t.cat || o.cat || '',
-    vendor: o.vendor || '',
-    vat: o.vat || '', vatAmt: o.vatAmt || '',
+    cat: t.cat || first('cat'),
+    vendor: first('vendor'),
+    vat: os.some(o => o.vat === 'yes') ? 'yes' : first('vat'), vatAmt: vatAmt ? String(Math.round(vatAmt * 100) / 100) : '',
   });
-  billAttach_(b, billRow_(b.id), file, o.kind || 'receipt', mime, p.thumb);
-  return { bill: b, ocr: ocr };
+  parts.forEach((x, i) => { billAttach_(b, billRow_(b.id), x.file, x.o.kind || 'receipt', x.mime, i < 4 ? x.thumb : ''); });
+  const ocr = Object.assign({}, main, { amount: String(sumDocs_(os) || ''), parts: os.length });
+  return { bill: billsAll_().find(x => x.id === b.id) || b, ocr: ocr, parts: os.map(o => ({ amount: o.amount || '', kind: o.kind || '', note: docNote_(o) })) };
 }
 
 const KIND_NAME = { taxinv: 'ใบกำกับภาษี', receipt: 'ใบเสร็จ', cert: 'ใบรับรองแทนใบเสร็จ', slip: 'สลิป', other: 'หลักฐานอื่น' };

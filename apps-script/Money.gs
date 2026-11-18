@@ -111,7 +111,7 @@ function moneyDelete_(id) {
   const row = moneyRow_(id);
   if (!row) return;
   const m = moneyAll_().find(x => x.id === id);
-  if (m && m.file && m.file.id) { try { DriveApp.getFileById(m.file.id).setTrashed(true); } catch (e) {} }
+  if (m && m.file) (Array.isArray(m.file) ? m.file : [m.file]).forEach(f => { if (f && f.id) { try { DriveApp.getFileById(f.id).setTrashed(true); } catch (e) {} } });
   moneySheet_().deleteRow(row);
 }
 
@@ -135,26 +135,54 @@ function moneyAttach_(m, file, mime, thumb) {
   return m;
 }
 
-/** 📷 สลิป/ใบเสร็จ → รายการใหม่ (อ่านยอด วันที่ ร้าน/ผู้รับเงิน) */
+/** 📷 สลิป/ใบเสร็จ → รายการใหม่ (อ่านยอด วันที่ ร้าน/ผู้รับเงิน)
+ *  ส่งมาหลายรูปพร้อมกัน (p.files) = รวมเป็นรายการเดียว ยอดรวมทุกใบ แนบครบทุกรูป */
 function moneySnap_(p) {
-  const mime = String(p.mime || 'image/jpeg');
-  if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
-  const bytes = Utilities.base64Decode(String(p.data || ''));
-  if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
-  const file = moneyFolder_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
+  const list = Array.isArray(p.files) && p.files.length ? p.files.slice(0, 10) : [{ data: p.data, mime: p.mime, thumb: p.thumb }];
   const type = p.type === 'in' ? 'in' : 'out';
-  let o = {};
-  try { o = readDoc_(file, { cats: moneyCatList_(type) }); } catch (e) { o = {}; }
-  const text = [o.text || '', o.desc || '', o.vendor || '', (o.items || []).map(i => i.name).join(' ')].join(' ');
-  const t = p.item || {};
-  const note = t.note || docNote_(o) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
-  const m = moneySave_({
-    id: t.id, type: type, date: t.date || o.date || todayStr_(),
-    amount: t.amount !== undefined && t.amount !== null && t.amount !== '' ? t.amount : (o.amount || 0),
-    note: note, cat: t.cat || o.cat || moneyGuessCat_(type, note + ' ' + text.slice(0, 400), moneyAll_()), pay: t.pay || o.pay || (/โอน|พร้อมเพย์|promptpay|transfer/i.test(text) ? 'โอน' : ''),
+  const cats = moneyCatList_(type);
+  const parts = list.map((f, i) => {
+    const mime = String(f.mime || 'image/jpeg');
+    if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
+    const bytes = Utilities.base64Decode(String(f.data || ''));
+    if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
+    const file = moneyFolder_().createFile(Utilities.newBlob(bytes, mime, 'upload'));
+    let o = {};
+    try { o = readDoc_(file, { cats: cats }); } catch (e) { o = {}; }
+    return { file: file, mime: mime, thumb: f.thumb, o: o };
   });
-  moneyAttach_(m, file, mime, p.thumb);
-  return { item: m, ocr: o };
+  const os = parts.map(x => x.o);
+  const sum = sumDocs_(os);
+  const dates = os.map(o => o.date).filter(Boolean).sort();
+  const notes = [...new Set(os.map(o => docNote_(o)).filter(Boolean))];
+  const first = (k) => (os.find(o => o[k]) || {})[k] || '';
+  const text = os.map(o => [o.text || '', o.desc || '', o.vendor || '', (o.items || []).map(i => i.name).join(' ')].join(' ')).join(' ');
+  const t = p.item || {};
+  const note = t.note || (notes.length > 3 ? notes.slice(0, 3).join(' + ') + ' +' + (notes.length - 3) : notes.join(' + ')) || (type === 'in' ? 'รายรับ' : 'รายจ่าย');
+  const m = moneySave_({
+    id: t.id, type: type, date: t.date || dates[dates.length - 1] || todayStr_(),
+    amount: t.amount !== undefined && t.amount !== null && t.amount !== '' ? t.amount : Math.round(sum * 100) / 100,
+    note: note, cat: t.cat || first('cat') || moneyGuessCat_(type, note + ' ' + text.slice(0, 400), moneyAll_()),
+    pay: t.pay || first('pay') || (/โอน|พร้อมเพย์|promptpay|transfer/i.test(text) ? 'โอน' : ''),
+  });
+  moneyAttachAll_(m, parts);
+  const ocr = Object.assign({}, os[0] || {}, { amount: sum ? String(sum) : '', vendor: notes.join(' + ') });
+  return { item: m, ocr: ocr, parts: os.map(o => ({ amount: o.amount || '', date: o.date || '', note: docNote_(o), via: o.via || '' })) };
+}
+
+/** แนบหลายไฟล์ (1 ไฟล์ = เก็บแบบเดิมเป็นออบเจกต์, หลายไฟล์ = อาร์เรย์) */
+function moneyAttachAll_(m, parts) {
+  if (parts.length === 1) return moneyAttach_(m, parts[0].file, parts[0].mime, parts[0].thumb);
+  const folder = moneyFolder_(String(m.date).slice(0, 7));
+  m.file = parts.map((x, i) => {
+    const base = [m.date, (m.type === 'in' ? '+' : '-') + m.amount + 'บ', String(m.note || m.cat || '').replace(/[\\/:*?"<>|#]/g, ' ').slice(0, 30).trim(), (i + 1) + 'of' + parts.length].join('_');
+    x.file.setName(base + (x.mime === 'application/pdf' ? '.pdf' : '.jpg'));
+    try { x.file.moveTo(folder); } catch (e) {}
+    return { id: x.file.getId(), url: x.file.getUrl(), mime: x.mime, thumb: i < 3 ? String(x.thumb || '').slice(0, 9000) : '', amount: x.o.amount || '' };
+  });
+  m.updated = stamp_();
+  moneyWrite_(m, moneyRow_(m.id));
+  return m;
 }
 
 /* ===================== LINE ===================== */

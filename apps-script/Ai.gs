@@ -189,3 +189,15 @@ function aiCompare_(ids, data, mime) {
     return out;
   });
 }
+
+/** รวมยอดหลายเอกสาร: สลิปโอนที่ยอดเท่ากับใบเสร็จ/ใบกำกับในชุดเดียวกัน = จ่ายบิลเดียวกัน ไม่นับซ้ำ */
+function sumDocs_(os) {
+  const bills = os.filter(o => o.kind !== 'slip' && Number(o.amount) > 0).map(o => Number(o.amount));
+  let total = bills.reduce((s, x) => s + x, 0);
+  const left = bills.slice();
+  os.filter(o => o.kind === 'slip' && Number(o.amount) > 0).forEach(o => {
+    const a = Number(o.amount), i = left.findIndex(x => Math.abs(x - a) < 0.01);
+    if (i > -1) left.splice(i, 1); else total += a;
+  });
+  return Math.round(total * 100) / 100;
+}

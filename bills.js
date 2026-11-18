@@ -663,10 +663,11 @@ $('#bFile').addEventListener('change', async e => {
   const isSnap = snapNew;
   snapNew = false;
   if (!files.length) return;
-  if (isSnap) { snapBill(files[0]); return; }
+  if (isSnap) { snapBill(files); return; }
   if (!attachFor) return;
   let found = null, filled = {}, prev = {};   // สิ่งที่อ่านได้ / ที่ระบบเติมให้ / ค่าเดิม
   const before = { ...attachFor };
+  const reads = [];
   for (let i = 0; i < files.length; i++) {
     try {
       const prep = await prepare(files[i]);
@@ -675,6 +676,7 @@ $('#bFile').addEventListener('change', async e => {
       attachFor = res.bill;
       upsert(res.bill);
       if (res.ocr && (res.ocr.date || res.ocr.amount || res.ocr.vendor) && !found) found = res.ocr;
+      if (res.ocr) reads.push(res.ocr);
       Object.entries(res.filled || {}).forEach(([k, v]) => { if (!(k in filled)) { filled[k] = v; prev[k] = (res.prev || {})[k] ?? before[k] ?? ''; } });
       render();
     } catch (err) {
@@ -684,6 +686,17 @@ $('#bFile').addEventListener('change', async e => {
     }
   }
   busyEnd();
+  // แนบหลายใบพร้อมกันและบิลยังไม่มียอด → รวมยอดทุกใบ (สลิปที่ยอดเท่าใบเสร็จไม่นับซ้ำ)
+  if (files.length > 1 && !(Number(before.amount) > 0)) {
+    const total = sumReads(reads);
+    if (total > 0 && Math.abs(total - Number(attachFor.amount || 0)) > 0.009) {
+      try {
+        const r = await api('bill_save', { bill: { ...attachFor, amount: total } });
+        attachFor = r.bill; upsert(r.bill); render();
+        filled.amount = String(total); prev.amount = before.amount || '';
+      } catch (err) { showStatus('รวมยอดไม่สำเร็จ: ' + err.message); }
+    }
+  }
   const b = attachFor;
   const inDlg = editing && editing.id === b.id && dlg.open;
   if (inDlg) {
@@ -765,12 +778,25 @@ function busyStart(img, extra) {
 }
 function busyEnd() { clearInterval(busyTick); busyTick = null; $('#busy').hidden = true; }
 
-/* 📷 บิลใหม่จากรูป: ส่งครั้งเดียว ระบบสร้างบิล เก็บไฟล์ อ่านข้อมูล แล้วเปิดให้ตรวจ */
-async function snapBill(file) {
+/* รวมยอดหลายเอกสาร: สลิปที่ยอดเท่ากับใบเสร็จในชุดเดียวกัน = จ่ายบิลเดียวกัน ไม่นับซ้ำ */
+function sumReads(os) {
+  const left = os.filter(o => o.kind !== 'slip' && Number(o.amount) > 0).map(o => Number(o.amount));
+  let total = left.reduce((s, x) => s + x, 0);
+  os.filter(o => o.kind === 'slip' && Number(o.amount) > 0).forEach(o => {
+    const i = left.findIndex(x => Math.abs(x - Number(o.amount)) < 0.01);
+    if (i > -1) left.splice(i, 1); else total += Number(o.amount);
+  });
+  return Math.round(total * 100) / 100;
+}
+
+/* 📷 บิลใหม่จากรูป (เลือกได้หลายรูป = รวมเป็นบิลเดียว ยอดรวมทุกใบ): ระบบสร้างบิล เก็บไฟล์ อ่านข้อมูล แล้วเปิดให้ตรวจ */
+async function snapBill(fileList) {
+  const list = Array.isArray(fileList) ? fileList.slice(0, 10) : [fileList];
   const p = parseQuick($('#bInput').value);
-  let prep;
-  try { prep = await prepare(file); } catch (err) { showStatus(err.message); return; }
-  busyStart(prep.thumb);
+  let preps;
+  try { preps = await Promise.all(list.map(prepare)); } catch (err) { showStatus(err.message); return; }
+  const prep = preps.length === 1 ? preps[0] : { files: preps, thumb: preps[0].thumb };
+  busyStart(preps[0].thumb, preps.length > 1 ? `${preps.length} ไฟล์ · รวมเป็นบิลเดียว` : '');
   const t = { id: uid(), project: p.project };
   if (p.desc) t.desc = p.desc;
   if (p.amount !== null) t.amount = p.amount;
@@ -788,6 +814,11 @@ async function snapBill(file) {
   const got = [ocr.date && 'วันที่', ocr.amount && 'ยอดเงิน', ocr.vendor && 'ชื่อร้าน', ocr.cat && 'หมวด'].filter(Boolean);
   const p1 = document.createElement('p');
   p1.textContent = got.length ? '🔎 อ่านได้: ' + got.join(' · ') : '📷 แนบรูปแล้ว แต่อ่านข้อมูลไม่ได้ กรอกเองได้เลย';
+  if ((res.parts || []).length > 1) {
+    const pp = document.createElement('p');
+    pp.textContent = '🧾 รวม ' + res.parts.length + ' ไฟล์: ' + res.parts.map(x => x.amount ? '฿' + Number(x.amount).toLocaleString('th-TH') + (x.kind === 'slip' ? ' (สลิป)' : '') : '?').join(' + ') + ' = ฿' + Number(b.amount || 0).toLocaleString('th-TH') + (res.parts.some(x => x.kind === 'slip') ? ' · สลิปที่ยอดเท่าใบเสร็จไม่นับซ้ำ' : '');
+    box.append(pp);
+  }
   const p2 = document.createElement('p');
   p2.className = 'hint';
   p2.textContent = got.length ? 'ตรวจให้ถูกก่อนกดบันทึก (อ่านอัตโนมัติอาจผิดได้)' : 'รูปชัด ไม่เอียง เห็นทั้งใบ จะอ่านได้ดีขึ้น';
