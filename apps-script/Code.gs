@@ -166,8 +166,22 @@ function doPost(e) {
     return json_({ ok: false, error: 'API key ไม่ถูกต้อง' });
   }
 
+  // งานช้าที่ไม่แก้ชีต (AI/OCR) ทำนอกล็อก ไม่ให้คำขออื่น (และ LINE) ต้องรอจนหมดเวลา
+  try {
+    switch (body.action) {
+      case 'ai_debug':   return json_({ ok: true, ...aiDebug_() });
+      case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
+      case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
+      case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
+      case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
+      case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
+    }
+  } catch (err) {
+    return json_({ ok: false, error: String(err && err.message || err) });
+  }
+
   const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
+  lock.waitLock(20000);
   try {
     switch (body.action) {
       case 'list':   return json_({ ok: true, tasks: readAll_(), quota: quota_() });
@@ -207,9 +221,6 @@ function doPost(e) {
       case 'owe_list':     return json_({ ok: true, docs: oweAll_() });
       case 'owe_save':     return json_({ ok: true, docs: oweSave_(body.docs) });
       case 'owe_delete':   oweDelete_(body.ids); return json_({ ok: true });
-      case 'ai_read':      return json_({ ok: true, ...aiReadUpload_(body) });
-      case 'ai_compare':   return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
-      case 'ai_status':    return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'owe_slip':     return json_({ ok: true, file: oweSlip_(body) });
       case 'money_snap':   return json_({ ok: true, ...moneySnap_(body) });
       case 'inbox_list':   return json_({ ok: true, items: inboxAll_() });

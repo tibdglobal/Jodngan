@@ -115,9 +115,12 @@ function billUpload_(p) {
   if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
   const bytes = Utilities.base64Decode(String(p.data || ''));
   if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
-  const file = billFolder_(String(b.date).slice(0, 7)).createFile(Utilities.newBlob(bytes, mime, 'upload'));
-  let ocr = null;
-  try { ocr = readDoc_(file, { cats: billCatList_() }); } catch (e) { ocr = null; }
+  let file, ocr = null;
+  if (p.__pre && p.__pre[0]) { file = p.__pre[0].file; ocr = p.__pre[0].o; }
+  else {
+    file = billFolder_(String(b.date).slice(0, 7)).createFile(Utilities.newBlob(bytes, mime, 'upload'));
+    try { ocr = readDoc_(file, { cats: billCatList_() }); } catch (e) { ocr = null; }
+  }
   const kind = p.kind === 'auto' ? ((ocr && ocr.kind) || 'receipt') : p.kind;   // 📷 = เดาชนิดจากเอกสาร
   const fill = billAutoFill_(b, ocr);
   billAttach_(b, row, file, kind, mime, p.thumb);   // บันทึกค่าที่เติม + ตั้งชื่อไฟล์ตามวันที่/ยอดใหม่
@@ -129,7 +132,7 @@ function billSnap_(p) {
   const t = p.bill || {};
   const list = Array.isArray(p.files) && p.files.length ? p.files.slice(0, 10) : [{ data: p.data, mime: p.mime, thumb: p.thumb }];
   const cats = billCatList_();
-  const parts = list.map(f => {
+  const parts = p.__pre || list.map(f => {
     const mime = String(f.mime || 'application/octet-stream');
     if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
     const bytes = Utilities.base64Decode(String(f.data || ''));

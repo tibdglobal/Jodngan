@@ -141,7 +141,7 @@ function moneySnap_(p) {
   const list = Array.isArray(p.files) && p.files.length ? p.files.slice(0, 10) : [{ data: p.data, mime: p.mime, thumb: p.thumb }];
   const type = p.type === 'in' ? 'in' : 'out';
   const cats = moneyCatList_(type);
-  const parts = list.map((f, i) => {
+  const parts = p.__pre || list.map((f, i) => {
     const mime = String(f.mime || 'image/jpeg');
     if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
     const bytes = Utilities.base64Decode(String(f.data || ''));

@@ -201,3 +201,44 @@ function sumDocs_(os) {
   });
   return Math.round(total * 100) / 100;
 }
+
+/** ตรวจการเชื่อมต่อ Gemini: รุ่นที่ใช้ได้ + ข้อความ error (ไม่คืนค่า key) */
+function aiDebug_() {
+  const key = props.getProperty('GEMINI_API_KEY');
+  if (!key) return { ok: false, msg: 'ไม่มี GEMINI_API_KEY' };
+  const out = { models: [], tries: [] };
+  try {
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, muteHttpExceptions: true });
+    out.listCode = r.getResponseCode();
+    const j = JSON.parse(r.getContentText() || '{}');
+    out.models = (j.models || []).filter(m => (m.supportedGenerationMethods || []).indexOf('generateContent') > -1).map(m => String(m.name).replace('models/', ''));
+    if (j.error) out.listErr = String(j.error.message || '').slice(0, 300);
+  } catch (e) { out.listErr = String(e); }
+  const models = [props.getProperty('GEMINI_MODEL')].concat(AI_MODELS).filter((m, i, a) => m && a.indexOf(m) === i);
+  models.forEach(model => {
+    try {
+      const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+        method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true,
+        payload: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ตอบคำว่า ok' }] }] }),
+      });
+      out.tries.push({ model: model, code: r.getResponseCode(), msg: r.getContentText().slice(0, 300) });
+    } catch (e) { out.tries.push({ model: model, err: String(e) }); }
+  });
+  return out;
+}
+
+/** สร้างไฟล์ + อ่านเอกสารทั้งหมดก่อนเข้าล็อก (คืน [{file, mime, thumb, o}]) */
+function preRead_(p, folderFn, cats) {
+  const list = Array.isArray(p.files) && p.files.length ? p.files.slice(0, 10) : [{ data: p.data, mime: p.mime, thumb: p.thumb }];
+  const folder = folderFn();
+  return list.map(f => {
+    const mime = String(f.mime || 'application/octet-stream');
+    if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
+    const bytes = Utilities.base64Decode(String(f.data || ''));
+    if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
+    const file = folder.createFile(Utilities.newBlob(bytes, mime, 'upload'));
+    let o = {};
+    try { o = readDoc_(file, { cats: cats }) || {}; } catch (e) { o = {}; }
+    return { file: file, mime: mime, thumb: f.thumb, o: o };
+  });
+}
