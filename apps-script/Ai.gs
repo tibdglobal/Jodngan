@@ -198,7 +198,7 @@ function aiCompare_(ids, data, mime) {
     const tmp = DriveApp.createFile(Utilities.newBlob(Utilities.base64Decode(String(data)), String(mime || 'application/pdf'), 'ai-test-tmp'));
     try { return aiCompare_([tmp.getId()]); } finally { try { tmp.setTrashed(true); } catch (e) {} }
   }
-  const pick = o => o ? { kind: o.kind || '', date: o.date || '', amount: o.amount || '', vendor: o.vendor || '', desc: o.desc || '', memo: o.memo || '', vat: o.vat || '', cat: o.cat || '', items: (o.items || []).length } : null;
+  const pick = o => o ? { kind: o.kind || '', date: o.date || '', amount: o.amount || '', vendor: o.vendor || '', desc: o.desc || '', memo: o.memo || '', vat: o.vat || '', cat: o.cat || '', discount: o.discount || 0, items: (o.items || []).map(i => [i.name, i.price, i.disc || 0]) } : null;
   return (ids || []).slice(0, 4).map(id => {
     const out = { id: id };
     try {

@@ -373,6 +373,25 @@ function itemPartS(it, p, people) {
   return [apportion(toS(it.price), w.map(() => 1))[i], apportion(toS(it.disc), w.map(() => 1))[i]];
 }
 const num = sS => fromS(sS).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+/* ส่วนลดทั้งหมดของบิลหาร: ส่วนลดรายเมนู + ส่วนลดท้ายบิล → กล่องกดดูได้ว่าลดจากอะไรบ้าง */
+function discBox(bills, people, key) {
+  const rows = [];
+  (bills || []).forEach(b => {
+    const tag = bills.length > 1 && b.title ? ` · ${b.title}` : '';
+    if (b.method === 'menu') (b.items || []).forEach(it => {
+      if (!toS(it.disc)) return;
+      const w = (it.who || []).filter(p => people.includes(p));
+      rows.push({ t: (it.name || 'เมนู') + tag, n: it.discNote || '', s: toS(it.disc), w: w.length > 1 ? `คนละ −${num(apportion(toS(it.disc), w.map(() => 1))[0])}` : (w[0] ? who(w[0]) : '') });
+    });
+    if (toS(b.disc)) rows.push({ t: 'ส่วนลดท้ายบิล' + tag, n: '', s: toS(b.disc), w: 'หารตามสัดส่วนที่กิน' });
+  });
+  if (!rows.length) return '';
+  const tot = rows.reduce((x, r) => x + r.s, 0);
+  return `<details class="disc-box"${discOpen[key] ? ' open' : ''} data-key="${key}"><summary><span>🏷 ส่วนลดรวม <small>${rows.length} รายการ · แตะดู</small></span><b>−${bahtS(tot)}</b></summary>
+    ${rows.map(r => `<div class="disc-r"><span>${esc(r.t)}<small>${esc([r.n, r.w].filter(Boolean).join(' · '))}</small></span><b>−${num(r.s)}</b></div>`).join('')}</details>`;
+}
+const discOpen = {};
+document.addEventListener('toggle', e => { const d = e.target; if (d.classList && d.classList.contains('disc-box')) discOpen[d.dataset.key] = d.open; }, true);
 function billShares(b) {
   const sh = {};
   if (b.method === 'custom') {
@@ -554,7 +573,7 @@ function paintSum() {
   const mine = r.share[ME] || 0;
   const rcpt = sp.bills.reduce((s2, b) => s2 + toS(b.rTotal || 0), 0);
   const diff = rcpt && Math.abs(rcpt - r.total) >= 100 ? `<p class="note warn">⚠️ ยอดที่หาร ${bahtS(r.total)} ไม่ตรงกับยอดในใบเสร็จ ${bahtS(rcpt)} (ต่าง ${bahtS(Math.abs(rcpt - r.total))}) ลองเช็ก Service / VAT / ส่วนลด หรือเมนูที่ขาด</p>` : '';
-  $('#sSum').innerHTML = `<h4>ส่วนของแต่ละคน</h4>${rows}<div class="tot"><span>รวม</span><b>${bahtS(r.total)}</b></div>${diff}${tr}
+  $('#sSum').innerHTML = `<h4>ส่วนของแต่ละคน</h4>${rows}<div class="tot"><span>รวม</span><b>${bahtS(r.total)}</b></div>${discBox(sp.bills, sp.people, 'edit')}${diff}${tr}
     <p class="note">📒 จดลงรายจ่ายเฉพาะส่วนของเรา <b>${bahtS(mine)}</b> · ที่เหลือเป็น "ค้างกัน" ไม่ทำให้ยอดใช้จ่ายเพี้ยน</p>`;
 }
 
@@ -693,7 +712,7 @@ function paintDetail() {
         ((b.svc || b.vat || toS(b.disc)) ? `<div class="di-r sub"><span>รวมค่าอาหาร</span><b>${bahtS(subS)}</b></div>` : '') +
         (b.svc ? `<div class="di-r sub"><span>Service 10%</span><b>${bahtS(Math.round(subS * 0.1))}</b></div>` : '') +
         (b.vat ? `<div class="di-r sub"><span>VAT 7%</span><b>${bahtS(Math.round(subS * (b.svc ? 1.1 : 1) * 0.07))}</b></div>` : '') +
-        (toS(b.disc) ? `<div class="di-r sub"><span>ส่วนลด</span><b>−${bahtS(toS(b.disc))}</b></div>` : '');
+        (toS(b.disc) ? `<div class="di-r sub"><span>ส่วนลดท้ายบิล</span><b>−${bahtS(toS(b.disc))}</b></div>` : '');
     } else if (b.method === 'custom') {
       body = `<div class="di-r"><span>ระบุยอดเองรายคน</span><b></b></div>`;
       Object.keys(b.shares || {}).forEach(p => { (eaten[p] = eaten[p] || []).push(bills.length > 1 ? (b.title || 'บิล') + ' (ระบุเอง)' : 'ระบุยอดเอง'); });
@@ -703,7 +722,7 @@ function paintDetail() {
       w.forEach(p => { (eaten[p] = eaten[p] || []).push(bills.length > 1 ? (b.title || 'บิล') + ` (หาร ${w.length})` : `หาร ${w.length} คน`); });
     }
     return `<div class="di-bill">${head}${body}<div class="di-r tot"><span>ยอดเต็ม${bills.length > 1 ? 'บิลนี้' : ''}</span><b>${bahtS(totS)}</b></div></div>`;
-  }).join('') + (bills.length > 1 ? `<div class="di-r tot all"><span>รวมทุกบิล</span><b>${bahtS(toS(s.total))}</b></div>` : '');
+  }).join('') + (bills.length > 1 ? `<div class="di-r tot all"><span>รวมทุกบิล</span><b>${bahtS(toS(s.total))}</b></div>` : '') + discBox(bills, s.people || [], 'detail');
   $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(who(p))}${eaten[p] && eaten[p].length ? `<small>${esc(eaten[p].join(' · '))}</small>` : ''}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('') +
     `<div class="tot"><span>รวม</span><b>${bahtS(Object.values(share).reduce((x, v) => x + v, 0))}</b></div>`;
   // การโอน

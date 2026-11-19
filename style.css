@@ -1734,3 +1734,18 @@ button.td-chip { font: inherit; text-align: left; width: 100%; }
 @media (max-width: 420px) { .s-iprice { width: 72px !important; } .s-dl .s-idisc { width: 60px !important; } }
 #sSum > div > span small, #dShares > div > span small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; line-height: 1.45; }
 .di-r b s { color: var(--muted); font-weight: 400; font-size: .85em; margin-right: 2px; }
+/* ส่วนลดรวม (กดดูได้ว่าลดจากอะไร) */
+.disc-box { margin: 10px 0 4px; border-radius: 12px; background: color-mix(in srgb, var(--warn) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--warn) 25%, var(--line)); overflow: hidden; }
+.disc-box summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.disc-box summary::-webkit-details-marker { display: none; }
+.disc-box summary span { font-weight: 600; font-size: 14px; }
+.disc-box summary small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
+.disc-box summary b { color: var(--warn); font-size: 15px; }
+.disc-box summary::after { content: '›'; color: var(--muted); transition: transform .15s; margin-left: -4px; }
+.disc-box[open] summary::after { transform: rotate(90deg); }
+.disc-box[open] summary { border-bottom: 1px dashed color-mix(in srgb, var(--warn) 25%, var(--line)); }
+.disc-r { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 12px; font-size: 13.5px; }
+.disc-r span small { display: block; font-size: 12px; color: var(--muted); }
+.disc-r b { color: var(--warn); font-weight: 500; flex: none; }
+#sSum .disc-box summary span, #sSum .disc-r span { display: block; }
+#sSum .disc-box .disc-r, #dItems .disc-box .disc-r { padding: 7px 12px; border: 0; }
