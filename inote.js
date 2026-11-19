@@ -86,7 +86,7 @@ function meetHtml(o) {
       <div><b>${esc(d.title || ty[1])}</b><small>${esc(meta || ty[1])}</small></div>
     </div>
     ${ppl.length ? `<p class="mt-ppl">👥 ${esc(ppl.slice(0, 3).join(', '))}${ppl.length > 3 ? ` +${ppl.length - 3}` : ''}</p>` : ''}
-    <p class="mt-stat" data-act="open">${[secs.length ? secs.length + ' ส่วน' : '', nRows ? nRows + ' ข้อมูล' : '', nPh ? '📷 ' + nPh : '', open ? '☐ ' + open + ' งานต่อ' : '', d.summary ? '✨ มีสรุป' : ''].filter(Boolean).join(' · ') || 'แตะเพื่อจดต่อ'}</p>
+    <p class="mt-stat" data-act="open">${[secs.length ? secs.length + ' ส่วน' : '', nRows ? nRows + ' ข้อมูล' : '', nPh ? '📷 ' + nPh : '', (d.audio || []).length ? '🎙 ' + d.audio.length : '', open ? '☐ ' + open + ' งานต่อ' : '', d.summary ? '✨ มีสรุป' : ''].filter(Boolean).join(' · ') || 'แตะเพื่อจดต่อ'}</p>
     <footer><small>${o._pending ? '⏳ ยังไม่ได้ส่งขึ้น' : when(o.created)}</small><span class="spacer"></span>
       <button class="mini" data-act="share" title="คัดลอกเป็นข้อความ">📤 ส่งต่อ</button>
       <button class="mini" data-act="open">✏️ เปิด</button>
@@ -111,6 +111,7 @@ function meetText(d) {
     if (s.notes) out.push(s.notes.trim());
     if ((s.photos || []).length) out.push('📷 รูป ' + s.photos.length + ' รูป');
   });
+  if ((d.audio || []).length) { const t = d.audio.reduce((s, a) => s + (a.dur || 0), 0); out.push('', '🎙 เสียงประชุม ' + d.audio.length + ' ไฟล์' + (t ? ' รวม ' + Math.round(t / 60) + ' นาที' : '')); }
   const list = (title, arr, f) => { arr = (arr || []).filter(x => (x.t || x).toString().trim()); if (arr.length) out.push('', title, ...arr.map(f)); };
   list('☐ งานต่อ', d.todos, x => (x.done ? '✓ ' : '- ') + x.t);
   list('❓ คำถามที่ยังค้าง', d.asks, x => '- ' + x.t);
@@ -404,6 +405,7 @@ function openMeet(o, type) {
   mRenderSum(); mRenderArc();
   mState(dr ? '⏳ มีส่วนที่ยังไม่ได้ส่งขึ้น' : o ? '' : 'ใหม่');
   mRenderAll();
+  if (window.mAudioOpen) mAudioOpen();
   $('#mDlg').showModal();
   $('#mBody').scrollTop = 0;
   if (!o) setTimeout(() => $('#mTitle').focus(), 60);
@@ -732,7 +734,7 @@ async function mSave() {
   if (!m) return;
   if (mSaving) { await mSaving; }
   const id = mId, data = compact(m);
-  if (!data.title && !data.sections.length && !data.people.length && !data.todos.length) return;
+  if (!data.title && !data.sections.length && !data.people.length && !data.todos.length && !(data.audio || []).length) return;
   mState('⏳ กำลังบันทึก…');
   mSaving = api('inbox_save', { item: { id, kind: 'meet', data, text: meetText(data) } })
     .then(r => {
@@ -746,15 +748,17 @@ async function mSave() {
   return mSaving;
 }
 async function mClose() {
+  if (window.mAudioBusy && mAudioBusy() && !confirm('กำลังอัดเสียงอยู่ ออกจากบันทึกแล้วจะหยุดอัด (เสียงที่อัดแล้วเก็บไว้ครบ) ออกเลยไหม?')) return;
   if ($('#mDlg').open) $('#mDlg').close();
 }
 $('#mBack').addEventListener('click', mClose);
 $('#mDlg').addEventListener('close', async () => {
+  if (window.mAudioBusy && mAudioBusy()) mAudioStop();
   const had = drafts()[mId];
   if (had) await mSave();
   render();
 });
-$('#mDlg').addEventListener('cancel', e => { /* ปุ่มย้อนกลับ/Esc = ปิดแล้วบันทึก */ });
+$('#mDlg').addEventListener('cancel', e => { /* ปุ่มย้อนกลับ/Esc = ปิดแล้วบันทึก · กำลังอัดเสียงอยู่ให้ถามก่อน */ if (window.mAudioBusy && mAudioBusy() && !confirm('กำลังอัดเสียงอยู่ ออกจากบันทึกแล้วจะหยุดอัด ออกเลยไหม?')) e.preventDefault(); });
 $('#mDel').addEventListener('click', async () => {
   if (!confirm('ลบบันทึกนี้ทั้งหมด? (รูปยังอยู่ใน Drive โฟลเดอร์กล่องฝาก)')) return;
   const id = mId, o = items.find(x => x.id === id);

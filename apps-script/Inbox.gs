@@ -338,3 +338,74 @@ function inboxSummaryText_() {
     '• ' + (o.kind === 'image' ? '🖼 ' : o.kind === 'link' ? '🔗 ' : '') + cut_(o.title || o.text || 'รูป', 50) + (o.url && !o.title ? '' : o.url ? '\n  ' + o.url : '')).join('\n') +
     '\n\nดูทั้งหมดในแอป หน้า 📌 ฝาก';
 }
+
+/* ===================== 🎙 เสียงประชุม (บันทึกประชุม/ดูงาน) =====================
+ * ไฟล์เสียงใหญ่ → อัปทีละท่อนผ่าน resumable upload ของ Drive (ทำนอกล็อก ไม่แตะชีต)
+ * audio_start {name, mime, size} → {session} · audio_chunk {session, offset, total, mime, data|probe} → {done, next | file} */
+const AUDIO_UP = /^https:\/\/www\.googleapis\.com\/upload\/drive\/v3\/files\?/;
+const AUDIO_MIME = /^(audio|video)\/[\w.+-]+(;.*)?$/;
+function audioFolder_() {
+  let id = props.getProperty('AUDIO_FOLDER_ID'), f = null;
+  if (id) { try { f = DriveApp.getFolderById(id); } catch (e) { f = null; } }
+  if (!f) { f = inboxFolder_().createFolder('เสียงประชุม'); props.setProperty('AUDIO_FOLDER_ID', f.getId()); }
+  return f;
+}
+function audioName_(s) { return String(s || 'เสียงประชุม').replace(/[\\/:*?"<>|#]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'เสียงประชุม'; }
+function audioStart_(p) {
+  const mime = String(p.mime || 'audio/webm').split(';')[0];
+  if (!AUDIO_MIME.test(mime)) throw new Error('รองรับเฉพาะไฟล์เสียง/วิดีโอ');
+  const size = Number(p.size) || 0;
+  if (size <= 0 || size > 1024 * 1024 * 1024) throw new Error('ขนาดไฟล์ไม่ถูกต้อง (สูงสุด 1 GB)');
+  const r = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,webViewLink', {
+    method: 'post', contentType: 'application/json; charset=UTF-8', muteHttpExceptions: true,
+    payload: JSON.stringify({ name: audioName_(p.name), mimeType: mime, parents: [audioFolder_().getId()] }),
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(size) }
+  });
+  const h = r.getHeaders(), loc = h.Location || h.location;
+  if (r.getResponseCode() !== 200 || !loc) throw new Error('เริ่มอัปไม่ได้ (' + r.getResponseCode() + ')');
+  return { session: loc };
+}
+function audioChunk_(p) {
+  const s = String(p.session || ''), total = Number(p.total) || 0;
+  if (!AUDIO_UP.test(s)) throw new Error('ลิงก์อัปโหลดไม่ถูกต้อง');
+  let opt;
+  if (p.probe) {
+    opt = { method: 'put', muteHttpExceptions: true, followRedirects: false, headers: { 'Content-Range': 'bytes */' + total } };
+  } else {
+    const bytes = Utilities.base64Decode(String(p.data || '')), off = Number(p.offset) || 0;
+    if (!bytes.length) throw new Error('ท่อนว่าง');
+    opt = { method: 'put', muteHttpExceptions: true, followRedirects: false, payload: bytes,
+      contentType: String(p.mime || 'application/octet-stream').split(';')[0],
+      headers: { 'Content-Range': 'bytes ' + off + '-' + (off + bytes.length - 1) + '/' + total } };
+  }
+  const r = UrlFetchApp.fetch(s, opt), code = r.getResponseCode();
+  if (code === 200 || code === 201) {
+    const f = JSON.parse(r.getContentText());
+    return { done: true, file: { id: f.id, name: f.name, size: Number(f.size) || total, url: f.webViewLink || 'https://drive.google.com/file/d/' + f.id + '/view' } };
+  }
+  if (code === 308) {
+    const h = r.getHeaders(), rg = String(h.Range || h.range || '');
+    const m = rg.match(/bytes=0-(\d+)/);
+    return { done: false, next: m ? Number(m[1]) + 1 : 0 };
+  }
+  if (code === 404 || code === 410) throw new Error('ลิงก์อัปหมดอายุ ต้องเริ่มอัปใหม่');
+  throw new Error('อัปท่อนไม่สำเร็จ (' + code + ')');
+}
+/** เอาเสียงออกจากบันทึก → ย้ายไฟล์ไปถังขยะ (เฉพาะไฟล์ในโฟลเดอร์เสียงของเรา) */
+function audioRemove_(id) {
+  const f = DriveApp.getFileById(String(id || ''));
+  const inMine = f.getParents().hasNext() && f.getParents().next().getId() === audioFolder_().getId();
+  if (!inMine) throw new Error('ไม่ใช่ไฟล์เสียงของกล่องฝาก');
+  f.setTrashed(true);
+  return true;
+}
+/** 🎧 ส่งสำเนาเข้าโฟลเดอร์ไฟล์เสียงประชุมของระบบถอดเสียง TIBD (ตั้งด้วย meet_setup {audio}) */
+function audioToTibd_(p) {
+  const dest = props.getProperty('MEET_AUDIO_ID');
+  if (!dest) throw new Error('ยังไม่ได้ตั้งโฟลเดอร์ไฟล์เสียงของระบบถอดเสียง');
+  const src = DriveApp.getFileById(String(p.id || ''));
+  const ext = (src.getName().match(/\.[a-z0-9]{2,5}$/i) || [''])[0];
+  const name = audioName_(p.name).replace(/\.[a-z0-9]{2,5}$/i, '') + ext;
+  const c = src.makeCopy(name, DriveApp.getFolderById(dest));
+  return { id: c.getId(), name: c.getName(), url: c.getUrl() };
+}

@@ -1600,3 +1600,23 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .d-shares > div > span { display: grid; min-width: 0; }
 .d-shares .tot { border-top: 1.5px solid var(--line); }
 .s-pick button.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft, var(--card)); color: var(--accent); font-weight: 600; }
+/* 🎙 เสียงประชุม */
+.m-aud .au-rec { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #e5484d 10%, var(--card)); border: 1px solid color-mix(in srgb, #e5484d 35%, var(--card)); }
+.au-rec b { font-variant-numeric: tabular-nums; font-size: 18px; }
+.au-rec small { color: var(--muted); }
+.au-dot { width: 12px; height: 12px; border-radius: 50%; background: #e5484d; animation: auBlink 1.2s infinite; }
+.au-rec.paused .au-dot { animation: none; background: var(--muted); }
+@keyframes auBlink { 50% { opacity: .25; } }
+.au-rec .au-stop { color: #e5484d; border-color: #e5484d; }
+.au-list { display: grid; gap: 6px; }
+.au-list:empty { display: none; }
+.au-it { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: var(--bg); min-width: 0; }
+.au-it.pend { opacity: .9; border: 1px dashed var(--accent-line); }
+.au-play { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); text-decoration: none; font-size: 15px; }
+.au-tx { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.au-tx b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.au-tx small { color: var(--muted); font-size: 12px; }
+.au-bar { display: block; height: 4px; border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
+.au-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.au-it .au-x { flex: none; padding: 4px 9px; }
+#mMic.on { background: #e5484d; color: #fff; border-color: #e5484d; animation: auBlink 1.2s infinite; }

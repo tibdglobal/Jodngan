@@ -28,13 +28,15 @@ function meetCfg_() {
 }
 /** ตั้งค่าครั้งแรก (เรียกจากหน้าเว็บ: api('meet_setup', {sheet, pending, sys, url})) */
 function meetSetup_(p) {
-  ['sheet', 'pending', 'sys', 'url', 'me'].forEach(k => {
+  ['sheet', 'pending', 'sys', 'url', 'me', 'audio'].forEach(k => {
     if (p[k] !== undefined) props.setProperty('MEET_' + k.toUpperCase() + (k === 'url' || k === 'me' ? '' : '_ID'), String(p[k]).trim());
   });
   const c = meetCfg_();
   const out = { on: c.on };
   try { out.sheetName = SpreadsheetApp.openById(c.sheet).getName(); } catch (e) { out.sheetErr = String(e.message || e); }
   try { out.pendingName = DriveApp.getFolderById(c.pending).getName(); } catch (e) { out.pendingErr = String(e.message || e); }
+  const au = props.getProperty('MEET_AUDIO_ID');
+  if (au) { try { out.audioName = DriveApp.getFolderById(au).getName(); } catch (e) { out.audioErr = String(e.message || e); } }
   return out;
 }
 

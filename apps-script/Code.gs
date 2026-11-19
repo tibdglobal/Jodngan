@@ -179,6 +179,10 @@ function doPost(e) {
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
       case 'meet_tasks': return json_({ ok: true, ...meetTasks_(!!body.all) });
       case 'meet_draft': return json_({ ok: true, minute: meetDraft_(body) });
+      case 'audio_start': return json_({ ok: true, ...audioStart_(body) });
+      case 'audio_chunk': return json_({ ok: true, ...audioChunk_(body) });
+      case 'audio_tibd':  return json_({ ok: true, copy: audioToTibd_(body) });
+      case 'audio_rm':    return json_({ ok: true, removed: audioRemove_(body.id) });
       case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
