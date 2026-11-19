@@ -91,6 +91,7 @@
     if (!cfg.key) return;
     try { if (!get('bills', null)) put('bills', (await api('bills_list')).bills || []); } catch (e) {}
     try { if (!get('money', null)) put('money', (await api('money_list')).items || []); } catch (e) {}
+    try { const m = get('meetTasks', null); if (!m || Date.now() - (m.at || 0) > 3 * 3600e3) { const r = await api('meet_tasks'); put('meetTasks', { tasks: r.tasks, me: r.me, statuses: r.statuses, url: r.url, at: Date.now() }); } } catch (e) {}
     today();
   }, 2500);
 
