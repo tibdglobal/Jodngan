@@ -19,11 +19,27 @@
   pill.title = 'สถานะการซิงก์กับระบบ · กดเพื่อดึงใหม่';
   if (host) host.appendChild(pill);
   pill.addEventListener('click', () => { const b = document.getElementById('btnSync') || document.getElementById('btnReload'); if (b) b.click(); else location.reload(); });
+  // หลอดโหลดบางๆ ชิดขอบบนจอ: ขึ้นเมื่อซิงก์นานเกิน 150 ms · เสร็จแล้ววิ่งเต็มหลอดแล้วจางหาย
+  const bar = document.createElement('div');
+  bar.className = 'sync-bar'; bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-label', 'กำลังซิงก์');
+  bar.innerHTML = '<i></i>';
+  document.body.appendChild(bar);
+  let barT = 0;
+  function barPaint() {
+    clearTimeout(barT);
+    if (inflight) {
+      if (!bar.classList.contains('on')) barT = setTimeout(() => { bar.classList.remove('done', 'fail'); bar.classList.add('on'); }, 150);
+    } else if (bar.classList.contains('on')) {
+      bar.classList.add(lastErr ? 'fail' : 'done');
+      barT = setTimeout(() => bar.classList.remove('on', 'done', 'fail'), 650);
+    }
+  }
   function paint() {
+    barPaint();
     if (!host) return;
     let cls = 'ok', txt;
     if (!navigator.onLine) { cls = 'warn'; txt = '⚠ ออฟไลน์ · จดไว้ในเครื่องก่อน'; }
-    else if (inflight) { cls = 'busy'; txt = '⏳ กำลังซิงก์…'; }
+    else if (inflight) { cls = 'syncing'; txt = 'กำลังซิงก์…'; }
     else if (lastErr) { cls = 'warn'; txt = '⚠ ซิงก์ไม่สำเร็จ · แตะเพื่อลองใหม่'; }
     else if (lastOk) { const d = new Date(lastOk); txt = '✓ ซิงก์แล้ว ' + (ymd(d) === ymd(new Date()) ? d.toTimeString().slice(0, 5) : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })); }
     else { cls = 'idle'; txt = '• ยังไม่ได้ซิงก์'; }
@@ -56,27 +72,54 @@
   const status = document.getElementById('status');
   (status || document.getElementById('list')).before(box);
 
+  let openK = '';   // ช่องที่กางดูอยู่
+  const short = d => { const x = new Date(String(d).slice(0, 10) + 'T00:00:00'); return isNaN(x) ? '' : x.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }); };
   function today() {
     const si = document.getElementById('searchInput');
     box.hidden = !!(si && si.value.trim());   // กำลังค้นหา = ซ่อนแถบวันนี้
     const t = ymd(new Date()), soon = ymd(new Date(Date.now() + 3 * 864e5));
     const tasks = get('tasks', []).filter(x => x.done !== '1');
     const eff = x => x.date || '';
-    const due = tasks.filter(x => eff(x) === t).length, late = tasks.filter(x => eff(x) && eff(x) < t).length;
+    const dueL = tasks.filter(x => eff(x) === t), lateL = tasks.filter(x => eff(x) && eff(x) < t).sort((a, b) => eff(a) < eff(b) ? -1 : 1);
     const mt = get('meetTasks', null);
-    const meet = mt && Array.isArray(mt.tasks) ? mt.tasks.filter(x => x.open && x.scope === 'me' && x.due && x.due !== 'none' && x.due <= soon) : [];
+    const meet = mt && Array.isArray(mt.tasks) ? mt.tasks.filter(x => x.open && x.scope === 'me' && x.due && x.due !== 'none' && x.due <= soon).sort((a, b) => a.due < b.due ? -1 : 1) : [];
     const bills = get('bills', null), money = get('money', null);
     const ready = bills ? bills.filter(b => b.status === 'ready') : [], draft = bills ? bills.filter(b => b.status === 'draft') : [];
-    const spent = money ? money.filter(x => x.date === t && (x.type || 'out') === 'out').reduce((s, x) => s + Number(x.amount || 0), 0) : null;
-    const chip = (ico, main, sub, href, cls = '') => `<a class="td-chip ${cls}" ${href.startsWith('#') ? `data-go="${href}"` : `href="${href}"`}><span>${ico}</span><b>${main}</b><small>${sub}</small></a>`;
-    box.innerHTML = `<div class="td-h"><b>☀️ วันนี้</b><small>${new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' })}</small></div><div class="td-row">`
-      + chip('✓', `${due} งาน`, late ? `เลยกำหนด ${late}` : 'ไม่มีงานค้าง', '#tasks', late ? 'warn' : '')
-      + chip('📋', `${meet.length} งาน`, 'ประชุม ภายใน 3 วัน', '#meet', meet.some(x => x.due < t) ? 'warn' : '')
-      + (bills ? chip('🧾', ready.length ? baht(ready.reduce((s, b) => s + Number(b.amount || 0), 0)) : '0', ready.length ? `รอส่งเบิก ${ready.length}` + (draft.length ? ` · ขาดใบ ${draft.length}` : '') : (draft.length ? `ขาดใบ ${draft.length}` : 'ไม่มีบิลค้าง'), 'bills.html', draft.length ? 'warn' : '') : '')
-      + (money ? chip('💰', baht(spent), 'ใช้จ่ายวันนี้', 'money.html') : '')
-      + '</div>';
+    const todayM = money ? money.filter(x => x.date === t) : [];
+    const spent = todayM.filter(x => (x.type || 'out') === 'out').reduce((s, x) => s + Number(x.amount || 0), 0);
+
+    const K = {
+      tasks: { ico: '✓', main: `${dueL.length} งาน`, sub: lateL.length ? `เลยกำหนด ${lateL.length}` : 'ไม่มีงานค้าง', warn: lateL.length > 0,
+        rows: [...lateL.map(x => [x.title, short(eff(x)), 'late']), ...dueL.map(x => [x.title, x.time || 'วันนี้', ''])],
+        empty: 'วันนี้ไม่มีงานที่ต้องส่ง', go: ['ดูในรายการงาน', '#tasks'] },
+      meet: { ico: '📋', main: `${meet.length} งาน`, sub: 'ประชุม ภายใน 3 วัน', warn: meet.some(x => x.due < t),
+        rows: meet.map(x => [x.task, (x.due < t ? 'เลย ' : '') + short(x.due), x.due < t ? 'late' : '']),
+        empty: 'ไม่มีงานจากประชุมที่ใกล้กำหนด', go: ['เปิดงานจากคลังรายงาน', '#meet'] },
+    };
+    if (bills) K.bills = { ico: '🧾', main: ready.length ? baht(ready.reduce((s, b) => s + Number(b.amount || 0), 0)) : '0',
+      sub: ready.length ? `รอส่งเบิก ${ready.length}` + (draft.length ? ` · ขาดใบ ${draft.length}` : '') : (draft.length ? `ขาดใบ ${draft.length}` : 'ไม่มีบิลค้าง'), warn: draft.length > 0,
+      rows: [...draft.map(b => [b.desc || b.vendor || 'บิล', 'ขาดใบ · ' + baht(b.amount), 'late']), ...ready.map(b => [b.desc || b.vendor || 'บิล', baht(b.amount), ''])],
+      empty: 'ไม่มีบิลค้างเบิก', go: ['ไปหน้าเบิก', 'bills.html'] };
+    if (money) K.money = { ico: '💰', main: baht(spent), sub: 'ใช้จ่ายวันนี้', warn: false,
+      rows: todayM.map(x => [x.note || x.cat || (x.type === 'in' ? 'รายรับ' : 'รายจ่าย'), (x.type === 'in' ? '+' : '−') + baht(x.amount), x.type === 'in' ? 'in' : '']),
+      empty: 'วันนี้ยังไม่ได้จดรายจ่าย', go: ['ไปหน้าเงิน', 'money.html'] };
+    if (!K[openK]) openK = '';
+
+    const chip = k => { const c = K[k]; return `<button type="button" class="td-chip${c.warn ? ' warn' : ''}${openK === k ? ' on' : ''}" data-k="${k}" aria-expanded="${openK === k}"><span>${c.ico}</span><b>${c.main}</b><small>${esc(c.sub)}</small></button>`; };
+    let panel = '';
+    if (openK) {
+      const c = K[openK], more = c.rows.length - 8;
+      panel = `<div class="td-panel" role="region">${c.rows.length
+        ? `<ul>${c.rows.slice(0, 8).map(r => `<li class="${r[2]}"><span>${esc(r[0])}</span><small>${esc(r[1])}</small></li>`).join('')}</ul>${more > 0 ? `<p class="td-more">และอีก ${more} รายการ</p>` : ''}`
+        : `<p class="td-empty">${c.empty}</p>`}
+        <a class="td-go" ${c.go[1].startsWith('#') ? `href="${c.go[1]}" data-go="${c.go[1]}"` : `href="${c.go[1]}"`}>${c.go[0]} ›</a></div>`;
+    }
+    box.innerHTML = `<div class="td-h"><b>☀️ วันนี้</b><small>${new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' })}</small></div>`
+      + `<div class="td-row">${Object.keys(K).map(chip).join('')}</div>` + panel;
   }
   box.addEventListener('click', e => {
+    const c = e.target.closest('[data-k]');
+    if (c) { openK = openK === c.dataset.k ? '' : c.dataset.k; today(); return; }   // แตะ = กาง/พับดูรายการ ยังไม่ไปหน้าอื่น
     const a = e.target.closest('[data-go]');
     if (!a) return;
     e.preventDefault();
