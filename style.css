@@ -1570,3 +1570,7 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .mt-act select { padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; }
 .mt-foot { margin: 4px 2px 0; font-size: 12px; }
 #mtOpen { text-decoration: none; color: var(--accent); display: inline-flex; align-items: center; }
+.sp-hist-h { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin: 18px 2px 8px; }
+.sp-hist-h h2 { margin: 0; font-size: 17px; }
+.sp-hist-h h2 small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.sp-hist-h input { flex: 1 1 180px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }

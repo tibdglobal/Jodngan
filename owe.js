@@ -537,9 +537,6 @@ if ($('#sDlg')) $('#sDel').onclick = async () => {
   await delDocs(ids);
 };
 
-rerender();
-syncOwe();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncOwe(); });
 
 /* ===================== 🍜 หน้า "หาร" (split.html) ===================== */
 function payDebt(d, amountS, date, via, file) {
@@ -549,7 +546,7 @@ function payDebt(d, amountS, date, via, file) {
   d.status = leftS(d) ? 'open' : 'done';
   return d;
 }
-const splitDebt = (s, t) => debts().find(d => d.splitId === s.id && d.person === (t.from === ME ? t.to : t.from) && d.dir === (t.from === ME ? 'me' : 'they'));
+function splitDebt(s, t) { return debts().find(d => d.splitId === s.id && d.person === (t.from === ME ? t.to : t.from) && d.dir === (t.from === ME ? 'me' : 'they')); }
 function splitProgress(s) {
   const tr = s.transfers || [];
   const done = tr.filter(t => (t.from === ME || t.to === ME) ? (() => { const d = splitDebt(s, t); return !d || !isOpen(d); })() : t.done).length;
@@ -557,7 +554,9 @@ function splitProgress(s) {
 }
 
 function renderSplits() {
-  const list = splits().sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
+  const q = ($('#spQ') ? $('#spQ').value : '').trim().toLowerCase();
+  const all = splits();
+  const list = all.filter(s => !q || [s.title, ...(s.people || []), ...(s.bills || []).map(b => b.title || '')].join(' ').toLowerCase().includes(q)).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
   const sd = debts().filter(d => d.splitId);
   const T = sd.filter(d => d.dir === 'they').reduce((s, d) => s + leftS(d), 0);
   const M = sd.filter(d => d.dir === 'me').reduce((s, d) => s + leftS(d), 0);
@@ -565,7 +564,8 @@ function renderSplits() {
   $('#spThey').classList.toggle('zero', !T); $('#spMe').classList.toggle('zero', !M);
   if ($('#owPeople')) $('#owPeople').innerHTML = peopleAll().map(p => `<option value="${esc(p)}">`).join('');
   const box = $('#spList');
-  box.innerHTML = list.length ? '' : '<p class="empty">ยังไม่มีบิลหาร<br>แตะ 🍜 หารบิลใหม่ หรือ 📷 ถ่ายใบเสร็จ ด้านบน</p>';
+  if ($('#spCount')) $('#spCount').textContent = all.length ? `${q ? list.length + '/' : ''}${all.length} บิล` : '';
+  box.innerHTML = list.length ? '' : q ? '<p class="empty">ไม่พบบิลที่ค้นหา</p>' : '<p class="empty">ยังไม่มีบิลหาร<br>แตะ 🍜 หารบิลใหม่ หรือ 📷 ถ่ายใบเสร็จ ด้านบน</p>';
   const open = [], closed = [];
   list.forEach(s => { const pg = splitProgress(s); (pg.done < pg.all ? open : closed).push([s, pg]); });
   const card = ([s, pg]) => {
@@ -586,11 +586,14 @@ function renderSplits() {
   if (closed.length) {
     const det = document.createElement('details');
     det.className = 'ow-closed';
+    if (q || !open.length) det.open = true;
     det.innerHTML = `<summary>▾ โอนครบแล้ว ${closed.length} บิล</summary><div></div>`;
     closed.forEach(x => det.lastElementChild.appendChild(card(x)));
     box.appendChild(det);
   }
 }
+
+if ($('#spQ')) $('#spQ').addEventListener('input', () => renderSplits());
 
 let dId = '', dSlipFor = null;
 function openDetail(id) {
@@ -670,3 +673,8 @@ if ($('#dDlg')) {
   const h = location.hash.slice(1);
   if (h) setTimeout(() => { if (splits().some(x => x.id === h)) openDetail(h); }, 300);
 }
+
+// เริ่มทำงานหลังประกาศทุกฟังก์ชัน/ค่าคงที่แล้ว (เดิมเรียกกลางไฟล์ ทำให้ split.html พังทั้งหน้า: splitDebt ยังไม่ถูกประกาศ)
+rerender();
+syncOwe();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncOwe(); });
