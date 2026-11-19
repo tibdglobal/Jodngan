@@ -667,10 +667,39 @@ function paintDetail() {
   const pics = (s.bills || []).filter(b => b.file);
   $('#dPics').innerHTML = pics.map(b => `<a href="${esc(b.file.url)}" target="_blank" rel="noopener" class="s-rthumb">${b.file.thumb ? `<img src="${b.file.thumb}" alt="">` : '🧾'}<small>${esc(b.title || 'ใบเสร็จ')}</small></a>`).join('');
   $('#dPics').hidden = !pics.length;
-  // ส่วนของแต่ละคน
-  const share = {};
+  // รายการ + ส่วนของแต่ละคน (พร้อมว่าแต่ละคนกินอะไร)
+  const share = {}, eaten = {};
+  const bills = s.bills || [];
   (s.bills || []).forEach(b => Object.entries(b.shares || {}).forEach(([p, v]) => { share[p] = (share[p] || 0) + toS(v); }));
-  $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(who(p))}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('');
+  const whoList = (w, people) => !w || !w.length ? '-' : people && w.length === people.length ? 'ทุกคน' : w.map(who).join(', ');
+  $('#dItems').innerHTML = bills.map(b => {
+    const totS = toS(b.total) || Object.values(b.shares || {}).reduce((x, v) => x + toS(v), 0);
+    const head = `<div class="di-h">${bills.length > 1 ? `<b>${esc(b.title || 'บิล')}</b>` : ''}<small>จ่ายไปก่อน: ${esc(who(b.payer || ME))}</small></div>`;
+    let body = '';
+    if (b.method === 'menu') {
+      const items = (b.items || []).filter(it => it.name || toS(it.price));
+      const subS = items.reduce((x, it) => x + toS(it.price), 0);
+      items.forEach(it => {
+        const w = (it.who || []).filter(p => (s.people || []).includes(p));
+        w.forEach(p => { (eaten[p] = eaten[p] || []).push(`${it.name || 'เมนู'}${w.length > 1 ? ` (หาร ${w.length})` : ''}`); });
+      });
+      body = items.map(it => `<div class="di-r"><span>${esc(it.name || 'เมนู')}<small>${esc(whoList((it.who || []).filter(p => (s.people || []).includes(p)), s.people))}</small></span><b>${bahtS(toS(it.price))}</b></div>`).join('') +
+        ((b.svc || b.vat || toS(b.disc)) ? `<div class="di-r sub"><span>รวมค่าอาหาร</span><b>${bahtS(subS)}</b></div>` : '') +
+        (b.svc ? `<div class="di-r sub"><span>Service 10%</span><b>${bahtS(Math.round(subS * 0.1))}</b></div>` : '') +
+        (b.vat ? `<div class="di-r sub"><span>VAT 7%</span><b>${bahtS(Math.round(subS * (b.svc ? 1.1 : 1) * 0.07))}</b></div>` : '') +
+        (toS(b.disc) ? `<div class="di-r sub"><span>ส่วนลด</span><b>−${bahtS(toS(b.disc))}</b></div>` : '');
+    } else if (b.method === 'custom') {
+      body = `<div class="di-r"><span>ระบุยอดเองรายคน</span><b></b></div>`;
+      Object.keys(b.shares || {}).forEach(p => { (eaten[p] = eaten[p] || []).push(bills.length > 1 ? (b.title || 'บิล') + ' (ระบุเอง)' : 'ระบุยอดเอง'); });
+    } else {
+      const w = (b.who || []).filter(p => (s.people || []).includes(p));
+      body = `<div class="di-r"><span>หารเท่ากัน ${w.length} คน<small>${esc(whoList(w, s.people))}</small></span><b>คนละ ${bahtS(w.length ? Math.round(totS / w.length) : 0)}</b></div>`;
+      w.forEach(p => { (eaten[p] = eaten[p] || []).push(bills.length > 1 ? (b.title || 'บิล') + ` (หาร ${w.length})` : `หาร ${w.length} คน`); });
+    }
+    return `<div class="di-bill">${head}${body}<div class="di-r tot"><span>ยอดเต็ม${bills.length > 1 ? 'บิลนี้' : ''}</span><b>${bahtS(totS)}</b></div></div>`;
+  }).join('') + (bills.length > 1 ? `<div class="di-r tot all"><span>รวมทุกบิล</span><b>${bahtS(toS(s.total))}</b></div>` : '');
+  $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(who(p))}${eaten[p] && eaten[p].length ? `<small>${esc(eaten[p].join(' · '))}</small>` : ''}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('') +
+    `<div class="tot"><span>รวม</span><b>${bahtS(Object.values(share).reduce((x, v) => x + v, 0))}</b></div>`;
   // การโอน
   const box = $('#dTr');
   box.innerHTML = (s.transfers || []).length ? '' : '<p class="hint">ไม่มีใครต้องโอน (ทุกคนจ่ายส่วนตัวเองแล้ว)</p>';
@@ -703,7 +732,10 @@ function paintDetail() {
     box.appendChild(el);
   });
   // ข้อความสรุปส่งเข้ากลุ่ม
-  const lines = [`🍜 ${s.title} (${fmtD(s.date)}) รวม ${fromS(toS(s.total)).toLocaleString('th-TH')} บาท`, '', 'ส่วนของแต่ละคน:']
+  const menu = (s.bills || []).filter(b => b.method === 'menu').flatMap(b => (b.items || []).filter(it => it.name || toS(it.price)).map(it => `• ${it.name || 'เมนู'} ${fromS(toS(it.price)).toLocaleString('th-TH')}${(it.who || []).length && (it.who || []).length < (s.people || []).length ? ' (' + it.who.map(whoMsg).join(', ') + ')' : ''}`));
+  const lines = [`🍜 ${s.title} (${fmtD(s.date)}) รวม ${fromS(toS(s.total)).toLocaleString('th-TH')} บาท`]
+    .concat(menu.length ? ['', 'รายการ:'].concat(menu) : [])
+    .concat(['', 'ส่วนของแต่ละคน:'])
     .concat((s.people || []).map(p => `• ${whoMsg(p)} ${fromS(share[p] || 0).toLocaleString('th-TH')}`))
     .concat((s.transfers || []).length ? ['', 'โอนให้จบ:'].concat(s.transfers.map(t => `• ${whoMsg(t.from)} → ${whoMsg(t.to)} ${Number(t.amount).toLocaleString('th-TH')} บาท`)) : []);
   const msg = lines.join('\n');

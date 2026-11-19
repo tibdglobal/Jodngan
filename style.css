@@ -1584,3 +1584,18 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .s-pick button { flex: none; padding: 6px 12px; border-radius: 999px; border: 1px dashed var(--accent-line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; white-space: nowrap; }
 .s-pick .pk-more { justify-self: start; margin-left: 72px; border-style: solid; color: var(--accent); }
 #sPeople .me { font-weight: 600; }
+.d-items { display: grid; gap: 8px; }
+.di-bill { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--card); display: grid; gap: 2px; }
+.di-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.di-h small { color: var(--muted); font-size: 12px; }
+.di-r { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 4px 0; border-top: 1px dashed var(--line); }
+.di-r:first-of-type { border-top: 0; }
+.di-r span { display: grid; min-width: 0; }
+.di-r small, .d-shares small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.di-r b { white-space: nowrap; font-weight: 600; }
+.di-r.sub { color: var(--muted); font-size: 14px; }
+.di-r.tot { border-top: 1.5px solid var(--line); margin-top: 2px; }
+.di-r.tot b { font-size: 17px; color: var(--accent); }
+.di-r.all { border: 0; padding: 6px 12px; }
+.d-shares > div > span { display: grid; min-width: 0; }
+.d-shares .tot { border-top: 1.5px solid var(--line); }
