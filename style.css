@@ -1762,3 +1762,4 @@ button.td-chip { font: inherit; text-align: left; width: 100%; }
 .di-r b s { text-decoration-color: var(--save); }
 i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 .di-off { justify-self: start; }
+.di-r.muted span, .di-r.muted b { color: var(--muted); } .di-r.muted b { text-decoration: line-through; font-weight: 400; }
