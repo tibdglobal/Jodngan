@@ -1729,23 +1729,36 @@ button.td-chip { font: inherit; text-align: left; width: 100%; }
 .s-dl { position: relative; flex: none; display: block; margin: 0; }
 .s-dl small { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 11.5px; color: var(--muted); pointer-events: none; }
 .s-dl .s-idisc { width: 66px !important; padding-left: 26px !important; }
-.s-dl.on small, .s-dl.on .s-idisc { color: var(--warn); }
-.s-dl.on .s-idisc { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.s-dl.on small, .s-dl.on .s-idisc { color: var(--save); }
+.s-dl.on .s-idisc { border-color: color-mix(in srgb, var(--save) 45%, var(--line)); background: color-mix(in srgb, var(--save) 7%, var(--card)); }
 @media (max-width: 420px) { .s-iprice { width: 72px !important; } .s-dl .s-idisc { width: 60px !important; } }
 #sSum > div > span small, #dShares > div > span small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; line-height: 1.45; }
 .di-r b s { color: var(--muted); font-weight: 400; font-size: .85em; margin-right: 2px; }
 /* ส่วนลดรวม (กดดูได้ว่าลดจากอะไร) */
-.disc-box { margin: 10px 0 4px; border-radius: 12px; background: color-mix(in srgb, var(--warn) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--warn) 25%, var(--line)); overflow: hidden; }
+.disc-box { margin: 10px 0 4px; border-radius: 12px; background: color-mix(in srgb, var(--save) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--save) 25%, var(--line)); overflow: hidden; }
 .disc-box summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
 .disc-box summary::-webkit-details-marker { display: none; }
 .disc-box summary span { font-weight: 600; font-size: 14px; }
 .disc-box summary small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
-.disc-box summary b { color: var(--warn); font-size: 15px; }
+.disc-box summary b { color: var(--save); font-size: 15px; }
 .disc-box summary::after { content: '›'; color: var(--muted); transition: transform .15s; margin-left: -4px; }
 .disc-box[open] summary::after { transform: rotate(90deg); }
-.disc-box[open] summary { border-bottom: 1px dashed color-mix(in srgb, var(--warn) 25%, var(--line)); }
+.disc-box[open] summary { border-bottom: 1px dashed color-mix(in srgb, var(--save) 25%, var(--line)); }
 .disc-r { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 7px 12px; font-size: 13.5px; }
 .disc-r span small { display: block; font-size: 12px; color: var(--muted); }
-.disc-r b { color: var(--warn); font-weight: 500; flex: none; }
+.disc-r b { color: var(--save); font-weight: 500; flex: none; }
 #sSum .disc-box summary span, #sSum .disc-r span { display: block; }
 #sSum .disc-box .disc-r, #dItems .disc-box .disc-r { padding: 7px 12px; border: 0; }
+
+/* ---------- สีหน้าหารกัน: ราคา (ดำ) · ส่วนลด (เขียว) · ยอดรวม (ส้ม) ---------- */
+:root { --save: #15803d; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --save: #4ade80; } }
+:root[data-theme="dark"] { --save: #4ade80; }
+.di-r.disc span, .di-r.disc b { color: var(--save); }
+.di-r.disc { background: color-mix(in srgb, var(--save) 6%, transparent); border-radius: 8px; }
+.di-r.sum span { color: var(--text); font-weight: 500; }
+.di-r.sum b { color: var(--text); font-weight: 700; }
+.di-off { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-style: normal; font-size: 12px; color: var(--save); background: color-mix(in srgb, var(--save) 10%, transparent); }
+.di-r b s { text-decoration-color: var(--save); }
+i.neg { font-style: normal; color: var(--save); font-weight: 600; }
+.di-off { justify-self: start; }
