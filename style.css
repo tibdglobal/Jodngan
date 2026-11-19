@@ -1599,3 +1599,4 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .di-r.all { border: 0; padding: 6px 12px; }
 .d-shares > div > span { display: grid; min-width: 0; }
 .d-shares .tot { border-top: 1.5px solid var(--line); }
+.s-pick button.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft, var(--card)); color: var(--accent); font-weight: 600; }

@@ -278,19 +278,21 @@ function openDlg(x) {
   if (!Number(x.amount)) setTimeout(() => f.amount.focus(), 50);
 }
 function paintType() { const v = form.elements.type.value || 'out'; $('#fType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
+/** หมวด: ⭐ ใช้บ่อย / 🕘 ล่าสุด จากที่เคยจด (แยกรายจ่าย/รายรับ) ที่เหลือใน ＋ ดูเพิ่มเติม ตามลำดับเดิม · หมวดที่เลือกอยู่ขึ้นแถวบนเสมอ */
 function renderFCats() {
   const box = $('#fCats'), inp = form.elements.cat, type = form.elements.type.value || 'out';
-  const all = allCats(type);
-  if (inp.value.trim() && !all.includes(inp.value.trim())) all.splice(all.length - 1, 0, inp.value.trim());
-  box.innerHTML = '';
-  all.forEach(c => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = icon(type, c) + ' ' + c;
-    b.classList.toggle('on', inp.value.trim() === c);
-    b.onclick = () => { inp.value = inp.value.trim() === c ? '' : c; renderFCats(); };
-    box.appendChild(b);
+  const cur = inp.value.trim(), all = allCats(type);
+  if (cur && !all.includes(cur)) all.splice(all.length - 1, 0, cur);
+  const m = {};
+  all.forEach(c => { m[c] = { key: c, label: icon(type, c) + ' ' + c, n: 0, last: '' }; });
+  items.forEach(x => {
+    if ((x.type || 'out') !== type || !x.cat || !m[x.cat]) return;
+    const s = m[x.cat], when = String(x.date || '') + String(x.created || '');
+    s.n++; if (when > s.last) s.last = when;
   });
+  const stats = Object.values(m);
+  if (cur && m[cur]) { m[cur].n += 1e6; }   // ที่เลือกอยู่ให้เห็นเสมอ
+  quickPick(box, stats, c => { inp.value = inp.value.trim() === c ? '' : c; renderFCats(); }, { plus: false, on: cur, keepOrder: true });
 }
 form.elements.cat.addEventListener('input', renderFCats);
 /** รายละเอียดที่เคยจด (แยกรายจ่าย/รายรับ) เป็นปุ่ม ⭐ ใช้บ่อย / 🕘 ล่าสุด · แตะ = ใส่รายละเอียด + หมวดล่าสุดของรายการนั้น (+ ยอดล่าสุดถ้ายังไม่ได้กรอก) */

@@ -119,19 +119,20 @@ function toast(msg, undo, edit) {
   toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 5000);
 }
 
-/* ---------- ตัวเลือกด่วน 2 บรรทัด: ⭐ ใช้บ่อย / 🕘 ล่าสุด + ＋ ดูเพิ่มเติม (ใช้กับชื่อคน และรายละเอียดรายรับ-จ่าย) ----------
- * stats = [{ key, label, n (จำนวนครั้ง), last ('YYYY-MM-DD...') }] · onPick(key) */
+/* ---------- ตัวเลือกด่วน 2 บรรทัด: ⭐ ใช้บ่อย / 🕘 ล่าสุด + ＋ ดูเพิ่มเติม (ใช้กับชื่อคน รายละเอียด และหมวดรายรับ-จ่าย) ----------
+ * stats = [{ key, label, n (จำนวนครั้ง), last ('YYYY-MM-DD...') }] · onPick(key) · opts: per, plus:false, on (key ที่เลือกอยู่), keepOrder (ที่เหลือคงลำดับเดิม) */
 function quickPick(box, stats, onPick, opts) {
   if (!box) return;
   opts = opts || {};
   const PER = opts.per || 3, plus = opts.plus === false ? '' : '＋ ';
   const freq = stats.slice().sort((x, y) => y.n - x.n || String(y.last).localeCompare(String(x.last))).slice(0, PER);
   const used = new Set(freq.map(s => s.key));
-  const recent = stats.filter(s => !used.has(s.key)).sort((x, y) => String(y.last).localeCompare(String(x.last)) || y.n - x.n).slice(0, PER);
+  const recent = stats.filter(s => !used.has(s.key) && s.last).sort((x, y) => String(y.last).localeCompare(String(x.last)) || y.n - x.n).slice(0, PER);
   recent.forEach(s => used.add(s.key));
-  const rest = stats.filter(s => !used.has(s.key)).sort((x, y) => String(x.label).localeCompare(String(y.label), 'th'));
+  const rest = stats.filter(s => !used.has(s.key));
+  if (!opts.keepOrder) rest.sort((x, y) => String(x.label).localeCompare(String(y.label), 'th'));
   const more = box.dataset.more === '1';
-  const chip = s => `<button type="button" data-add="${esc(s.key)}">${plus}${esc(s.label)}</button>`;
+  const chip = s => `<button type="button" data-add="${esc(s.key)}"${opts.on === s.key ? ' class="on"' : ''}>${plus}${esc(s.label)}</button>`;
   const row = (label, list) => list.length ? `<div class="pk-row"><span class="pk-l">${label}</span><div class="pk-c">${list.map(chip).join('')}</div></div>` : '';
   box.classList.add('s-pick');
   box.innerHTML = !stats.length ? '' : row('⭐ ใช้บ่อย', freq) + row('🕘 ล่าสุด', recent) +
