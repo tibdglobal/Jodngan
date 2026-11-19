@@ -555,7 +555,12 @@ function row(task, t) {
     const rs = document.createElement('div');
     rs.className = 'resched';
     rs.innerHTML = RESCHED.map((r, i) => `<button type="button" data-r="${i}">${r[0]}</button>`).join('')
-      + '<button type="button" class="rs-x" data-x>✕ ยกเลิก</button>';
+      + '<label class="rs-date">เลือกวัน…<input type="date" aria-label="เลือกวันที่จะเลื่อนไป"></label>'
+      + '<button type="button" class="rs-x" data-x title="ยกเลิกงาน" aria-label="ยกเลิกงาน">✕</button>';
+    const di = rs.querySelector('input[type=date]');
+    di.min = today();
+    di.addEventListener('click', () => { try { di.showPicker(); } catch (e) {} });
+    di.addEventListener('change', () => { if (di.value) reschedule([task], di.value); });
     rs.onclick = e => {
       const b = e.target.closest('[data-r]');
       if (b) return reschedule([task], RESCHED[b.dataset.r][1]());
