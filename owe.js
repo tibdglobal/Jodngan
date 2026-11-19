@@ -2,7 +2,10 @@
  * ใช้ตัวช่วยจาก money.js: $, api, baht, esc, uid, today, toast, showStatus, items, upsert, guessCat, prepare
  * หลักบัญชี: ให้ยืม/รับคืน ไม่นับเป็นรายจ่าย/รายรับ · หารกัน = จดรายจ่ายเฉพาะส่วนของเรา · "ไม่ทวงแล้ว" = ย้ายยอดที่เหลือไปเป็นรายจ่าย
  */
-const ME = 'ฉัน';
+const ME = 'ฉัน';   // ค่าภายใน (ห้ามเปลี่ยน) ชื่อที่แสดงตั้งได้ที่ myName()
+const myName = () => { try { return (localStorage.getItem('myName') || '').trim(); } catch (e) { return ''; } };
+const who = p => p === ME ? (myName() || ME) : p;                 // ชื่อที่แสดงในหน้าจอ
+const whoMsg = p => p === ME ? (myName() || 'ผม') : p;           // ชื่อในข้อความที่ส่งเพื่อน
 let owe = LS.get('owe', []);
 let oweLoaded = false;
 
@@ -300,10 +303,32 @@ function openSplit(s) {
 if ($('#sDlg')) $('#sCancel').onclick = () => $('#sDlg').close();
 if ($('#sDlg')) $('#sAddP').onclick = () => addPerson($('#sNewP').value);
 if ($('#sDlg')) $('#sNewP').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPerson($('#sNewP').value); } });
+/** ชื่อของฉัน (แสดงแทน "ฉัน" ในหน้าจอ และแทน "ผม" ในข้อความที่ส่งเพื่อน) — จำไว้ในเครื่อง */
+function setMyName() {
+  const cur = myName();
+  const n = prompt('ชื่อของคุณ (แสดงแทน "ฉัน" และใช้ในข้อความที่ส่งเพื่อน)\nเว้นว่าง = ใช้ "ฉัน" / "ผม" เหมือนเดิม', cur);
+  if (n === null) return;
+  const v = n.trim().slice(0, 30);
+  if (v && v !== ME && peopleAll().includes(v) && !confirm(`มีเพื่อนชื่อ "${v}" อยู่แล้ว ใช้ชื่อนี้เป็นชื่อคุณเองใช่ไหม?`)) return;
+  try { v ? localStorage.setItem('myName', v) : localStorage.removeItem('myName'); } catch (e) {}
+  if ($('#sDlg') && $('#sDlg').open) paintSplit();
+  rerender();
+  if (typeof paintDetail === 'function' && $('#dDlg') && $('#dDlg').open) paintDetail();
+}
+/** ดรอปดาวน์ชื่อที่เคยกรอก (เฉพาะคนที่ยังไม่อยู่ในบิลนี้) */
+function paintPick() {
+  const sel = $('#sPickP');
+  if (!sel) return;
+  const rest = peopleAll().filter(p => !sp.people.includes(p) && p !== myName());
+  sel.innerHTML = `<option value="">👥 เลือกจากชื่อที่เคยใส่ (${rest.length})</option>` + rest.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  sel.hidden = !rest.length;
+}
+if ($('#sPickP')) $('#sPickP').addEventListener('change', e => { if (e.target.value) addPerson(e.target.value); });
 function addPerson(n) {
   n = String(n || '').trim();
   $('#sNewP').value = '';
-  if (!n || sp.people.includes(n)) return;
+  if (n && (n === myName() || n === 'ผม')) n = ME;   // พิมพ์ชื่อตัวเอง = ฉัน
+  if (!n || sp.people.includes(n)) { paintSplit(); return; }
   sp.people.push(n);
   sp.bills.forEach(b => { if (b.method !== 'custom') b.who.push(n); b.items.forEach(it => it.all && it.who.push(n)); });
   paintSplit();
@@ -376,12 +401,14 @@ function calcSplit() {
 }
 
 function chipsHtml(sel, cls) {
-  return sp.people.map(p => `<button type="button" class="${cls || ''}${sel.includes(p) ? ' on' : ''}" data-p="${esc(p)}">${esc(p)}</button>`).join('');
+  return sp.people.map(p => `<button type="button" class="${cls || ''}${sel.includes(p) ? ' on' : ''}" data-p="${esc(p)}">${esc(who(p))}</button>`).join('');
 }
 function paintSplit() {
-  $('#sPeople').innerHTML = sp.people.map(p => `<button type="button" class="on" data-p="${esc(p)}">${esc(p)}${p === ME ? '' : ' ✕'}</button>`).join('');
+  $('#sPeople').innerHTML = sp.people.map(p => `<button type="button" class="on${p === ME ? ' me' : ''}" data-p="${esc(p)}">${esc(who(p))}${p === ME ? ' ✏️' : ' ✕'}</button>`).join('');
+  paintPick();
   $('#sPeople').onclick = e => {
-    const b = e.target.closest('button'); if (!b || b.dataset.p === ME) return;
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.p === ME) { setMyName(); return; }
     const n = b.dataset.p;
     sp.people = sp.people.filter(x => x !== n);
     sp.bills.forEach(bl => { bl.who = bl.who.filter(x => x !== n); bl.items.forEach(it => { it.who = it.who.filter(x => x !== n); }); delete bl.custom[n]; if (bl.payer === n) bl.payer = ME; });
@@ -398,7 +425,7 @@ function paintSplit() {
       <div class="s-rcpt">${b.file ? `<a href="${esc(b.file.url)}" target="_blank" rel="noopener" class="s-rthumb">${b.file.thumb ? `<img src="${b.file.thumb}" alt="">` : '🧾'}</a>` : ''}
         <button type="button" class="s-read">${b.file ? '📷 อ่านใบเสร็จใหม่' : '📷 ถ่าย/อัปใบเสร็จ ให้ AI อ่านเมนู'}</button>
         ${b.rTotal ? `<small>ยอดในใบเสร็จ ${bahtS(toS(b.rTotal))}</small>` : ''}</div>
-      <label>ใครจ่ายไปก่อน <select class="s-payer">${sp.people.map(p => `<option ${p === b.payer ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      <label>ใครจ่ายไปก่อน <select class="s-payer">${sp.people.map(p => `<option value="${esc(p)}" ${p === b.payer ? 'selected' : ''}>${esc(who(p))}</option>`).join('')}</select></label>
       <div class="seg s-method">${[['equal', 'หารเท่ากัน'], ['custom', 'ระบุเอง'], ['menu', 'ตามเมนู']].map(([v, t]) => `<button type="button" data-v="${v}" class="${b.method === v ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="s-body"></div>`;
     const body = el.querySelector('.s-body');
@@ -407,7 +434,7 @@ function paintSplit() {
       body.querySelector('.s-total').oninput = e => { b.total = e.target.value; paintSum(); };
       body.querySelector('.s-who').onclick = e => { const c = e.target.closest('button'); if (!c) return; const p = c.dataset.p; b.who = b.who.includes(p) ? b.who.filter(x => x !== p) : [...b.who, p]; c.classList.toggle('on'); paintSum(); };
     } else if (b.method === 'custom') {
-      body.innerHTML = sp.people.map(p => `<label class="s-cust"><span>${esc(p)}</span><input inputmode="decimal" data-p="${esc(p)}" placeholder="0" value="${esc(b.custom[p] || '')}"></label>`).join('');
+      body.innerHTML = sp.people.map(p => `<label class="s-cust"><span>${esc(who(p))}</span><input inputmode="decimal" data-p="${esc(p)}" placeholder="0" value="${esc(b.custom[p] || '')}"></label>`).join('');
       body.querySelectorAll('input').forEach(i => i.oninput = () => { b.custom[i.dataset.p] = i.value; paintSum(); });
     } else {
       body.innerHTML = b.items.map((it, ii) => `<div class="s-item" data-i="${ii}">
@@ -487,8 +514,8 @@ async function onReceiptFile(e) {
 
 function paintSum() {
   const r = calcSplit();
-  const rows = sp.people.map(p => `<div><span>${esc(p)}</span><b>${bahtS(r.share[p] || 0)}</b></div>`).join('');
-  const tr = r.transfers.length ? '<h4>สรุปโอนให้จบ</h4>' + r.transfers.map(t => `<div><span>${esc(t.from)} → ${esc(t.to)}</span><b>${bahtS(t.amountS)}</b></div>`).join('') : '';
+  const rows = sp.people.map(p => `<div><span>${esc(who(p))}</span><b>${bahtS(r.share[p] || 0)}</b></div>`).join('');
+  const tr = r.transfers.length ? '<h4>สรุปโอนให้จบ</h4>' + r.transfers.map(t => `<div><span>${esc(who(t.from))} → ${esc(who(t.to))}</span><b>${bahtS(t.amountS)}</b></div>`).join('') : '';
   const mine = r.share[ME] || 0;
   const rcpt = sp.bills.reduce((s2, b) => s2 + toS(b.rTotal || 0), 0);
   const diff = rcpt && Math.abs(rcpt - r.total) >= 100 ? `<p class="note warn">⚠️ ยอดที่หาร ${bahtS(r.total)} ไม่ตรงกับยอดในใบเสร็จ ${bahtS(rcpt)} (ต่าง ${bahtS(Math.abs(rcpt - r.total))}) ลองเช็ก Service / VAT / ส่วนลด หรือเมนูที่ขาด</p>` : '';
@@ -613,7 +640,7 @@ function paintDetail() {
   // ส่วนของแต่ละคน
   const share = {};
   (s.bills || []).forEach(b => Object.entries(b.shares || {}).forEach(([p, v]) => { share[p] = (share[p] || 0) + toS(v); }));
-  $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(p)}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('');
+  $('#dShares').innerHTML = (s.people || []).map(p => `<div><span>${esc(who(p))}</span><b>${bahtS(share[p] || 0)}</b></div>`).join('');
   // การโอน
   const box = $('#dTr');
   box.innerHTML = (s.transfers || []).length ? '' : '<p class="hint">ไม่มีใครต้องโอน (ทุกคนจ่ายส่วนตัวเองแล้ว)</p>';
@@ -627,7 +654,7 @@ function paintDetail() {
     const el = document.createElement('div');
     el.className = 'd-tr' + (leftT ? '' : ' ok');
     const verb = t.to === ME ? 'ได้รับแล้ว' : t.from === ME ? 'จ่ายแล้ว' : 'โอนแล้ว';
-    el.innerHTML = `<div class="d-row"><span class="d-who">${esc(t.from)} <i>→</i> ${esc(t.to)}</span><b>${bahtS(amtS)}</b></div>
+    el.innerHTML = `<div class="d-row"><span class="d-who">${esc(who(t.from))} <i>→</i> ${esc(who(t.to))}</span><b>${bahtS(amtS)}</b></div>
       <div class="meta">${leftT ? (paid ? `ได้แล้ว ${bahtS(paid)} · เหลือ ${bahtS(leftT)}` : 'ยังไม่ได้โอน') : '✓ ' + verb}${d && d.status === 'forgiven' ? ' · ไม่ทวงแล้ว' : ''}
         ${slips.map(f => ` <a class="tag ok" href="${esc(f.url)}" target="_blank" rel="noopener">สลิป</a>`).join('')}</div>
       ${leftT ? `<div class="btns"><button type="button" class="mini p">✓ ${verb}</button><button type="button" class="mini sl">📎 แนบสลิป</button>${d ? '<button type="button" class="mini pt">ทยอย…</button>' : ''}</div>`
@@ -647,8 +674,8 @@ function paintDetail() {
   });
   // ข้อความสรุปส่งเข้ากลุ่ม
   const lines = [`🍜 ${s.title} (${fmtD(s.date)}) รวม ${fromS(toS(s.total)).toLocaleString('th-TH')} บาท`, '', 'ส่วนของแต่ละคน:']
-    .concat((s.people || []).map(p => `• ${p === ME ? 'ผม' : p} ${fromS(share[p] || 0).toLocaleString('th-TH')}`))
-    .concat((s.transfers || []).length ? ['', 'โอนให้จบ:'].concat(s.transfers.map(t => `• ${t.from === ME ? 'ผม' : t.from} → ${t.to === ME ? 'ผม' : t.to} ${Number(t.amount).toLocaleString('th-TH')} บาท`)) : []);
+    .concat((s.people || []).map(p => `• ${whoMsg(p)} ${fromS(share[p] || 0).toLocaleString('th-TH')}`))
+    .concat((s.transfers || []).length ? ['', 'โอนให้จบ:'].concat(s.transfers.map(t => `• ${whoMsg(t.from)} → ${whoMsg(t.to)} ${Number(t.amount).toLocaleString('th-TH')} บาท`)) : []);
   const msg = lines.join('\n');
   $('#dMsg').textContent = msg;
   $('#dLine').href = 'https://line.me/R/share?text=' + encodeURIComponent(msg);

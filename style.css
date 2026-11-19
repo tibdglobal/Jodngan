@@ -1574,3 +1574,6 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .sp-hist-h h2 { margin: 0; font-size: 17px; }
 .sp-hist-h h2 small { font-weight: 400; color: var(--muted); font-size: 13px; }
 .sp-hist-h input { flex: 1 1 180px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
+.s-pick { width: 100%; margin: 8px 0 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--accent-line); background: var(--card); color: var(--text); font: inherit; }
+.s-pick[hidden] { display: none; }
+#sPeople .me { font-weight: 600; }

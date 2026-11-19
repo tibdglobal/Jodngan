@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=55">
+  <link rel="stylesheet" href="style.css?v=56">
 </head>
 <body class="money split">
   <header class="top">
@@ -54,7 +54,9 @@
       <div class="field">
         <span class="lbl">ใครบ้าง (แตะเพิ่ม/ลบ)</span>
         <div id="sPeople" class="when-chips wrap"></div>
-        <div class="s-addp"><input id="sNewP" list="owPeople" placeholder="พิมพ์ชื่อเพื่อน แล้วกด ＋"><button type="button" id="sAddP" class="mini">＋</button></div>
+        <select id="sPickP" class="s-pick" aria-label="เลือกจากชื่อที่เคยใส่" hidden></select>
+        <div class="s-addp"><input id="sNewP" placeholder="หรือพิมพ์ชื่อใหม่ แล้วกด ＋" autocomplete="off"><button type="button" id="sAddP" class="mini">＋</button></div>
+        <small class="hint">แตะชื่อของคุณ (✏️) เพื่อตั้งชื่อที่ใช้แทน "ฉัน"</small>
       </div>
       <div id="sBills"></div>
       <button type="button" id="sAddBill" class="ghost s-addbill">＋ เพิ่มบิล (คนอื่นจ่าย / ทริปหลายบิล)</button>
@@ -135,7 +137,7 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="mcore.js?v=55"></script>
-  <script src="owe.js?v=55"></script>
+  <script src="mcore.js?v=56"></script>
+  <script src="owe.js?v=56"></script>
 </body>
 </html>
