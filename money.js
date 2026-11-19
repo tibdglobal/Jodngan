@@ -273,7 +273,7 @@ function openDlg(x) {
   ff.hidden = !x.file;
   const fl = !x.file ? [] : Array.isArray(x.file) ? x.file : [x.file];
   ff.innerHTML = fl.length ? `<span class="field-label">สลิป / ใบเสร็จ${fl.length > 1 ? ' (' + fl.length + ' ไฟล์)' : ''}</span>` + fl.map((f, i) => `<a class="mo-file" href="${esc(f.url)}" target="_blank" rel="noopener">${f.thumb ? `<img src="${f.thumb}" alt="">` : `<span class="ficon">${f.mime === 'application/pdf' ? 'PDF' : '🖼'}</span>`}<span>${fl.length > 1 ? 'ไฟล์ ' + (i + 1) + (f.amount ? ' · ' + baht(Number(f.amount)) : '') : 'เปิดดูไฟล์'}</span></a>`).join('') : '';
-  paintType(); renderFCats();
+  paintType(); renderFCats(); paintNotePick();
   if (!dlg.open) dlg.showModal();
   if (!Number(x.amount)) setTimeout(() => f.amount.focus(), 50);
 }
@@ -293,7 +293,36 @@ function renderFCats() {
   });
 }
 form.elements.cat.addEventListener('input', renderFCats);
-$('#fType').querySelectorAll('button').forEach(b => b.onclick = () => { form.elements.type.value = b.dataset.v; form.elements.cat.value = ''; paintType(); renderFCats(); });
+/** รายละเอียดที่เคยจด (แยกรายจ่าย/รายรับ) เป็นปุ่ม ⭐ ใช้บ่อย / 🕘 ล่าสุด · แตะ = ใส่รายละเอียด + หมวดล่าสุดของรายการนั้น (+ ยอดล่าสุดถ้ายังไม่ได้กรอก) */
+function noteStats(type) {
+  const m = {};
+  items.forEach(x => {
+    if ((x.type || 'out') !== type) return;
+    const note = String(x.note || '').trim();
+    if (!note || note.length > 40) return;
+    const k = note.toLowerCase();
+    const s = m[k] || (m[k] = { key: note, label: note, n: 0, last: '', cat: '', amount: '' });
+    s.n++;
+    const when = String(x.date || '') + String(x.created || '');
+    if (when >= s.last) { s.last = when; s.cat = x.cat || s.cat; s.amount = x.amount; s.key = note; s.label = note; }
+  });
+  return Object.values(m);
+}
+function paintNotePick() {
+  const f = form.elements, type = f.type.value || 'out';
+  const cur = f.note.value.trim().toLowerCase();
+  const stats = noteStats(type).filter(s => s.key.toLowerCase() !== cur);
+  quickPick($('#fNotePick'), stats, key => {
+    const s = stats.find(x => x.key === key);
+    f.note.value = key;
+    if (s && s.cat) { f.cat.value = s.cat; renderFCats(); }
+    if (s && !Number(f.amount.value) && Number(s.amount)) { f.amount.value = s.amount; }
+    paintNotePick();
+    setTimeout(() => { f.amount.focus(); f.amount.select(); }, 30);
+  }, { plus: false });
+}
+form.elements.note.addEventListener('input', () => paintNotePick());
+$('#fType').querySelectorAll('button').forEach(b => b.onclick = () => { form.elements.type.value = b.dataset.v; form.elements.cat.value = ''; paintType(); renderFCats(); paintNotePick(); });
 form.addEventListener('submit', async () => {
   if (!editing) return;
   const f = form.elements;

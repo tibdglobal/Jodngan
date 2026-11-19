@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=58">
+  <link rel="stylesheet" href="style.css?v=59">
 </head>
 <body class="money">
   <header class="top">
@@ -106,6 +106,7 @@
         <label>จำนวนเงิน (บาท) <input name="amount" inputmode="decimal" required></label>
       </div>
       <label>รายละเอียด <input name="note" placeholder="เช่น ข้าวมันไก่"></label>
+      <div id="fNotePick"></div>
       <div class="field">
         <label>หมวด <input name="cat" placeholder="แตะเลือก หรือพิมพ์ชื่อหมวดเองได้"></label>
         <div id="fCats" class="when-chips wrap"></div>
@@ -129,7 +130,8 @@
     <form id="oForm" method="dialog" autocomplete="off">
       <h2 tabindex="-1" autofocus id="oTitle">ให้ยืม</h2>
       <div class="seg" id="oDir"><button type="button" data-v="they">💸 ให้เขายืม</button><button type="button" data-v="me">🙏 เรายืมเขา</button></div>
-      <label>ชื่อคน <input name="person" list="owPeople" required placeholder="เช่น ต้น"></label>
+      <label>ชื่อคน <input name="person" required placeholder="แตะชื่อด้านล่าง หรือพิมพ์ชื่อใหม่" autocomplete="off"></label>
+      <div id="oPick"></div>
       <div class="row">
         <label>จำนวนเงิน <input name="amount" inputmode="decimal" required placeholder="0"></label>
         <label>วันที่ <input name="date" type="date" required></label>
@@ -192,8 +194,8 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="mcore.js?v=58"></script>
-  <script src="money.js?v=58"></script>
-  <script src="owe.js?v=58"></script>
+  <script src="mcore.js?v=59"></script>
+  <script src="money.js?v=59"></script>
+  <script src="owe.js?v=59"></script>
 </body>
 </html>

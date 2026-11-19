@@ -125,9 +125,18 @@ function openLoan(dir, d) {
   f.due.value = d ? d.due || '' : '';
   f.note.value = d ? d.note || '' : '';
   $('#oDel').hidden = !d;
+  paintLoanPick();
   $('#oTitle').textContent = d ? 'แก้รายการ' : v === 'they' ? '💸 ให้ยืม' : '🙏 ยืมเขา';
   $('#oDlg').showModal();
 }
+function paintLoanPick() {
+  const f = $('#oForm').elements, box = $('#oPick');
+  if (!box) return;
+  const cur = f.person.value.trim();
+  quickPick(box, peopleStats().filter(s => s.name !== cur).map(s => ({ key: s.name, label: s.name, n: s.n, last: s.last })),
+    n => { f.person.value = n; paintLoanPick(); f.amount.focus(); }, { plus: false });
+}
+if ($('#oDlg')) $('#oForm').elements.person.addEventListener('input', () => paintLoanPick());
 function paintDir() { $('#oDir').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === $('#oForm').dataset.dir)); }
 if ($('#oDlg')) $('#oDir').onclick = e => { const b = e.target.closest('button'); if (b) { $('#oForm').dataset.dir = b.dataset.v; paintDir(); } };
 if ($('#oDlg')) $('#oCancel').onclick = () => $('#oDlg').close();
@@ -329,31 +338,10 @@ function peopleStats() {
   });
   return Object.values(m);
 }
-let pickMore = false;
-/** ตัวเลือกชื่อ 2 บรรทัด: ⭐ ใช้บ่อย / 🕘 ล่าสุด · ที่เหลืออยู่ใน "＋ ดูเพิ่มเติม" */
+/** ชื่อที่เคยใส่เป็นปุ่ม 2 บรรทัด (ใช้บ่อย / ล่าสุด) ที่เหลืออยู่ใน ＋ ดูเพิ่มเติม */
 function paintPick() {
-  const box = $('#sPick');
-  if (!box) return;
-  const stats = peopleStats().filter(s => !sp.people.includes(s.name));
-  const PER = 3;   // ต่อบรรทัด (จอมือถือแสดงครบไม่ล้น)
-  const freq = stats.slice().sort((x, y) => y.n - x.n || y.last.localeCompare(x.last)).slice(0, PER);
-  const used = new Set(freq.map(s => s.name));
-  const recent = stats.filter(s => !used.has(s.name)).sort((x, y) => y.last.localeCompare(x.last) || y.n - x.n).slice(0, PER);
-  recent.forEach(s => used.add(s.name));
-  const rest = stats.filter(s => !used.has(s.name)).sort((x, y) => x.name.localeCompare(y.name, 'th'));
-  const chip = s => `<button type="button" data-add="${esc(s.name)}">＋ ${esc(s.name)}</button>`;
-  const row = (label, list) => list.length ? `<div class="pk-row"><span class="pk-l">${label}</span><div class="pk-c">${list.map(chip).join('')}</div></div>` : '';
-  box.innerHTML = !stats.length ? '' :
-    row('⭐ ใช้บ่อย', freq) + row('🕘 ล่าสุด', recent) +
-    (rest.length ? `<button type="button" class="pk-more" data-more>${pickMore ? '▴ ซ่อน' : `＋ ดูเพิ่มเติม (${rest.length})`}</button>` +
-      (pickMore ? `<div class="pk-all">${rest.map(chip).join('')}</div>` : '') : '');
+  quickPick($('#sPick'), peopleStats().filter(s => !sp.people.includes(s.name)).map(s => ({ key: s.name, label: s.name, n: s.n, last: s.last })), n => addPerson(n));
 }
-if ($('#sPick')) $('#sPick').addEventListener('click', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  if (b.dataset.more !== undefined) { pickMore = !pickMore; paintPick(); return; }
-  if (b.dataset.add) addPerson(b.dataset.add);
-});
 function addPerson(n) {
   n = String(n || '').trim();
   $('#sNewP').value = '';
