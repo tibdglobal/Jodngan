@@ -88,12 +88,13 @@ function render() {
       : o.file ? `<a class="in-pic-big none" href="${esc(o.file.url)}" target="_blank" rel="noopener">🖼 เปิดรูป</a>` : '';
     const link = o.url ? `<a class="in-link" href="${esc(o.url)}" target="_blank" rel="noopener"><b>${esc(o.title || host(o.url) || o.url)}</b><small>🔗 ${esc(host(o.url))}</small></a>` : '';
     const body = rest ? `<p class="in-text">${textHtml(rest)}</p>` : '';
-    const warn = looksSecret(o.text) ? `<div class="in-warn"><span>🔒 มีข้อความคล้ายรหัส/คีย์ กล่องฝากไม่ได้เข้ารหัส</span><button class="mini" data-act="vault">ย้ายไปตู้รหัส</button></div>` : '';
+    const warn = looksSecret(o.text) ? `<div class="in-warn"><span>🔒 มีข้อความคล้ายรหัส/คีย์ กล่องฝากไม่ได้เข้ารหัส</span><button class="mini" data-act="vault">🔒 ย้ายไปตู้รหัส</button><button class="mini" data-act="del">🗑 ลบทิ้ง</button></div>` : '';
     return `<article class="in-card" data-id="${o.id}">
       ${warn}${pic}${link}${body}
       <footer><small>${when(o.created)}</small><span class="spacer"></span>
         <button class="mini" data-act="task" title="ย้ายเป็นงาน">✓ ทำเป็นงาน</button>
         <button class="mini ghost" data-act="edit" aria-label="แก้ไข">✏️</button>
+        <button class="mini ghost" data-act="del" aria-label="ลบ" title="ลบ">🗑</button>
       </footer>
     </article>`;
   }).join('');
@@ -150,6 +151,7 @@ $('#iList').addEventListener('click', e => {
   if (!o) return;
   if (b.dataset.act === 'edit') openEdit(o);
   if (b.dataset.act === 'task') toTask(o);
+  if (b.dataset.act === 'del') delItem(o);
   if (b.dataset.act === 'vault') {
     const name = (String(o.title || o.text || '').split('\n').map(x => x.trim()).find(Boolean) || 'จากกล่องฝาก').replace(/[:：].*$/, '').slice(0, 60) || 'จากกล่องฝาก';
     try { sessionStorage.setItem('vaultFromInbox', JSON.stringify({ id: o.id, name, text: String(o.text || '') })); } catch (err) { return showStatus('ส่งต่อไม่ได้ในเบราว์เซอร์นี้'); }
@@ -192,14 +194,14 @@ $('#iForm').addEventListener('submit', async e => {
   finally { busyEnd(); }
 });
 $('#btnTask').addEventListener('click', () => editing && toTask(editing));
-$('#btnDel').addEventListener('click', async () => {
-  if (!editing || !confirm('ลบรายการนี้?' + (editing.file ? ' (รูปจะถูกย้ายไปถังขยะใน Drive)' : ''))) return;
-  const o = editing;
-  $('#iDlg').close();
+$('#btnDel').addEventListener('click', () => editing && delItem(editing));
+async function delItem(o) {
+  if (!confirm('ลบรายการนี้?' + (o.file ? ' (รูปจะถูกย้ายไปถังขยะใน Drive)' : ''))) return;
+  if ($('#iDlg').open) $('#iDlg').close();
   drop(o.id); render();
   try { await api('inbox_delete', { id: o.id }); toast('🗑 ลบแล้ว'); }
   catch (err) { upsert(o); render(); showStatus('ลบไม่สำเร็จ: ' + err.message); }
-});
+}
 $('#iDlg').addEventListener('click', e => { if (e.target === $('#iDlg')) $('#iDlg').close(); });
 
 /* แชร์ลิงก์มาจากแอปอื่นด้วย ?text= / ?url= (ถ้าระบบส่งมา) */
