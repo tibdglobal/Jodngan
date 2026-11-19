@@ -46,8 +46,9 @@ function aiRead_(file, ctx) {
     '- desc: สรุปสั้นๆ ภาษาไทยว่าจ่าย/รับค่าอะไร ไม่เกิน 40 ตัวอักษร ถ้ามี memo ให้ยึดตาม memo เป็นหลัก (เช่น memo "เงินค่าห้อง พ.ย." → desc "ค่าห้อง พ.ย.") ไม่มี memo ค่อยสรุปจากรายการสินค้า เช่น "ค่าอาหารกลางวัน", "ค่าน้ำมันรถ"',
     '- cat: ถ้ามี memo ให้ใช้ memo ช่วยเลือกหมวดด้วย',
     '- vat: yes ถ้ามีการแสดงภาษีมูลค่าเพิ่ม/VAT หรือเป็นใบกำกับภาษี, no ถ้าไม่มี · vat_amount: ยอด VAT ถ้ามี · prices_include_vat: ราคาสินค้าแต่ละรายการรวม VAT แล้วหรือยัง',
-    '- service_charge, discount: ยอดเงิน (ไม่ใช่ %) ถ้ามี',
-    '- items: รายการสินค้า/เมนูทุกบรรทัด ชื่อตามที่เขียน qty จำนวน price = ราคารวมของบรรทัดนั้น (ไม่ใช่ราคาต่อหน่วย) ไม่ต้องใส่บรรทัดยอดรวม/ภาษี/ส่วนลด',
+    '- service_charge, discount: ยอดเงิน (ไม่ใช่ %) ถ้ามี · discount ระดับบิล = เฉพาะส่วนลดท้ายบิลที่ไม่ได้ผูกกับสินค้าชิ้นใด (ส่วนลดที่ผูกกับสินค้าให้ใส่ใน items[].discount แทน ห้ามนับซ้ำ)',
+    '- items: รายการสินค้า/เมนูทุกบรรทัด ชื่อตามที่เขียน qty จำนวน price = ราคารวมของบรรทัดนั้นก่อนหักส่วนลด (ไม่ใช่ราคาต่อหน่วย) ไม่ต้องใส่บรรทัดยอดรวม/ภาษี/ส่วนลดเป็นรายการแยก',
+    '- items[].discount: ส่วนลดของสินค้าชิ้นนั้น เป็นยอดบวก เช่นบรรทัด "ส่วนลด -8" หรือโปร/คูปองที่อยู่ใต้สินค้าหรือระบุชื่อสินค้า (ส่วนลด % ให้คำนวณเป็นบาท) · items[].discount_note: ชื่อส่วนลด/โปรตามที่เขียน ไม่มีให้ ""',
     '- pay: วิธีจ่าย เลือกจาก "เงินสด","โอน","QR/พร้อมเพย์","บัตรเครดิต","บัตรเดบิต","" · สลิปโอน = "โอน"',
     '- payer / payee / bank / ref: สำหรับสลิป (ชื่อผู้โอน ผู้รับ ธนาคาร เลขอ้างอิง)',
     '- tax_id: เลขประจำตัวผู้เสียภาษีของผู้ขาย 13 หลักถ้ามี',
@@ -63,7 +64,7 @@ function aiRead_(file, ctx) {
       date: S('STRING'), time: S('STRING'), amount: S('NUMBER'), vendor: S('STRING'), desc: S('STRING'),
       vat: S('STRING', { enum: ['yes', 'no', 'unknown'] }), vat_amount: S('NUMBER'), prices_include_vat: S('BOOLEAN'),
       service_charge: S('NUMBER'), discount: S('NUMBER'),
-      items: S('ARRAY', { items: S('OBJECT', { properties: { name: S('STRING'), qty: S('NUMBER'), price: S('NUMBER') }, required: ['name', 'price'] }) }),
+      items: S('ARRAY', { items: S('OBJECT', { properties: { name: S('STRING'), qty: S('NUMBER'), price: S('NUMBER'), discount: S('NUMBER'), discount_note: S('STRING') }, required: ['name', 'price'] }) }),
       pay: S('STRING'), memo: S('STRING'), payer: S('STRING'), payee: S('STRING'), bank: S('STRING'), ref: S('STRING'), tax_id: S('STRING'),
       cat: S('STRING'), confidence: S('NUMBER'),
     },
@@ -114,14 +115,20 @@ function aiNormalize_(j, cats, model) {
   const vat = j.vat === 'yes' || kind === 'taxinv' ? 'yes' : j.vat === 'no' ? 'no' : '';
   let vatAmt = n(j.vat_amount);
   if (vat === 'yes' && !vatAmt && amount) vatAmt = Math.round(amount * 7 / 107 * 100) / 100;
-  const items = (Array.isArray(j.items) ? j.items : []).map(it => ({ name: String(it.name || '').trim().slice(0, 60), qty: n(it.qty) || 1, price: n(it.price) }))
-    .filter(it => it.name && it.price).slice(0, 60);
+  const items = (Array.isArray(j.items) ? j.items : []).map(it => {
+    const price = n(it.price), disc = Math.min(n(it.discount), price);
+    return { name: String(it.name || '').trim().slice(0, 60), qty: n(it.qty) || 1, price: price, disc: disc, discNote: String(it.discount_note || '').trim().slice(0, 40) };
+  }).filter(it => it.name && it.price).slice(0, 60);
+  // AI ใส่ส่วนลดซ้ำทั้งที่สินค้าและท้ายบิล → ตัดของท้ายบิลออก
+  const itemDisc = items.reduce((s, it) => s + it.disc, 0);
+  let billDisc = n(j.discount);
+  if (itemDisc && billDisc && Math.abs(billDisc - itemDisc) < 0.5) billDisc = 0;
   const cat = cats.length && cats.indexOf(String(j.cat || '')) > -1 ? String(j.cat) : '';
   return {
     via: 'ai', model: model, kind: kind, docType: docType, date: date, time: String(j.time || '').slice(0, 5),
     amount: amount ? String(amount) : '', vendor: String(j.vendor || '').trim().slice(0, 80), desc: String(j.desc || '').trim().slice(0, 60),
     vat: vat, vatAmt: vatAmt ? String(vatAmt) : '', pricesIncVat: j.prices_include_vat !== false,
-    service: n(j.service_charge), discount: n(j.discount), items: items,
+    service: n(j.service_charge), discount: billDisc, items: items,
     memo: String(j.memo || '').trim().slice(0, 120), pay: String(j.pay || ''), payer: String(j.payer || '').slice(0, 80), payee: String(j.payee || '').slice(0, 80), bank: String(j.bank || '').slice(0, 40), ref: String(j.ref || '').slice(0, 40),
     taxId: String(j.tax_id || '').replace(/\D/g, '').slice(0, 13), cat: cat, confidence: Math.max(0, Math.min(1, Number(j.confidence) || 0)),
   };
