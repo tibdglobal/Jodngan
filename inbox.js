@@ -60,6 +60,13 @@ function textHtml(t) {
     .replace(/(^|\s)#(\S+)/g, '$1<span class="in-tag">#$2</span>');
 }
 
+/** ข้อความคล้ายรหัส/คีย์: มีคำว่า api key / password / token / secret / รหัสผ่าน หรือมีสายอักขระสุ่มยาว (ตัวเล็ก+ใหญ่+เลข ≥ 24 ตัว) */
+function looksSecret(t) {
+  t = String(t || '');
+  if (/\b(api[\s_-]?key|secret|token|passw(or)?d|md5[\s_-]?key|private[\s_-]?key|client[\s_-]?secret)\b|รหัสผ่าน|พาสเวิร์ด/i.test(t)) return true;
+  return (t.match(/[A-Za-z0-9+/_=-]{24,}/g) || []).some(w => /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w) && !/^https?/.test(w));
+}
+
 function render() {
   const counts = { '': items.length };
   items.forEach(o => { counts[o.kind] = (counts[o.kind] || 0) + 1; });
@@ -81,8 +88,9 @@ function render() {
       : o.file ? `<a class="in-pic-big none" href="${esc(o.file.url)}" target="_blank" rel="noopener">🖼 เปิดรูป</a>` : '';
     const link = o.url ? `<a class="in-link" href="${esc(o.url)}" target="_blank" rel="noopener"><b>${esc(o.title || host(o.url) || o.url)}</b><small>🔗 ${esc(host(o.url))}</small></a>` : '';
     const body = rest ? `<p class="in-text">${textHtml(rest)}</p>` : '';
+    const warn = looksSecret(o.text) ? `<div class="in-warn"><span>🔒 มีข้อความคล้ายรหัส/คีย์ กล่องฝากไม่ได้เข้ารหัส</span><button class="mini" data-act="vault">ย้ายไปตู้รหัส</button></div>` : '';
     return `<article class="in-card" data-id="${o.id}">
-      ${pic}${link}${body}
+      ${warn}${pic}${link}${body}
       <footer><small>${when(o.created)}</small><span class="spacer"></span>
         <button class="mini" data-act="task" title="ย้ายเป็นงาน">✓ ทำเป็นงาน</button>
         <button class="mini ghost" data-act="edit" aria-label="แก้ไข">✏️</button>
@@ -142,6 +150,11 @@ $('#iList').addEventListener('click', e => {
   if (!o) return;
   if (b.dataset.act === 'edit') openEdit(o);
   if (b.dataset.act === 'task') toTask(o);
+  if (b.dataset.act === 'vault') {
+    const name = (String(o.title || o.text || '').split('\n').map(x => x.trim()).find(Boolean) || 'จากกล่องฝาก').replace(/[:：].*$/, '').slice(0, 60) || 'จากกล่องฝาก';
+    try { sessionStorage.setItem('vaultFromInbox', JSON.stringify({ id: o.id, name, text: String(o.text || '') })); } catch (err) { return showStatus('ส่งต่อไม่ได้ในเบราว์เซอร์นี้'); }
+    location.href = 'vault.html';
+  }
 });
 
 async function toTask(o) {
@@ -194,6 +207,7 @@ $('#iDlg').addEventListener('click', e => { if (e.target === $('#iDlg')) $('#iDl
   const p = new URLSearchParams(location.search);
   const t = [p.get('title'), p.get('text'), p.get('url')].filter(Boolean).join(' ').trim();
   if (t) { $('#iInput').value = t; history.replaceState(null, '', location.pathname); }
+  if (p.get('q')) { q = p.get('q'); $('#iSearch').value = q; history.replaceState(null, '', location.pathname); render(); }
 })();
 
 $('#btnSync').addEventListener('click', sync);

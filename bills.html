@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=61">
+  <link rel="stylesheet" href="style.css?v=62">
 </head>
 <body class="bills">
   <header class="top">
@@ -49,23 +49,24 @@
       <span><b>ถ่ายรูป / แนบใบเสร็จ</b><small>อ่านวันที่ ยอดเงิน ชื่อร้านให้อัตโนมัติ</small></span>
     </button>
 
-    <div class="b-tiles four" id="tiles">
-      <button class="b-tile" data-st="draft"><span class="lbl">📝 ขาดหลักฐาน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+    <div class="b-tiles four slim" id="tiles">
+      <button class="b-tile" data-st="draft" title="ขาดหลักฐาน"><span class="lbl">📝 ขาดใบ</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
       <button class="b-tile" data-st="ready"><span class="lbl">📎 พร้อมเบิก</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-      <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอเงินคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
-      <button class="b-tile" data-st="paid"><span class="lbl">✅ ได้เงินคืนแล้ว</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="submitted"><span class="lbl">📤 รอคืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
+      <button class="b-tile" data-st="paid" title="ได้เงินคืนแล้ว"><span class="lbl">✅ ได้คืน</span><b class="amt">฿0</b><span class="cnt">0 รายการ</span></button>
     </div>
 
-    <div class="h-links">
-      <button class="h-link" id="goClaim" hidden><span>📤 สร้างใบเบิก</span><small id="goClaimN"></small><b>›</b></button>
-      <button class="h-link" id="goFiles"><span>🗂 คลังหลักฐาน</span><small id="goFilesN">รูปใบเสร็จ ใบกำกับภาษี สลิป ของเดือนนี้</small><b>›</b></button>
-      <button class="h-link" id="goSum"><span>📊 สรุปและดูย้อนหลัง</span><small>ยอดรวม · กราฟ 12 เดือน · แยกหมวด</small><b>›</b></button>
+    <div class="h-links row">
+      <button class="h-link" id="goClaim" hidden><span>📤 ทำใบเบิก</span><small id="goClaimN"></small><b>›</b></button>
+      <button class="h-link" id="goFiles"><span>🗂 หลักฐาน</span><small id="goFilesN">รูปใบเสร็จ ใบกำกับภาษี สลิป ของเดือนนี้</small><b>›</b></button>
+      <button class="h-link" id="goSum"><span>📊 สรุป</span><small>ยอดรวม · กราฟ 12 เดือน · แยกหมวด</small><b>›</b></button>
     </div>
 
     <section class="group">
       <h3 class="h-recent"><span>ล่าสุดเดือนนี้</span><button class="link-btn" id="goAll">ดูทั้งหมด ›</button></h3>
       <div id="hRecent"></div>
     </section>
+
   </section>
 
   <!-- ===== หน้าย่อย: รายการตามสถานะ ===== -->
@@ -247,6 +248,7 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="bills.js?v=61"></script>
+  <script src="hub.js?v=62"></script>
+  <script src="bills.js?v=62"></script>
 </body>
 </html>

@@ -208,7 +208,9 @@ function renderChips() {
 
   const openAll = tasks.filter(x => x.done !== '1').length;
   const openNone = tasks.filter(x => x.done !== '1' && !x.project).length;
-  const items = [['ทั้งหมด', '', openAll], ...list.map(p => ['#' + p.name, p.name, p.open])];
+  // ซ่อนโปรเจ็คที่ไม่มีงานค้าง (ยกเว้นอันที่เลือกอยู่) · เรียงตามจำนวนงานค้างอยู่แล้ว
+  const shown = list.filter(p => p.open > 0 || same(filter, p.name));
+  const items = [['ทั้งหมด', '', openAll], ...shown.map(p => ['#' + p.name, p.name, p.open])];
   if (openNone) items.push(['ไม่มีโปรเจ็ค', NONE, openNone]);
 
   for (const [label, value, n] of items) {
@@ -226,11 +228,12 @@ function renderChips() {
 
 function render() {
   renderChips();
+  if (window.hubToday) hubToday();
   const t = today(), tmr = addDays(t, 1);
   const view = !filter ? tasks
     : filter === NONE ? tasks.filter(x => !x.project)
     : tasks.filter(x => same(x.project, filter));
-  $('#btnView').textContent = mode === 'cal' ? '☰' : '📅';
+  $('#btnView').innerHTML = mode === 'cal' ? '<b>☰</b><small>รายการ</small>' : '<b>📅</b><small>ปฏิทิน</small>';
   $('#btnView').title = mode === 'cal' ? 'ดูแบบรายการ' : 'ดูแบบปฏิทิน';
   if (query) { renderSearch(view, t); return; }
   if (mode === 'cal') { renderCal(view, t); return; }
@@ -262,6 +265,12 @@ function render() {
     const sec = document.createElement('section');
     sec.className = 'group ' + cls;
     sec.innerHTML = `<h3>${name} · ${items.length}</h3><div class="items"></div>`;
+    if (cls === 'overdue' && items.length > 1) {
+      const h = sec.querySelector('h3'), b = document.createElement('button');
+      b.type = 'button'; b.className = 'resched-all'; b.textContent = 'เลื่อนทั้งหมด → พรุ่งนี้';
+      b.onclick = () => { if (confirm(`เลื่อนงานที่เลยกำหนดทั้ง ${items.length} งานไปพรุ่งนี้?`)) reschedule(items, addDays(today(), 1)); };
+      h.append(b);
+    }
     const box = sec.querySelector('.items');
     for (const task of items) box.appendChild(row(task, t));
     list.appendChild(sec);
@@ -286,6 +295,7 @@ function renderSearch(view, t) {
   if (hits.length) hits.slice(0, 100).forEach(x => box.appendChild(row(x, t)));
   else box.innerHTML = '<p class="day-empty">ไม่พบงานที่ตรงกับคำค้น</p>';
   list.appendChild(sec);
+  if (window.hubSearch) list.insertAdjacentHTML('beforeend', hubSearch(query));   // ค้นหาข้ามหมวด
 
   // ไฮไลต์คำที่ค้นในชื่องาน
   box.querySelectorAll('.title').forEach(el => {
@@ -535,18 +545,46 @@ function row(task, t) {
   const m = body.querySelector('.meta');
   m.textContent = meta.join(' · ');
   if (!meta.length) m.remove();
-  body.onclick = () => openEdit(task);
+  body.onclick = () => openEdit(task);   // กดที่ตัวงาน = แก้ไข
+  body.setAttribute('aria-label', 'แก้ไข ' + task.title);
+  el.append(chk, body);
 
-  // ปุ่มแก้ไขที่เห็นชัด กดง่าย
-  const editBtn = document.createElement('button');
-  editBtn.className = 'edit-btn';
-  editBtn.type = 'button';
-  editBtn.setAttribute('aria-label', 'แก้ไข ' + task.title);
-  editBtn.innerHTML = '<span aria-hidden="true">✏️</span><span class="edit-txt">แก้ไข</span>';
-  editBtn.onclick = () => openEdit(task);
-
-  el.append(chk, body, editBtn);
+  // เลยกำหนด → ปุ่มเลื่อนเร็วในแถว ไม่ต้องเปิดแก้ทีละงาน
+  if (late) {
+    el.classList.add('late');
+    const rs = document.createElement('div');
+    rs.className = 'resched';
+    rs.innerHTML = RESCHED.map((r, i) => `<button type="button" data-r="${i}">${r[0]}</button>`).join('')
+      + '<button type="button" class="rs-x" data-x>✕ ยกเลิก</button>';
+    rs.onclick = e => {
+      const b = e.target.closest('[data-r]');
+      if (b) return reschedule([task], RESCHED[b.dataset.r][1]());
+      if (e.target.closest('[data-x]') && confirm(`ยกเลิกงาน "${task.title}"?\nงานจะถูกลบออกจากรายการ`)) save('delete', { id: task.id });
+    };
+    el.append(rs);
+  }
   return el;
+}
+
+/* ---------- เลื่อนงานเร็ว ---------- */
+const nextMonday = () => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return ymd(d); };
+const RESCHED = [
+  ['วันนี้', () => today()],
+  ['พรุ่งนี้', () => addDays(today(), 1)],
+  ['จ.หน้า', nextMonday],
+  ['ไม่ระบุ', () => ''],
+];
+/** เลื่อนหลายงานพร้อมกัน: แก้ในเครื่องทันที แล้วส่งขึ้นระบบทีละงาน */
+async function reschedule(list, date) {
+  const patch = x => date ? { id: x.id, date, due: '', dep: '' } : { id: x.id, date: '', time: '', due: '', dep: '', remind: '' };
+  const patches = list.map(patch);
+  for (const p of patches) { const i = tasks.findIndex(t => t.id === p.id); if (i > -1) tasks[i] = { ...tasks[i], ...p }; }
+  LS.set('tasks', tasks);
+  render();
+  showStatus(`กำลังเลื่อน ${patches.length} งาน…`);
+  let fail = 0;
+  for (const p of patches) { try { await api('update', { task: p }); } catch (e) { fail++; } }
+  showStatus(fail ? `เลื่อนขึ้นระบบไม่สำเร็จ ${fail} งาน (กด ⟳ เพื่อลองใหม่)` : '');
 }
 
 /* ชื่องานที่มีอยู่ ให้เลือกได้ตอนพิมพ์ "ก่อนงาน…" (พิมพ์ชื่อใหม่เองก็ได้) */

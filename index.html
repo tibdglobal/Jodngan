@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=61">
+  <link rel="stylesheet" href="style.css?v=62">
 </head>
 <body class="tasks">
   <header class="top">
@@ -25,9 +25,9 @@
       <p id="quota" class="quota" hidden></p>
     </div>
     <div class="top-actions">
-      <button id="btnMeet" class="icon-btn" title="ดึงประชุมจาก Calendar" aria-label="ดึงประชุม">👥</button>
-      <button id="btnView" class="icon-btn" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง">📅</button>
-      <button id="btnSettings" class="icon-btn" title="ตั้งค่า" aria-label="ตั้งค่า">⚙</button>
+      <button id="btnMeet" class="icon-btn lab" title="ประชุมจาก Calendar และงานจากคลังรายงานการประชุม" aria-label="ประชุม"><b>👥</b><small>ประชุม</small></button>
+      <button id="btnView" class="icon-btn lab" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง"><b>📅</b><small>ปฏิทิน</small></button>
+      <button id="btnSettings" class="icon-btn lab" title="ตั้งค่า" aria-label="ตั้งค่า"><b>⚙</b><small>ตั้งค่า</small></button>
     </div>
   </header>
 
@@ -39,7 +39,7 @@
   <nav id="chips" class="chips" aria-label="กรองตามโปรเจ็ค"></nav>
 
   <div class="search">
-    <input id="searchInput" type="search" placeholder="🔍 ค้นหางาน โน้ต หรือโปรเจ็ค" enterkeyhint="search" aria-label="ค้นหา">
+    <input id="searchInput" type="search" placeholder="🔍 ค้นหาทุกอย่าง: งาน ฝาก บิล รายรับรายจ่าย" enterkeyhint="search" aria-label="ค้นหา">
   </div>
 
   <div id="status" class="status" hidden></div>
@@ -111,7 +111,7 @@
   <!-- ดึงประชุมจาก Google Calendar -->
   <dialog id="meetDlg">
     <form id="meetForm" method="dialog">
-      <h2 tabindex="-1" autofocus>ประชุมจาก Calendar</h2>
+      <div class="meet-tabs"><h2 class="on" tabindex="-1" autofocus>📅 นัดจาก Calendar</h2><button type="button" id="btnMeetArc">📋 งานจากคลังรายงาน</button></div>
       <p class="hint">14 วันข้างหน้า ติ๊กอันที่จะเข้า แล้วจะเพิ่มเป็นงานพร้อมเตือนทาง LINE</p>
       <div id="meetList" class="meet-list"></div>
       <label>ใส่โปรเจ็ค (ไม่บังคับ)
@@ -158,7 +158,8 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="app.js?v=61"></script>
-  <script src="meet.js?v=61"></script>
+  <script src="hub.js?v=62"></script>
+  <script src="app.js?v=62"></script>
+  <script src="meet.js?v=62"></script>
 </body>
 </html>

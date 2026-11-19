@@ -20,11 +20,8 @@
     </div>
   </dialog>`);
 
-  const btn = document.createElement('button');
-  btn.className = 'icon-btn'; btn.id = 'btnMeetArc'; btn.title = 'งานจากคลังรายงานการประชุม'; btn.setAttribute('aria-label', btn.title);
-  btn.textContent = '📋';
-  $('#btnMeet').after(btn);
-  btn.addEventListener('click', () => { $('#mtDlg').showModal(); draw(); load(); });
+  // เปิดจากปุ่ม 👥 ประชุม → แท็บ "📋 งานจากคลังรายงาน"
+  $('#btnMeetArc').addEventListener('click', () => { $('#meetDlg').close(); $('#mtDlg').showModal(); draw(); load(); });
   $('#mtClose').addEventListener('click', () => $('#mtDlg').close());
   $('#mtReload').addEventListener('click', () => load(true));
 

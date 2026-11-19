@@ -155,6 +155,34 @@ async function decryptAll() {
   items = out;
   if (bad) showStatus(`ถอดรหัสไม่ได้ ${bad} รายการ`);
   render();
+  setTimeout(takeFromInbox, 300);
+}
+
+/* 🔒 รับโน้ตที่มีรหัส/คีย์ จากกล่องฝาก (ส่งมาทาง sessionStorage ในเครื่องเดียวกัน ไม่ผ่านเน็ต)
+   → เก็บเป็น 1 รายการ (ข้อความทั้งหมดอยู่ในช่องโน้ต) แล้วถามว่าจะลบโน้ตต้นทางไหม */
+let taking = false;
+async function takeFromInbox() {
+  let src = null;
+  try { src = JSON.parse(sessionStorage.getItem('vaultFromInbox') || 'null'); } catch (e) {}
+  if (!src || !key || taking) return;
+  if (!confirm(`เก็บโน้ต "${src.name}" จากกล่องฝากเข้า${SPACE_NAME[space]}?\n(ข้อความทั้งหมดจะอยู่ในช่องโน้ต แก้ชื่อ/แยกช่องทีหลังได้)`)) {
+    sessionStorage.removeItem('vaultFromInbox'); return;
+  }
+  taking = true;
+  try {
+    const data = { name: src.name, cat: '🔖 อื่นๆ', user: '', pass: '', url: '', note: src.text };
+    const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9]/g, '');
+    const sealed = { id, ...(await encryptJSON(key, data)) };
+    await api('vault_save_many', { items: [sealed] });
+    vault.items.push(sealed); items.push({ id, ...data }); render();
+    sessionStorage.removeItem('vaultFromInbox');
+    if (confirm('เก็บเข้าตู้แล้ว ✓\nลบโน้ตต้นทางในกล่องฝากเลยไหม? (แนะนำ เพราะโน้ตในกล่องฝากไม่ได้เข้ารหัส)')) {
+      await api('inbox_delete', { id: src.id });
+      try { const c = JSON.parse(localStorage.getItem('inbox') || '[]'); localStorage.setItem('inbox', JSON.stringify(c.filter(o => o.id !== src.id))); } catch (e) {}
+      showStatus('✓ ย้ายเข้าตู้และลบโน้ตต้นทางแล้ว', true); setTimeout(() => showStatus(''), 4000);
+    }
+  } catch (e) { showStatus('ย้ายเข้าตู้ไม่สำเร็จ: ' + e.message); }
+  finally { taking = false; }
 }
 
 /* ตั้งรหัสหลักครั้งแรก */
