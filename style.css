@@ -1574,6 +1574,13 @@ dialog.full .m-wrap { flex: 1; min-height: 0; }
 .sp-hist-h h2 { margin: 0; font-size: 17px; }
 .sp-hist-h h2 small { font-weight: 400; color: var(--muted); font-size: 13px; }
 .sp-hist-h input { flex: 1 1 180px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; }
-.s-pick { width: 100%; margin: 8px 0 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--accent-line); background: var(--card); color: var(--text); font: inherit; }
-.s-pick[hidden] { display: none; }
+.s-pick { display: grid; gap: 6px; margin: 8px 0 6px; }
+.s-pick:empty { display: none; }
+.pk-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pk-l { flex: none; width: 64px; font-size: 12px; color: var(--muted); }
+.pk-c, .pk-all { display: flex; gap: 6px; min-width: 0; }
+.pk-c { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.pk-all { flex-wrap: wrap; padding-left: 72px; }
+.s-pick button { flex: none; padding: 6px 12px; border-radius: 999px; border: 1px dashed var(--accent-line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; white-space: nowrap; }
+.s-pick .pk-more { justify-self: start; margin-left: 72px; border-style: solid; color: var(--accent); }
 #sPeople .me { font-weight: 600; }

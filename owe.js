@@ -315,15 +315,45 @@ function setMyName() {
   rerender();
   if (typeof paintDetail === 'function' && $('#dDlg') && $('#dDlg').open) paintDetail();
 }
-/** ดรอปดาวน์ชื่อที่เคยกรอก (เฉพาะคนที่ยังไม่อยู่ในบิลนี้) */
-function paintPick() {
-  const sel = $('#sPickP');
-  if (!sel) return;
-  const rest = peopleAll().filter(p => !sp.people.includes(p) && p !== myName());
-  sel.innerHTML = `<option value="">👥 เลือกจากชื่อที่เคยใส่ (${rest.length})</option>` + rest.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-  sel.hidden = !rest.length;
+/** ชื่อที่เคยใส่: นับจากบิลหาร + รายการค้างกัน → { name, n (ใช้กี่ครั้ง), last (วันล่าสุด) } */
+function peopleStats() {
+  const m = {};
+  owe.forEach(d => {
+    const names = d.kind === 'debt' ? [d.person] : (d.people || []);
+    const dt = String(d.date || d.created || '');
+    names.forEach(p => {
+      if (!p || p === ME || p === myName()) return;
+      const s = m[p] || (m[p] = { name: p, n: 0, last: '' });
+      s.n++; if (dt > s.last) s.last = dt;
+    });
+  });
+  return Object.values(m);
 }
-if ($('#sPickP')) $('#sPickP').addEventListener('change', e => { if (e.target.value) addPerson(e.target.value); });
+let pickMore = false;
+/** ตัวเลือกชื่อ 2 บรรทัด: ⭐ ใช้บ่อย / 🕘 ล่าสุด · ที่เหลืออยู่ใน "＋ ดูเพิ่มเติม" */
+function paintPick() {
+  const box = $('#sPick');
+  if (!box) return;
+  const stats = peopleStats().filter(s => !sp.people.includes(s.name));
+  const PER = 3;   // ต่อบรรทัด (จอมือถือแสดงครบไม่ล้น)
+  const freq = stats.slice().sort((x, y) => y.n - x.n || y.last.localeCompare(x.last)).slice(0, PER);
+  const used = new Set(freq.map(s => s.name));
+  const recent = stats.filter(s => !used.has(s.name)).sort((x, y) => y.last.localeCompare(x.last) || y.n - x.n).slice(0, PER);
+  recent.forEach(s => used.add(s.name));
+  const rest = stats.filter(s => !used.has(s.name)).sort((x, y) => x.name.localeCompare(y.name, 'th'));
+  const chip = s => `<button type="button" data-add="${esc(s.name)}">＋ ${esc(s.name)}</button>`;
+  const row = (label, list) => list.length ? `<div class="pk-row"><span class="pk-l">${label}</span><div class="pk-c">${list.map(chip).join('')}</div></div>` : '';
+  box.innerHTML = !stats.length ? '' :
+    row('⭐ ใช้บ่อย', freq) + row('🕘 ล่าสุด', recent) +
+    (rest.length ? `<button type="button" class="pk-more" data-more>${pickMore ? '▴ ซ่อน' : `＋ ดูเพิ่มเติม (${rest.length})`}</button>` +
+      (pickMore ? `<div class="pk-all">${rest.map(chip).join('')}</div>` : '') : '');
+}
+if ($('#sPick')) $('#sPick').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.more !== undefined) { pickMore = !pickMore; paintPick(); return; }
+  if (b.dataset.add) addPerson(b.dataset.add);
+});
 function addPerson(n) {
   n = String(n || '').trim();
   $('#sNewP').value = '';
