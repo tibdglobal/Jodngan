@@ -45,11 +45,17 @@
     gear: sv('<path d="M4 7.5h8.5M17.5 7.5H20M4 16.5h2.5M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.4"/><circle cx="9" cy="16.5" r="2.4"/>'),
     moon: sv('<path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7Z"/>'),
     text: sv('<path d="M4 18 8.5 6h1L14 18M5.6 14h6.8"/><path d="M15 18l2.8-7.5h.4L21 18M15.9 15.6h4.2"/>'),
+    grid: sv('<path d="M6 6h.01M12 6h.01M18 6h.01M6 12h.01M12 12h.01M18 12h.01M6 18h.01M12 18h.01M18 18h.01" stroke-width="2.6"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
+
+  /* ---------- 🗒 ลายพื้นหลัง (LS bgStyle: dots | lines | plain) ---------- */
+  const applyBg = v => { document.body.dataset.bg = v || 'dots'; };
+  window.hubBg = { get: () => get('bgStyle', 'dots'), set: v => { put('bgStyle', v); applyBg(v); } };
+  applyBg(get('bgStyle', 'dots'));
 
   /* ---------- 🔠 ขนาดตัวอักษร (LS fontScale 1 | 1.1 | 1.2) ---------- */
   const applyScale = v => { document.body.style.zoom = v && v !== 1 ? String(v) : ''; };

@@ -876,6 +876,13 @@ const setDlg = $('#setDlg'), setForm = $('#setForm');
   paint();
   $('#btnTheme').onclick = e => { e.stopPropagation(); if (!window.hubTheme) return; hubTheme.set(NEXT[hubTheme.get()]); paint(); };
 })();
+/* 🗒 ลายพื้นหลัง */
+(() => {
+  const N = { dots: 'ลายจุด', lines: 'เส้นบรรทัด', plain: 'เรียบ' }, NX = { dots: 'lines', lines: 'plain', plain: 'dots' };
+  const paint = () => { if (window.hubBg) $('#bgName').textContent = N[hubBg.get()] || N.dots; };
+  paint();
+  $('#btnBg').onclick = e => { e.stopPropagation(); if (!window.hubBg) return; hubBg.set(NX[hubBg.get()] || 'dots'); paint(); };
+})();
 /* 🔠 ขนาดตัวอักษร */
 (() => {
   const L = [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']];

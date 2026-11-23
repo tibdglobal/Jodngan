@@ -2126,3 +2126,27 @@ dialog::backdrop { background: rgba(10, 12, 14, .45); -webkit-backdrop-filter: n
 .s-card h3 small, .ov-card h3 small { font-size: 13px; }
 .group h3 { font-size: 15px; }
 .item .meta, .hint { font-size: 13px; }
+
+/* ======================================================================
+   🗒 พื้นหลังแบบสมุด (LS bgStyle: dots | lines | plain · ตั้งในเมนู ⋯)
+   กระดาษเทาอมสีหมวดจางๆ + ลายจุด/เส้นบรรทัดบางมาก ติดจอ ไม่เลื่อนตาม
+   ====================================================================== */
+body {
+  --paper: color-mix(in srgb, var(--accent) 4%, var(--bg));
+  --mark: color-mix(in srgb, var(--text) 13%, transparent);
+  background: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  body { --paper: color-mix(in srgb, var(--accent) 5%, var(--bg)); --mark: color-mix(in srgb, var(--text) 9%, transparent); }
+}
+body[data-bg]::before {
+  content: ""; display: block; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-color: var(--paper);
+}
+body[data-bg="dots"]::before {
+  background-image: radial-gradient(circle at 1px 1px, var(--mark) 1.1px, transparent 1.4px);
+  background-size: 22px 22px; background-position: 11px 11px;
+}
+body[data-bg="lines"]::before {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--mark) 27px 28px);
+}
