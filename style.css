@@ -1977,3 +1977,56 @@ a.icon-btn.lab { text-decoration: none; color: inherit; }
 .ov-rows.st li.st-warn b { color: #c2410c; }
 .st-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 a.btn-link { display: block; text-align: center; text-decoration: none; color: inherit; }
+
+/* ======================================================================
+   🎨 ไอคอนเส้น + เมนู ⋯ + สีประจำหน้าใหม่ (ภาพรวม / สถานะ)
+   ====================================================================== */
+:root { --ink-month: #1d5e86; --ink-status: #4a5a6e; }
+@media (prefers-color-scheme: dark) { :root { --ink-month: #86c2ea; --ink-status: #b3c1d3; } }
+body.month { --accent: var(--ink-month); }
+body.sysstat { --accent: var(--ink-status); }
+
+.tabbar a span.ico { font-size: 0; filter: none; opacity: 1; color: var(--muted); }
+.tabbar a span.ico svg { width: 22px; height: 22px; }
+.tabbar a[aria-current="page"] span.ico { color: var(--c); }
+.tabbar a[aria-current="page"] span.ico svg { stroke-width: 2.1; }
+.icon-btn.lab b svg { width: 21px; height: 21px; display: block; color: var(--text); }
+.icon-btn.lab:hover b svg, .icon-btn.lab[aria-expanded="true"] b svg { color: var(--accent); }
+
+.more-wrap { position: relative; }
+.more-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 50; min-width: 248px;
+  background: var(--raised); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-3); padding: 6px; display: flex; flex-direction: column;
+  transform-origin: top right; animation: moreIn .14s ease-out;
+}
+.more-menu[hidden] { display: none; }
+@keyframes moreIn { from { opacity: 0; transform: scale(.96) translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .more-menu { animation: none; } }
+.more-menu a, .more-menu button {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 10px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--text); font: inherit; font-size: 15px; text-align: left; text-decoration: none; min-height: var(--tap);
+}
+.more-menu a:hover, .more-menu button:hover, .more-menu a:focus-visible, .more-menu button:focus-visible { background: var(--accent-soft); outline: none; }
+.more-menu i { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 10px; background: var(--sunken); color: var(--accent); }
+.more-menu i svg { width: 20px; height: 20px; }
+.more-menu span { display: flex; flex-direction: column; line-height: 1.25; }
+.more-menu small { font-size: 12px; color: var(--muted); }
+.td-chip span.td-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; font-size: 0; background: color-mix(in srgb, var(--c, var(--ink-tasks)) 13%, var(--card)); color: var(--c, var(--ink-tasks)); }
+.td-chip span.td-ico svg { width: 20px; height: 20px; }
+.td-ico.td-meet { --c: var(--ink-month); }
+.td-ico.td-bills { --c: var(--ink-bills); }
+.td-ico.td-money { --c: var(--ink-money); }
+
+/* 🌙 โหมดมืด: เก็บสีของการ์ดใหม่ให้อ่านง่าย */
+.do-snap { color: var(--on-accent); }
+@media (prefers-color-scheme: dark) {
+  .bud-r.over b, .ov-bar.over b, .claim-age.late, .ov-rows.st li.st-bad b, .pw-warn { color: var(--danger); }
+  .ov-card h4.ov-sub.warn, .ov-rows li.warn b, .trend-v small.up, .ov-rows.st li.st-warn b { color: var(--warn); }
+  .bud-r.over i em, .ov-bar.over i em, .pw-meter.s1 i::after { background: var(--danger); }
+  .bud-r.near i em, .ov-bar.near i em { background: var(--warn); }
+  .pw-warn { background: color-mix(in srgb, var(--danger) 18%, var(--card)); }
+  .goal-bar em { background: linear-gradient(90deg, #f9a8d4, #ec4899); }
+  .spark i { background: color-mix(in srgb, var(--out) 30%, var(--card)); }
+  .more-menu { background: var(--raised); }
+}

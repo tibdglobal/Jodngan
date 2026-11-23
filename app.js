@@ -265,7 +265,7 @@ function render() {
   const view = !filter ? tasks
     : filter === NONE ? tasks.filter(x => !x.project)
     : tasks.filter(x => same(x.project, filter));
-  $('#btnView').innerHTML = mode === 'cal' ? '<b>☰</b><small>รายการ</small>' : '<b>📅</b><small>ปฏิทิน</small>';
+  $('#btnView').innerHTML = mode === 'cal' ? `<b>${window.ICO ? ICO.list : '☰'}</b><small>รายการ</small>` : `<b>${window.ICO ? ICO.cal : '📅'}</b><small>ปฏิทิน</small>`;
   $('#btnView').title = mode === 'cal' ? 'ดูแบบรายการ' : 'ดูแบบปฏิทิน';
   if (query) { renderSearch(view, t); return; }
   if (mode === 'cal') { renderCal(view, t); return; }
@@ -863,6 +863,15 @@ $('#btnDelete').onclick = () => {
 
 /* ---------- ตั้งค่า ---------- */
 const setDlg = $('#setDlg'), setForm = $('#setForm');
+/* ⋯ เมนูเพิ่มเติม */
+(() => {
+  const btn = $('#btnMore'), menu = $('#moreMenu');
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.onclick = e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) menu.querySelector('a,button').focus(); };
+  document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { close(); btn.focus(); } });
+  menu.addEventListener('click', e => { if (e.target.closest('a,button')) close(); });
+})();
 $('#btnSettings').onclick = () => {
   setForm.elements.url.value = cfg.url;
   setForm.elements.key.value = '';

@@ -11,6 +11,26 @@
   const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
   const isApi = u => /script\.google(usercontent)?\.com\/macros\/|x\.test\/exec/.test(String(u && u.url || u || ''));
 
+  /* ---------- 🎨 ไอคอนเส้นชุดเดียวทั้งแอป (แทนอีโมจิในแถบล่าง/ปุ่มหัวหน้า) ---------- */
+  const sv = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICO = window.ICO = {
+    tasks: sv('<circle cx="12" cy="12" r="8.5"/><path d="m8.4 12.3 2.6 2.6 4.8-5.2"/>'),
+    inbox: sv('<path d="M4 13.5h4.2l1.4 2.4h4.8l1.4-2.4H20"/><path d="M6.3 5.5h11.4l2.3 8v4.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18v-4.5z"/>'),
+    money: sv('<path d="M5 7.5h13.5A1.5 1.5 0 0 1 20 9v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V6.5A1.5 1.5 0 0 1 5.5 5H16"/><path d="M20 11.5h-3.5a1.8 1.8 0 0 0 0 3.6H20"/>'),
+    bills: sv('<path d="M6.5 3.5h11v17l-2.75-1.6L12 20.5l-2.75-1.6L6.5 20.5z"/><path d="M9.5 8h5M9.5 11.5h5M9.5 15h3"/>'),
+    vault: sv('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5"/><path d="M12 14.4v2.2"/>'),
+    users: sv('<circle cx="9" cy="8.5" r="3.1"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M15.3 5.7a3.1 3.1 0 0 1 0 5.7"/><path d="M17.3 13.9A5.4 5.4 0 0 1 20.4 19"/>'),
+    cal: sv('<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
+    list: sv('<path d="M9.5 7h10M9.5 12h10M9.5 17h10"/><path d="M5 7h.01M5 12h.01M5 17h.01" stroke-width="2.6"/>'),
+    more: sv('<path d="M5.5 12h.01M12 12h.01M18.5 12h.01" stroke-width="3"/>'),
+    chart: sv('<path d="M4 20h16"/><path d="M7.5 16.5v-5M12 16.5v-9M16.5 16.5v-7"/>'),
+    gear: sv('<path d="M4 7.5h8.5M17.5 7.5H20M4 16.5h2.5M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.4"/><circle cx="9" cy="16.5" r="2.4"/>'),
+    pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
+  };
+  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
+  document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
+  document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
+
   /* ---------- 1) ป้ายสถานะซิงก์ ---------- */
   let inflight = 0, lastOk = get('hubLastSync', 0), lastErr = '';
   const host = document.querySelector('header.top > div:first-child');
@@ -174,23 +194,23 @@
     const spent = todayM.filter(x => (x.type || 'out') === 'out').reduce((s, x) => s + Number(x.amount || 0), 0);
 
     const K = {
-      tasks: { ico: '✓', main: `${dueL.length} งาน`, sub: lateL.length ? `เลยกำหนด ${lateL.length}` : 'ไม่มีงานค้าง', warn: lateL.length > 0,
+      tasks: { ico: ICO.tasks, main: `${dueL.length} งาน`, sub: lateL.length ? `เลยกำหนด ${lateL.length}` : 'ไม่มีงานค้าง', warn: lateL.length > 0,
         rows: [...lateL.map(x => [x.title, short(eff(x)), 'late']), ...dueL.map(x => [x.title, x.time || 'วันนี้', ''])],
         empty: 'วันนี้ไม่มีงานที่ต้องส่ง', go: ['ดูในรายการงาน', '#tasks'] },
-      meet: { ico: '📋', main: `${meet.length} งาน`, sub: 'ประชุม ภายใน 3 วัน', warn: meet.some(x => x.due < t),
+      meet: { ico: ICO.users, main: `${meet.length} งาน`, sub: 'ประชุมใน 3 วัน', warn: meet.some(x => x.due < t),
         rows: meet.map(x => [x.task, (x.due < t ? 'เลย ' : '') + short(x.due), x.due < t ? 'late' : '']),
         empty: 'ไม่มีงานจากประชุมที่ใกล้กำหนด', go: ['เปิดงานจากคลังรายงาน', '#meet'] },
     };
-    if (bills) K.bills = { ico: '🧾', main: ready.length ? baht(ready.reduce((s, b) => s + Number(b.amount || 0), 0)) : '0',
+    if (bills) K.bills = { ico: ICO.bills, main: ready.length ? baht(ready.reduce((s, b) => s + Number(b.amount || 0), 0)) : '0',
       sub: ready.length ? `รอส่งเบิก ${ready.length}` + (draft.length ? ` · ขาดใบ ${draft.length}` : '') : (draft.length ? `ขาดใบ ${draft.length}` : 'ไม่มีบิลค้าง'), warn: draft.length > 0,
       rows: [...draft.map(b => [b.desc || b.vendor || 'บิล', 'ขาดใบ · ' + baht(b.amount), 'late']), ...ready.map(b => [b.desc || b.vendor || 'บิล', baht(b.amount), ''])],
       empty: 'ไม่มีบิลค้างเบิก', go: ['ไปหน้าเบิก', 'bills.html'] };
-    if (money) K.money = { ico: '💰', main: baht(spent), sub: 'ใช้จ่ายวันนี้', warn: false,
+    if (money) K.money = { ico: ICO.money, main: baht(spent), sub: 'ใช้จ่ายวันนี้', warn: false,
       rows: todayM.map(x => [x.note || x.cat || (x.type === 'in' ? 'รายรับ' : 'รายจ่าย'), (x.type === 'in' ? '+' : '−') + baht(x.amount), x.type === 'in' ? 'in' : '']),
       empty: 'วันนี้ยังไม่ได้จดรายจ่าย', go: ['ไปหน้าเงิน', 'money.html'] };
     if (!K[openK]) openK = '';
 
-    const chip = k => { const c = K[k]; return `<button type="button" class="td-chip${c.warn ? ' warn' : ''}${openK === k ? ' on' : ''}" data-k="${k}" aria-expanded="${openK === k}"><span>${c.ico}</span><b>${c.main}</b><small>${esc(c.sub)}</small></button>`; };
+    const chip = k => { const c = K[k]; return `<button type="button" class="td-chip${c.warn ? ' warn' : ''}${openK === k ? ' on' : ''}" data-k="${k}" aria-expanded="${openK === k}"><span class="td-ico td-${k}">${c.ico}</span><b>${c.main}</b><small>${esc(c.sub)}</small></button>`; };
     let panel = '';
     if (openK) {
       const c = K[openK], more = c.rows.length - 8;
