@@ -807,12 +807,52 @@ function paintChecks() {
   const box = $('#eChecks');
   box.innerHTML = eChecks.map((c, i) => `<div class="ck-row${c.d ? ' on' : ''}"><label><input type="checkbox" data-i="${i}"${c.d ? ' checked' : ''}><span></span></label><button type="button" class="ck-x" data-x="${i}" aria-label="ลบขั้นตอน">✕</button></div>`).join('');
   box.querySelectorAll('.ck-row span').forEach((sp, i) => { sp.textContent = eChecks[i].t; });
+  if (typeof paintTpl === 'function') paintTpl();
 }
 $('#eChecks').addEventListener('change', e => { const i = e.target.dataset.i; if (i !== undefined) { eChecks[i].d = e.target.checked ? '1' : ''; paintChecks(); } });
 $('#eChecks').addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { eChecks.splice(+b.dataset.x, 1); paintChecks(); } });
 const addCheck = () => { const v = $('#eCkNew').value.trim(); if (!v) return; eChecks.push({ t: v, d: '' }); $('#eCkNew').value = ''; paintChecks(); $('#eCkNew').focus(); };
 $('#eCkAdd').onclick = addCheck;
 $('#eCkNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCheck(); } });
+
+/* ---------- 📋 ชุดเช็กลิสต์ (ขั้นตอนประจำ) เก็บที่หลังบ้าน TASK_TPL ใช้ได้ทุกเครื่อง ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const TPL_DEFAULT = [
+  { name: 'ไปประชุมลูกค้า', items: ['เตรียมเอกสาร / สไลด์', 'ยืนยันนัดกับลูกค้า', 'จองรถ / เช็กเส้นทาง', 'ส่งสรุปหลังประชุม'] },
+  { name: 'ทำใบเบิกสิ้นเดือน', items: ['รวบรวมใบเสร็จให้ครบ', 'ทำใบเบิกในแอป', 'ส่งฝ่ายบัญชี', 'ติดตามเงินคืน'] },
+];
+let tpls = LS.get('taskTpl', null);
+const tplList = () => tpls || TPL_DEFAULT;
+async function tplSync() { try { const r = await api('tpl_list'); if (r.tpl && r.tpl.length) { tpls = r.tpl; LS.set('taskTpl', tpls); } } catch (e) {} }
+async function tplSave(list) { tpls = list; LS.set('taskTpl', list); paintTpl(); try { await api('tpl_save', { tpl: list }); } catch (e) { showStatus('บันทึกชุดเช็กลิสต์ไม่สำเร็จ: ' + e.message); } }
+function paintTpl() {
+  const box = $('#eTpl'); if (!box) return;
+  const title = ($('#editForm') && $('#editForm').elements.title ? $('#editForm').elements.title.value : '').trim();
+  box.innerHTML = '<span class="ck-tpl-h">ชุดสำเร็จรูป:</span>' + tplList().map((t, i) => `<span class="tpl-chip${title && title.includes(t.name) ? ' hit' : ''}"><button type="button" data-t="${i}" title="${esc(t.items.join(' · '))}">📋 ${esc(t.name)} <small>${t.items.length}</small></button><button type="button" class="tpl-x" data-tx="${i}" aria-label="ลบชุด ${esc(t.name)}">✕</button></span>`).join('') +
+    `<button type="button" class="mini tpl-save" id="eTplSave"${eChecks.length ? '' : ' disabled'}>💾 เก็บเป็นชุด</button>`;
+}
+$('#eTpl').addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'), x = e.target.closest('[data-tx]');
+  if (b) {
+    const t = tplList()[+b.dataset.t]; const have = new Set(eChecks.map(c => c.t));
+    const add = t.items.filter(v => !have.has(v));
+    add.forEach(v => eChecks.push({ t: v, d: '' })); paintChecks(); paintTpl();
+    showStatus(add.length ? `📋 เพิ่ม ${add.length} ขั้นตอนจาก "${t.name}"` : 'มีครบทุกขั้นตอนแล้ว'); setTimeout(() => showStatus(''), 2500);
+  } else if (x) {
+    const list = tplList().slice(); const t = list[+x.dataset.tx];
+    if (confirm(`ลบชุด "${t.name}"?`)) { list.splice(+x.dataset.tx, 1); tplSave(list); }
+  } else if (e.target.closest('#eTplSave')) {
+    if (!eChecks.length) return;
+    const f = $('#editForm').elements;
+    const name = prompt('ตั้งชื่อชุดเช็กลิสต์ (ใช้ซ้ำได้กับงานอื่น)', (f.title && f.title.value.trim().slice(0, 40)) || '');
+    if (!name || !name.trim()) return;
+    const list = tplList().filter(t => t.name !== name.trim());
+    list.push({ name: name.trim().slice(0, 40), items: eChecks.map(c => c.t).slice(0, 30) });
+    tplSave(list); showStatus(`💾 เก็บชุด "${name.trim()}" แล้ว`); setTimeout(() => showStatus(''), 2500);
+  }
+});
+setTimeout(tplSync, 2000);
+$('#editForm').elements.title.addEventListener('input', () => paintTpl());
 $('#btnDelete').onclick = () => {
   if (!editing || isNew) return;
   if (!confirm('ลบงานนี้?')) return;

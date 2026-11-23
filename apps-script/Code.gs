@@ -67,6 +67,8 @@ const HELP = [
   '',
   '🎙 ส่งข้อความเสียงได้เลย เช่น "พรุ่งนี้สิบโมงส่งรายงาน" "จ่ายค่าข้าวหกสิบ" "ต้นยืมห้าร้อย" ระบบฟังแล้วจดให้',
   '• สรุปเดือน = ภาพรวมเดือนนี้ (งาน เงิน เบิก ค้างกัน)',
+  '',
+  '✉️ ติดป้าย "จดงาน" ที่อีเมลใน Gmail → กลายเป็นงานพร้อมลิงก์กลับไปที่อีเมล (ภายใน 15 นาที)',
 ].join('\n');
 
 const APP_MSG = '📲 จดครบ\n' + APP_URL + '\n\nเปิดแล้วกด "เพิ่มไปยังหน้าจอโฮม" เพื่อใช้เหมือนแอป\nจดงานและบิลในแชทนี้ได้ด้วย พิมพ์ "ช่วย" ดูวิธีใช้';
@@ -240,6 +242,11 @@ function doPost(e) {
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
       case 'backup_now':   return json_({ ok: true, id: weeklyBackup_(true) });
       case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || '')) });
+      case 'tpl_list':     { let t = []; try { t = JSON.parse(props.getProperty('TASK_TPL') || '[]'); } catch (e) {} return json_({ ok: true, tpl: t }); }
+      case 'tpl_save': {   // 📋 ชุดเช็กลิสต์ [{name, items[]}]
+        const t = (Array.isArray(body.tpl) ? body.tpl : []).slice(0, 30).map(x => ({ name: String(x.name || '').trim().slice(0, 40), items: (x.items || []).map(v => String(v).trim().slice(0, 120)).filter(Boolean).slice(0, 30) })).filter(x => x.name && x.items.length);
+        props.setProperty('TASK_TPL', JSON.stringify(t)); return json_({ ok: true, tpl: t });
+      }
       case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '' }); }
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
@@ -456,6 +463,7 @@ function checkReminders() {
     try { meetSync_(false); } catch (e) { console.warn('meetSync: ' + e); }   // งานจากคลังประชุม (ทุก 1 ชม.)
     try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
     try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }        // 💾 สำรองชีตทุกวันอาทิตย์
+    try { if (typeof mailTasks_ === 'function') mailTasks_(); } catch (e) { console.warn('mail: ' + e); }   // ✉️ งานจากอีเมลที่ติดป้าย จดงาน
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));

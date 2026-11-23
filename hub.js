@@ -18,7 +18,7 @@
   pill.type = 'button'; pill.className = 'sync-pill';
   pill.title = 'สถานะการซิงก์กับระบบ · กดเพื่อดึงใหม่';
   if (host) host.appendChild(pill);
-  pill.addEventListener('click', () => { const b = document.getElementById('btnSync') || document.getElementById('btnReload'); if (b) b.click(); else location.reload(); });
+  pill.addEventListener('click', () => { if (get('hubOutbox', []).length) { window.hubFlush && window.hubFlush(); return; } const b = document.getElementById('btnSync') || document.getElementById('btnReload'); if (b) b.click(); else location.reload(); });
   // หลอดโหลดบางๆ ชิดขอบบนจอ: ขึ้นเมื่อซิงก์นานเกิน 150 ms · เสร็จแล้ววิ่งเต็มหลอดแล้วจางหาย
   const bar = document.createElement('div');
   bar.className = 'sync-bar'; bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-label', 'กำลังซิงก์');
@@ -38,7 +38,9 @@
     barPaint();
     if (!host) return;
     let cls = 'ok', txt;
-    if (!navigator.onLine) { cls = 'warn'; txt = '⚠ ออฟไลน์ · จดไว้ในเครื่องก่อน'; }
+    const nq = get('hubOutbox', []).length;
+    if (!navigator.onLine) { cls = 'warn'; txt = '📴 ออฟไลน์ · จดไว้ในเครื่อง' + (nq ? ` (รอส่ง ${nq})` : ''); }
+    else if (nq && !inflight) { cls = 'warn'; txt = `⏳ รอส่ง ${nq} รายการ · แตะเพื่อส่ง`; }
     else if (inflight) { cls = 'syncing'; txt = 'กำลังซิงก์…'; }
     else if (lastErr) { cls = 'warn'; txt = '⚠ ซิงก์ไม่สำเร็จ · แตะเพื่อลองใหม่'; }
     else if (lastOk) { const d = new Date(lastOk); txt = '✓ ซิงก์แล้ว ' + (ymd(d) === ymd(new Date()) ? d.toTimeString().slice(0, 5) : d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })); }
@@ -46,18 +48,101 @@
     pill.className = 'sync-pill ' + cls; pill.textContent = txt;
   }
   const realFetch = window.fetch.bind(window);
+  /* 📴 กล่องรอส่ง: เน็ตหลุดตอนบันทึก → เก็บคำขอไว้ในเครื่อง (LS hubOutbox) แล้วตอบแอปว่า "บันทึกแล้ว" ทันที
+   * เน็ตกลับมา / เปิดหน้า / ก่อนดึงข้อมูลใหม่ → ส่งออกตามลำดับ (ดึงข้อมูลหลังส่งครบ จึงไม่ทับของที่จดไว้) */
+  const QUEUE = /^(add|update|delete|money_save|money_delete|inbox_save|inbox_delete|owe_save|owe_delete|bill_save)$/;
+  const outbox = () => get('hubOutbox', []);
+  const keyOf = b => b.action + ':' + ((b.task && b.task.id) || (b.item && b.item.id) || b.id || (b.docs && b.docs.map(d => d.id).join(',')) || Math.random());
+  function enqueue(url, b) {
+    if (b.action === 'inbox_save' && b.item && !b.item.id) {   // ฝากใหม่ตอนออฟไลน์: ตั้ง id ในเครื่อง (หลังบ้านใช้ id นี้ต่อ)
+      const t = String(b.item.text || '');
+      b.item = { ...b.item, id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[-.]/g, ''), kind: b.item.kind || (/https?:\/\//.test(t) ? 'link' : 'note'), created: new Date().toISOString(), title: b.item.title || '' };
+    }
+    const q = outbox(), k = keyOf(b);
+    const i = q.findIndex(x => x.k === k);
+    const rec = { k, url, body: b, at: Date.now() };
+    if (i > -1) q[i] = rec; else q.push(rec);   // แก้รายการเดิมซ้ำ = เก็บฉบับล่าสุด
+    put('hubOutbox', q); paint();
+    const echo = { ok: true, queued: true };
+    if (b.task) echo.task = b.task;
+    if (b.item) echo.item = b.item;
+    if (b.bill) echo.bill = b.bill;
+    if (b.docs) echo.docs = b.docs;
+    return new Response(JSON.stringify(echo), { headers: { 'Content-Type': 'application/json' } });
+  }
+  let flushing = null;
+  function flush() {
+    if (flushing) return flushing;
+    if (!outbox().length || !navigator.onLine) return Promise.resolve();
+    flushing = (async () => {
+      inflight++; paint();
+      try {
+        while (outbox().length && navigator.onLine) {
+          const rec = outbox()[0];
+          let res;
+          try { res = await realFetch(rec.url, { method: 'POST', body: JSON.stringify(rec.body), redirect: 'follow' }); }
+          catch (e) { lastErr = 'ยังส่งไม่ได้'; break; }          // เน็ตยังไม่มา: เก็บไว้ลองรอบหน้า
+          let d = {}; try { d = await res.json(); } catch (e) {}
+          const q = outbox(); if (q.length && q[0].k === rec.k && q[0].at === rec.at) q.shift(); else { const j = q.findIndex(x => x.k === rec.k && x.at === rec.at); if (j > -1) q.splice(j, 1); }
+          put('hubOutbox', q);
+          if (d.ok === false) { const f = get('hubOutboxFail', []); f.push({ body: rec.body, error: d.error, at: Date.now() }); put('hubOutboxFail', f.slice(-20)); lastErr = d.error || 'ส่งไม่สำเร็จ'; }
+          else { lastErr = ''; lastOk = Date.now(); put('hubLastSync', lastOk); }
+        }
+      } finally { inflight = Math.max(0, inflight - 1); flushing = null; paint(); }
+      if (!outbox().length) document.dispatchEvent(new CustomEvent('hub:flushed'));
+    })();
+    return flushing;
+  }
+  window.hubFlush = flush;
   window.fetch = function (input, init) {
     if (!isApi(input)) return realFetch(input, init);
-    inflight++; paint();
-    return realFetch(input, init).then(res => {
-      res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); } })
-        .catch(() => { lastErr = 'ตอบกลับไม่ถูกต้อง'; }).finally(() => { inflight = Math.max(0, inflight - 1); paint(); });
-      return res;
-    }, err => { inflight = Math.max(0, inflight - 1); lastErr = String(err && err.message || err); paint(); throw err; });
+    let b = null; try { b = JSON.parse(init && init.body || 'null'); } catch (e) {}
+    const url = String(input && input.url || input);
+    const queueable = b && QUEUE.test(b.action || '');
+    if (queueable && (!navigator.onLine || outbox().length)) return Promise.resolve(enqueue(url, b));   // ออฟไลน์ / ยังมีของค้างส่ง = ต่อคิว (รักษาลำดับ)
+    const go = () => {
+      inflight++; paint();
+      return realFetch(input, init).then(res => {
+        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); } })
+          .catch(() => { lastErr = 'ตอบกลับไม่ถูกต้อง'; }).finally(() => { inflight = Math.max(0, inflight - 1); paint(); });
+        return res;
+      }, err => {
+        inflight = Math.max(0, inflight - 1);
+        if (queueable) { paint(); return enqueue(url, b); }            // ส่งไม่ออก (เน็ตหลุดกลางทาง) = เก็บไว้ก่อน
+        lastErr = String(err && err.message || err); paint(); throw err;
+      });
+    };
+    return outbox().length && navigator.onLine ? flush().then(go) : go();   // ดึงข้อมูลหลังส่งของค้างครบ
   };
+  window.addEventListener('online', () => { paint(); flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') flush(); });
+  setTimeout(flush, 1500);
   window.addEventListener('online', paint); window.addEventListener('offline', paint);
   setInterval(paint, 60000);
   paint();
+
+  /* ---------- ⚡ ปุ่มลัด (กดค้างไอคอนแอป) ?do=task|expense|snap|note ---------- */
+  const DO = new URLSearchParams(location.search).get('do');
+  if (DO) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    setTimeout(() => {
+      const focus = sel => { const el = document.querySelector(sel); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } return el; };
+      if (DO === 'task') focus('#quickInput');
+      else if (DO === 'expense') focus('#mInput');
+      else if (DO === 'note') focus('#iInput');
+      else if (DO === 'snap') {
+        // เบราว์เซอร์ไม่ให้เปิดกล้องเองโดยไม่แตะ → ขึ้นปุ่มใหญ่ให้แตะครั้งเดียว
+        const btn = document.getElementById('btnSnap');
+        if (!btn) return;
+        const tip = document.createElement('button');
+        tip.type = 'button'; tip.className = 'do-snap';
+        tip.innerHTML = '📷 <b>แตะเพื่อถ่าย / เลือกรูป</b><small>' + (document.body.classList.contains('bills') ? 'บิลเบิกบริษัท' : 'สลิป / ใบเสร็จ รายจ่ายส่วนตัว') + '</small>';
+        tip.onclick = () => { tip.remove(); btn.click(); };
+        document.body.appendChild(tip);
+        setTimeout(() => tip.remove(), 15000);
+      }
+    }, 350);
+  }
 
   /* ---------- 2) + 3) เฉพาะหน้างาน ---------- */
   if (!document.body.classList.contains('tasks')) return;

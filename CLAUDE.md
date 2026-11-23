@@ -35,6 +35,9 @@
 - กล่องฝาก: ⏰ ให้กลับมาดู (คอลัมน์ `remind` ใน Inbox · `inbox_save {id, remind, only:'remind'}` · ชิป ⏰ ถึงวันดู · สรุปตอนเช้ามี `inboxDueLine_`) · 🔍 ข้อความในรูป (คอลัมน์ `ocr` · `inbox_ocr {id}` OCR ของ Drive ทำนอกล็อก · แอปเติมเบื้องหลังทีละ 4 รูป · ค้นหาเจอแล้วโชว์ "พบในรูป") · การ์ด: 💬 LINE + 💾 บันทึกเบอร์ (vCard `cardVcf`) · บันทึกประชุม: 🔗 ผูกรายงานที่ยืนยันแล้ว (`meet_find {date,title}` → `data.report`)
 - กล่องฝาก: โน้ตที่มีข้อความคล้ายรหัส/คีย์ (`looksSecret`) ขึ้นเตือน + ปุ่มย้ายไปตู้รหัส (ส่งผ่าน sessionStorage `vaultFromInbox` → vault.js `takeFromInbox` เข้ารหัสแล้วถามลบโน้ตต้นทาง)
 - `month.html` + `month.js` — 📊 ภาพรวมเดือน (ปุ่มที่หัวหน้างาน): งานเสร็จ/ค้าง/เลยกำหนด, เงินรับ-จ่าย เทียบเดือนก่อน + หมวด + งบ, เบิก (ขาดหลักฐาน/พร้อมเบิก/รอเงินคืน/ได้คืน), ค้างกัน · ข้อมูลจาก `month_overview {month}` (`monthOverview_` ใน Money.gs) แคช LS `monthOv:<ym>` · LINE พิมพ์ `สรุปเดือน`
+- 📴 **กล่องรอส่ง** (hub.js ดัก fetch): คำสั่งบันทึก (`add` `update` `delete` `money_save` `money_delete` `inbox_save` `inbox_delete` `owe_save` `owe_delete` `bill_save`) ที่ส่งไม่ออก/ออฟไลน์ → เก็บ LS `hubOutbox` แล้วตอบแอปว่าสำเร็จ (echo ข้อมูลเดิม) · ส่งออกตามลำดับเมื่อออนไลน์/เปิดหน้า/ก่อนคำขอดึงข้อมูลทุกครั้ง (`hubFlush`) · ส่งแล้วหลังบ้านตอบ error → เก็บใน `hubOutboxFail` · ป้ายบนหัวโชว์ "รอส่ง N"
+- ⚡ ปุ่มลัด (manifest `shortcuts`, Android กดค้างไอคอน): `?do=task|expense|snap|note` จัดการใน hub.js (โฟกัสช่องจด / ปุ่มใหญ่ให้แตะเปิดกล้อง)
+- 📋 ชุดเช็กลิสต์ (app.js `#eTpl`): เลือกชุดเพิ่มขั้นตอน / 💾 เก็บเป็นชุด · เก็บใน Script Property `TASK_TPL` ผ่าน `tpl_list` / `tpl_save` (LS `taskTpl`) · ยังไม่เคยบันทึก = ใช้ `TPL_DEFAULT`
 - `style.css` — สไตล์รวม (สีประจำหมวด, โหมดมืด, tabbar ล่าง 5 แท็บ)
 - `sw.js` — service worker (cache-first)
 
@@ -49,6 +52,7 @@
 - LINE 📇: พิมพ์ `ข้อมูล ...` → `lineCardText_` (AI แยกช่อง) · รูปรอจัด → ปุ่ม 📇 (`icard|fid`) → `lineCardPhoto_` · ทั้งสองอ่าน AI นอกล็อกแล้วค่อยล็อกตอนบันทึก
 - `Meet.gs` — เชื่อม **คลังรายงานการประชุม TIBD** (ระบบของ tibdglobal@gmail.com repo `tibdglobal/MEETING` · ห้ามแก้/deploy ระบบนั้นจากบัญชีนี้) โดยใช้สิทธิ์ผู้แก้ไขของ pm01: อ่าน Sheet ข้อมูลคลัง → งานของฉัน/ทีม (`meet_tasks`), เขียนสถานะลง `Actions` + `TaskLog` (`meet_status`), ปักงาน (`meet_pin`), ซิงก์ทุก 1 ชม. ในรอบเตือน + ตอนเช้า (`meetSync_`), ติ๊กเสร็จงาน `meet:` → คลังเป็น "เสร็จแล้ว" (hook ใน `updateTask_`), บันทึกประชุม → AI ร่าง minute.json (`meet_draft`) → วางใน "1 รอยืนยัน" (`meet_send`) · ค่าใน Script Properties `MEET_SHEET_ID` `MEET_PENDING_ID` `MEET_SYS_ID` `MEET_URL` `MEET_ME` ตั้งด้วย `api('meet_setup', {...})`
 - 💾 `weeklyBackup_` (ใน Code.gs เรียกจาก checkReminders): อาทิตย์ตั้งแต่ 02:00 ทำสำเนาชีต "จดงาน" ไว้ที่โฟลเดอร์ `จดครบ - สำรองข้อมูล` ข้างไฟล์ชีต (prop `BACKUP_FOLDER_ID`, `BACKUP_SENT`) เก็บ 8 ฉบับล่าสุด · สั่งทันที `api('backup_now')`
+- `Mail.gs` — ✉️ งานจากอีเมล: ติดป้าย Gmail `จดงาน` → `mailTasks_` (ใน checkReminders ทุก 15 นาที) สร้างงาน id `mail:<threadId>` + ลิงก์กลับอีเมล แล้วย้ายเป็นป้าย `จดงาน/จดแล้ว` · ต้องรัน `mailSetup` ใน editor 1 ครั้ง (เจ้าของกดอนุญาตสิทธิ์ Gmail เอง) → prop `MAIL_ON` · ใช้ Gmail ของบัญชีที่รันสคริปต์ (pm01)
 - `Bridge.gs` — **โปรเจกต์แยก** (สะพานปฏิทินในอีกบัญชี) ไม่ได้อยู่ในโปรเจกต์หลัก
 
 ## วิธีอัปขึ้นระบบ

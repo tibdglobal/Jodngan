@@ -1928,3 +1928,14 @@ i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 .ov-owe .out b { color: var(--out); }
 .ov-more { display: block; text-align: right; margin-top: 10px; font-size: 13px; color: var(--accent); text-decoration: none; }
 a.icon-btn.lab { text-decoration: none; color: inherit; }
+.do-snap { position: fixed; left: 16px; right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px; border: 0; border-radius: 20px; background: var(--accent); color: #fff; font: inherit; font-size: 28px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.do-snap b { font-size: 17px; }
+.do-snap small { font-size: 13px; opacity: .85; }
+.ck-tpl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.ck-tpl-h { font-size: 12px; color: var(--muted); }
+.tpl-chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--card); overflow: hidden; }
+.tpl-chip button { border: 0; background: none; font: inherit; font-size: 13px; padding: 5px 4px 5px 10px; color: inherit; }
+.tpl-chip button small { color: var(--muted); }
+.tpl-chip .tpl-x { padding: 5px 9px 5px 4px; font-size: 11px; color: var(--muted); }
+.tpl-chip.hit { border-color: var(--accent); background: var(--accent-soft); }
+.tpl-save[disabled] { opacity: .4; }
