@@ -242,7 +242,7 @@ function renderChart(mm) {
 
 /* ---------- 🎯 งบรายหมวด / 🔁 รายการประจำ (เก็บที่หลังบ้าน MONEY_CFG) ---------- */
 let mcfg = LS.get('moneyCfg', { budgets: {}, recur: [] });
-async function syncCfg() { try { const r = await api('money_cfg'); mcfg = { budgets: r.budgets || {}, recur: r.recur || [] }; LS.set('moneyCfg', mcfg); render(); } catch (e) {} }
+async function syncCfg() { try { const r = await api('money_cfg'); mcfg = { budgets: r.budgets || {}, recur: r.recur || [] }; LS.set('moneyCfg', mcfg); LS.set('ppId', r.pp || ''); render(); } catch (e) {} }
 function budUse(mm) {
   const by = {};
   mm.filter(x => x.type === 'out').forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });

@@ -1858,3 +1858,13 @@ i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 .rec-l2 select { flex: 1; min-width: 100px; }
 .rec-auto { display: flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; }
 .rec-add { width: 100%; margin-top: 8px; }
+
+/* 💳 QR พร้อมเพย์ */
+.pp-box { margin-top: 10px; }
+.pp-box:empty { display: none; }
+.pp-row { display: flex; gap: 12px; align-items: center; padding: 8px; border-radius: 12px; background: #fff; border: 1px solid rgba(11,44,95,.15); }
+.pp-img { width: 116px; height: auto; border-radius: 6px; flex: none; }
+.pp-side { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; color: #0b2c5f; }
+.pp-side small { color: #555; }
+.pp-side .link-btn { font-size: 12px; padding: 0; }
+.pp-set { font-size: 13px; text-align: left; }

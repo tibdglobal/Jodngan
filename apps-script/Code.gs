@@ -57,6 +57,13 @@ const HELP = [
   '• จ่าย 120 ข้าว (หรือ -120 ข้าว)',
   '• รับ 25000 เงินเดือน (หรือ +25000)',
   '• เงิน = สรุปรายรับรายจ่ายเดือนนี้',
+  '',
+  '🤝 ค้างกัน (ไม่นับเป็นรายจ่าย/รายรับ)',
+  '• ใครค้าง = สรุปใครค้างเรา / เราค้างใคร',
+  '• ต้นยืม 500 / ยืมต้น 500',
+  '• ต้นคืน 200 / คืนต้น 200',
+  '• หาร 1200 เอ็ม เจ (หรือ หาร ชาบู 1200 เอ็ม เจ) = เราจ่ายไปก่อน หารเท่ากัน',
+  '• ส่งสลิปโอน → ปุ่ม 💵 คืนจาก… ได้',
 ].join('\n');
 
 const APP_MSG = '📲 จดครบ\n' + APP_URL + '\n\nเปิดแล้วกด "เพิ่มไปยังหน้าจอโฮม" เพื่อใช้เหมือนแอป\nจดงานและบิลในแชทนี้ได้ด้วย พิมพ์ "ช่วย" ดูวิธีใช้';
@@ -228,7 +235,7 @@ function doPost(e) {
       }
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
-      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur }); }
+      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '' }); }
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
       case 'money_delete': moneyDelete_(body.id); return json_({ ok: true });
@@ -350,6 +357,17 @@ function handleLine_(events) {
       catch (err) { return reply_(ev.replyToken, 'บันทึกการ์ดไม่สำเร็จ: ' + (err.message || err)); }
     }
 
+    // 🤝 ค้างกัน: ใครค้าง · ต้นยืม 500 · ยืมต้น 500 · ต้นคืน 200 · คืนต้น 200 · หาร 1200 เอ็ม เจ
+    if (/^(ใครค้าง|ค้าง|ค้างกัน|ใครติด|หนี้|🤝)$/.test(text) || /^หาร\s/.test(text) || /(ยืม|คืน)\s*[\d,]+/.test(text)) {
+      const lk = LockService.getScriptLock();
+      if (!lk.tryLock(25000)) return reply_(ev.replyToken, 'ระบบกำลังยุ่ง ส่งข้อความเดิมอีกครั้งได้เลย');
+      let out = '';
+      try { out = oweLineText_(text); }
+      catch (err) { out = 'จดค้างกันไม่สำเร็จ: ' + (err.message || err); }
+      finally { lk.releaseLock(); }
+      if (out) return reply_(ev.replyToken, out);
+    }
+
     routeText_(ev.replyToken, text);
   });
 }
@@ -368,7 +386,9 @@ function morningSummary() {
   let inbox = '', money = '';
   try { inbox = inboxDueLine_(); } catch (e) {}
   try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
-  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, warn].filter(Boolean).join('\n\n');
+  let owe = '';
+  try { owe = oweDueLine_(); } catch (e) {}
+  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, owe, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
   const sh = sheet_(), col = HEADERS.indexOf('prenoted') + 1;

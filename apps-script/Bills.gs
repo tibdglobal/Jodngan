@@ -301,6 +301,7 @@ function billPendPrompt_(fid, waiting) {
   items.push(qr_('➕ บิลใหม่' + (amt ? ' ' + fmtBaht_(amt) : ''), 'new|' + fid, 'สร้างบิลใหม่จากรูปนี้'));
   items.push(qr_('💸 จ่ายส่วนตัว' + (amt ? ' ' + fmtBaht_(amt) : ''), 'mout|' + fid, 'จดเป็นรายจ่ายส่วนตัว'));
   items.push(qr_('💰 รายรับ' + (amt ? ' ' + fmtBaht_(amt) : ''), 'min|' + fid, 'จดเป็นรายรับ'));
+  if (kind === 'slip' || ocr.docType === 'slip') oweSlipButtons_(fid, amt, [vendor, ocr.memo, ocr.desc].join(' ')).forEach(b => items.push(b));
   // อ่านวันที่/ยอดไม่ได้ = น่าจะไม่ใช่ใบเสร็จ → เสนอ "เก็บไว้เฉยๆ" ไว้ปุ่มแรก
   const keep = qr_('📌 เก็บไว้เฉยๆ', 'keep|' + fid, 'เก็บรูปไว้ในกล่องฝาก');
   if ((!amt && !ocr.date) || ocr.docType === 'other') items.unshift(keep); else items.push(keep);
@@ -341,6 +342,7 @@ function billPostback_(ev) {
 
   // สร้างบิลใหม่จากทุกรูปที่รอจัด (ยอด/วันที่/ร้าน จากที่อ่านได้)
   // รูปนี้เป็นรายรับ/รายจ่ายส่วนตัว (ไม่ใช่บิลเบิก)
+  if (p[0] === 'orep') { owePostback_(ev, p); return; }
   if (p[0] === 'mout' || p[0] === 'min') {
     const fid = p[1];
     let pend = {};

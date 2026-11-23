@@ -260,8 +260,14 @@ function moneyCfgSet_(p) {
       type: r.type === 'in' ? 'in' : 'out', auto: !!r.auto, last: String(r.last || ''),
     })).filter(r => r.note && r.amount);
   }
+  // 💳 พร้อมเพย์ของเจ้าของ (เบอร์ 10 หลัก / เลข 13 หลัก / e-wallet 15 หลัก) ใช้ทำ QR ในข้อความทวง
+  if (p.pp !== undefined) {
+    const d = String(p.pp || '').replace(/\D/g, '');
+    if (d && !/^(0\d{9}|\d{13}|\d{15})$/.test(d)) throw new Error('พร้อมเพย์ต้องเป็นเบอร์ 10 หลัก หรือเลข 13/15 หลัก');
+    c.pp = d;
+  }
   props.setProperty('MONEY_CFG', JSON.stringify(c));
-  return { budgets: c.budgets, recur: c.recur };
+  return { budgets: c.budgets, recur: c.recur, pp: c.pp || '' };
 }
 /** ทุกเช้า: รายการประจำที่ถึงวัน (auto = จดให้เลย) + เตือนงบใกล้เต็ม + วันที่ 1 สรุปเดือนก่อน → ข้อความรวมไว้ในสรุปตอนเช้า */
 function moneyDaily_() {

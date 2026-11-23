@@ -52,6 +52,64 @@ async function moneyDel(id) {
   try { await api('money_delete', { id }); } catch (e) {}
 }
 
+/* ---------- 💳 QR พร้อมเพย์ (แนบในข้อความทวง) · เลขเก็บที่หลังบ้าน (MONEY_CFG) + เครื่องนี้ ไม่อยู่ใน repo ---------- */
+const ppId = () => String(LS.get('ppId', '') || '');
+const ppMask = d => d.length === 10 ? d.slice(0, 3) + '-xxx-' + d.slice(6) : 'xxxx' + d.slice(-4);
+function ppPayload(id, amountS) {
+  const f = (t, v) => t + String(v.length).padStart(2, '0') + v;
+  const acc = id.length === 10 ? f('01', '0066' + id.slice(1)) : id.length === 13 ? f('02', id) : f('03', id);
+  let s = f('00', '01') + f('01', amountS ? '12' : '11') + f('29', f('00', 'A000000677010111') + acc) + f('58', 'TH') + f('53', '764') +
+    (amountS ? f('54', (amountS / 100).toFixed(2)) : '') + '6304';
+  let crc = 0xFFFF;
+  for (let i = 0; i < s.length; i++) { crc ^= s.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF; }
+  return s + crc.toString(16).toUpperCase().padStart(4, '0');
+}
+function ppCanvas(id, amountS) {
+  const q = qrcode(0, 'M'); q.addData(ppPayload(id, amountS)); q.make();
+  const n = q.getModuleCount(), cell = 8, pad = 4 * cell, W = n * cell + pad * 2, H = W + 64;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#0b2c5f';
+  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
+  g.fillStyle = '#0b2c5f'; g.textAlign = 'center';
+  g.font = 'bold 26px sans-serif'; g.fillText(amountS ? 'พร้อมเพย์ ' + fromS(amountS).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' บาท' : 'พร้อมเพย์', W / 2, W + 18);
+  g.font = '18px sans-serif'; g.fillStyle = '#555'; g.fillText(ppMask(id), W / 2, W + 46);
+  return c;
+}
+async function ppSet() {
+  const v = prompt('เบอร์พร้อมเพย์ของคุณ (10 หลัก) หรือเลข 13 หลักที่ผูกพร้อมเพย์\nเก็บในระบบหลังบ้านของคุณ ใช้ทำ QR ให้เพื่อนสแกนโอน · เว้นว่าง = ลบ', ppId());
+  if (v === null) return false;
+  const d = v.replace(/\D/g, '');
+  if (d && !/^(0\d{9}|\d{13}|\d{15})$/.test(d)) { alert('ต้องเป็นเบอร์ 10 หลัก หรือเลข 13 หลักครับ'); return false; }
+  LS.set('ppId', d);
+  try { await api('money_cfg_set', { pp: d }); } catch (e) { showStatus('บันทึกพร้อมเพย์ไม่สำเร็จ: ' + e.message); }
+  return true;
+}
+/** กล่อง QR ใต้ข้อความทวง / สรุปบิล · amountS = 0 → QR ไม่ระบุยอด */
+function ppBox(box, amountS, label) {
+  if (!box) return;
+  const id = ppId();
+  if (!id) {
+    box.innerHTML = `<button type="button" class="link-btn pp-set">💳 ตั้งเบอร์พร้อมเพย์ เพื่อแนบ QR ให้เพื่อนสแกนโอน</button>`;
+    box.querySelector('.pp-set').onclick = async () => { if (await ppSet()) ppBox(box, amountS, label); };
+    return;
+  }
+  let c;
+  try { c = ppCanvas(id, amountS); } catch (e) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="pp-row"><img alt="QR พร้อมเพย์" class="pp-img"><div class="pp-side"><b>💳 QR พร้อมเพย์</b><small>${amountS ? 'ยอด ' + bahtS(amountS) + ' · ' : ''}${esc(ppMask(id))}</small>
+    <button type="button" class="mini pp-share">📤 ส่งรูป QR</button><button type="button" class="link-btn pp-chg">เปลี่ยนเบอร์</button></div></div>`;
+  box.querySelector('.pp-img').src = c.toDataURL('image/png');
+  box.querySelector('.pp-chg').onclick = async () => { if (await ppSet()) ppBox(box, amountS, label); };
+  box.querySelector('.pp-share').onclick = () => c.toBlob(async b => {
+    const name = `promptpay-${label || 'qr'}${amountS ? '-' + fromS(amountS) : ''}.png`.replace(/[\\/:*?"<>|\s]+/g, '-');
+    const file = new File([b], name, { type: 'image/png' });
+    try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, 'image/png');
+}
+if (!ppId() && !LS.get('ppChecked', false) && typeof cfg !== 'undefined' && cfg.key) api('money_cfg').then(r => { LS.set('ppChecked', true); if (r.pp) LS.set('ppId', r.pp); }).catch(() => {});
+
 /* ---------- ภาพรวม ---------- */
 function byPerson() {
   const map = {};
@@ -221,6 +279,7 @@ function paintPerson() {
     : '';
   $('#pNudge').hidden = !msg;
   $('#pMsg').textContent = msg;
+  if (msg) ppBox($('#pQr'), net, pName);
   $('#pLine').href = 'https://line.me/R/share?text=' + encodeURIComponent(msg);
 }
 $('#pCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#pMsg').textContent); $('#pCopy').textContent = '✓ ก็อปแล้ว'; setTimeout(() => $('#pCopy').textContent = '📋 ก็อป', 1500); } catch {} };
@@ -899,6 +958,8 @@ function paintDetail() {
     .concat((s.transfers || []).length ? ['', 'โอนให้จบ:'].concat(s.transfers.map(t => `• ${whoMsg(t.from)} → ${whoMsg(t.to)} ${Number(t.amount).toLocaleString('th-TH')} บาท`)) : []);
   const msg = lines.join('\n');
   $('#dMsg').textContent = msg;
+  const toMe = (s.transfers || []).filter(t => t.to === ME && !t.done);
+  if ($('#dQr')) { $('#dQr').hidden = !toMe.length; if (toMe.length) ppBox($('#dQr'), new Set(toMe.map(t => toS(t.amount))).size === 1 ? toS(toMe[0].amount) : 0, s.title); }
   $('#dLine').href = 'https://line.me/R/share?text=' + encodeURIComponent(msg);
 }
 if ($('#dDlg')) {
