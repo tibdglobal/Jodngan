@@ -2208,3 +2208,15 @@ body[data-bg]::before { content: ""; display: block; position: fixed; inset: 0; 
 .ui-links svg { width: 20px; height: 20px; color: var(--muted); flex: none; }
 [data-bg="grid"], [data-bg="diag"] { --mark: color-mix(in srgb, var(--text) 8%, transparent); }
 @media (prefers-color-scheme: dark) { [data-bg="grid"], [data-bg="diag"] { --mark: color-mix(in srgb, var(--text) 7%, transparent); } }
+
+/* 🎙 ไมค์ในช่องจด */
+.mic-btn { flex: none; width: var(--tap); height: var(--tap); border-radius: 14px; background: var(--card); border: 1px solid var(--line); color: var(--text); display: grid; place-items: center; }
+.mic-btn svg { width: 21px; height: 21px; }
+.mic-btn.rec { background: var(--danger); border-color: var(--danger); color: #fff; animation: micPulse 1.2s ease-in-out infinite; }
+.mic-btn.busy { opacity: .55; pointer-events: none; }
+@keyframes micPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); } 50% { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { .mic-btn.rec { animation: none; } }
+.mic-tip { margin: -4px 2px 10px; padding: 9px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 14px; color: var(--text); line-height: 1.45; }
+.mic-tip a { color: var(--accent); font-weight: 600; }
+.mo-quick .mic-btn { height: auto; min-height: var(--tap); }
+.ui-note { margin: 6px 2px 0; font-size: 12px; color: var(--muted); }

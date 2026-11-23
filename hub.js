@@ -49,6 +49,7 @@
     cog: sv('<path d="M12.2 2.5h-.4a1.9 1.9 0 0 0-1.9 1.9v.2a1.9 1.9 0 0 1-.95 1.6l-.4.25a1.9 1.9 0 0 1-1.9 0l-.2-.1a1.9 1.9 0 0 0-2.6.7l-.2.35a1.9 1.9 0 0 0 .7 2.6l.2.1a1.9 1.9 0 0 1 .95 1.65v.5a1.9 1.9 0 0 1-.95 1.65l-.2.1a1.9 1.9 0 0 0-.7 2.6l.2.35a1.9 1.9 0 0 0 2.6.7l.2-.1a1.9 1.9 0 0 1 1.9 0l.4.25a1.9 1.9 0 0 1 .95 1.6v.2a1.9 1.9 0 0 0 1.9 1.9h.4a1.9 1.9 0 0 0 1.9-1.9v-.2a1.9 1.9 0 0 1 .95-1.6l.4-.25a1.9 1.9 0 0 1 1.9 0l.2.1a1.9 1.9 0 0 0 2.6-.7l.2-.35a1.9 1.9 0 0 0-.7-2.6l-.2-.1a1.9 1.9 0 0 1-.95-1.65v-.5a1.9 1.9 0 0 1 .95-1.65l.2-.1a1.9 1.9 0 0 0 .7-2.6l-.2-.35a1.9 1.9 0 0 0-2.6-.7l-.2.1a1.9 1.9 0 0 1-1.9 0l-.4-.25a1.9 1.9 0 0 1-.95-1.6v-.2a1.9 1.9 0 0 0-1.9-1.9z"/><circle cx="12" cy="12" r="3"/>'),
     refresh: sv('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/>'),
     link: sv('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+    mic: sv('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
@@ -68,6 +69,30 @@
   window.hubScale = { get: () => get('fontScale', 1), set: v => { put('fontScale', v); applyScale(v); } };
   applyScale(get('fontScale', 1));
 
+  /* ---------- 🔴 เลขงานบนไอคอนแอป (LS badgeOn) = งานวันนี้ + เลยกำหนดที่ยังไม่เสร็จ · อัปเดตตอนเปิด/ซิงก์แอป ---------- */
+  const badgeOk = 'setAppBadge' in navigator;
+  function badgeCount() {
+    const t = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+    return get('tasks', []).filter(x => x && x.done !== '1' && x.date && x.date <= t).length;
+  }
+  function badgeUpdate() {
+    if (!badgeOk) return;
+    try {
+      if (!get('badgeOn', false)) { navigator.clearAppBadge && navigator.clearAppBadge().catch(() => {}); return; }
+      const n = badgeCount();
+      (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+    } catch (e) {}
+  }
+  window.badgeUpdateRef = badgeUpdate;
+  window.hubBadge = { ok: badgeOk, on: () => get('badgeOn', false), count: badgeCount, set: async v => {
+    if (v && window.Notification && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) {} }
+    put('badgeOn', !!v); badgeUpdate();
+    return !v || !window.Notification || Notification.permission !== 'denied';
+  } };
+  window.addEventListener('storage', e => { if (e.key === 'tasks') badgeUpdate(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') badgeUpdate(); });
+  setTimeout(badgeUpdate, 2500); setInterval(badgeUpdate, 60000);
+
   /* ---------- ⚙ ตั้งค่า (ทุกหน้า): โหมดสี · ขนาดตัวอักษร · ลายพื้นหลัง · สีพื้น · ลิงก์ ---------- */
   function seg(name, opts, cur) {
     return `<div class="ui-seg" role="radiogroup" data-k="${name}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(cur)}" data-v="${v}">${l}</button>`).join('')}</div>`;
@@ -76,6 +101,7 @@
     dlg.querySelector('#uiBody').innerHTML = `
       <h3>โหมดสี</h3>${seg('theme', [['auto', 'อัตโนมัติ'], ['light', 'กลางวัน'], ['dark', 'กลางคืน']], window.hubTheme ? hubTheme.get() : 'auto')}
       <h3>ขนาดตัวอักษร</h3>${seg('scale', [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']], get('fontScale', 1))}
+      <h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}
       <h3>ลายพื้นหลัง</h3>
       <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}</div>
       <h3>สีพื้นหลัง</h3>
@@ -104,6 +130,7 @@
           if (k === 'scale') hubScale.set(Number(v));
           if (k === 'bg') hubBg.set(v);
           if (k === 'tint') hubBg.setTint(v);
+          if (k === 'badge') { hubBadge.set(v === '1').then(ok => { if (!ok) alert('เครื่องนี้ปิดการแจ้งเตือนของแอปไว้ เลขบนไอคอนจึงไม่ขึ้น เปิดได้ในตั้งค่าของเครื่อง'); const y = dlg.querySelector('#uiBody').scrollTop; uiPaint(dlg); dlg.querySelector('#uiBody').scrollTop = y; }); }
           const y = dlg.querySelector('#uiBody').scrollTop; uiPaint(dlg); dlg.querySelector('#uiBody').scrollTop = y;
           return;
         }
@@ -125,6 +152,73 @@
     // ⟳ / 🔒 เป็นไอคอนเส้นชุดเดียวกัน
     act.querySelectorAll('#btnSync').forEach(b => { if (b.textContent.trim() === '⟳') b.innerHTML = ICO.refresh; });
     const lk = document.getElementById('btnLock'); if (lk) lk.innerHTML = ICO.vault;
+  })();
+
+  function PAGE_EARLY() { return ['tasks', 'money', 'inbox', 'bills', 'vault', 'split'].find(c => document.body.classList.contains(c)); }
+  /* ---------- 🎙 ปุ่มไมค์ในช่องจด: อัดเสียง → แปลงเป็น WAV 16k → AI ถอด + แปลงเป็นคำสั่ง → ใส่ในช่องให้ตรวจก่อนกด ＋ ---------- */
+  (() => {
+    const T = { tasks: ['#quickInput', 'จดงาน'], money: ['#mInput', 'จดเงิน'], inbox: ['#iInput', 'ฝาก'] }[PAGE_EARLY()];
+    if (!T || !navigator.mediaDevices || !window.MediaRecorder) return;
+    const input = document.querySelector(T[0]);
+    if (!input) return;
+    const sayQ = new URLSearchParams(location.search).get('say');   // มาจากปุ่ม "ไปหน้า…" ของไมค์หน้าอื่น
+    if (sayQ) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => { input.value = sayQ; input.focus(); }, 400); }
+    const mic = document.createElement('button');
+    mic.type = 'button'; mic.className = 'icon-btn mic-btn'; mic.title = 'พูดแทนพิมพ์'; mic.setAttribute('aria-label', 'พูดแทนพิมพ์');
+    mic.innerHTML = ICO.mic;
+    input.insertAdjacentElement('afterend', mic);
+    const tip = document.createElement('p'); tip.className = 'mic-tip'; tip.hidden = true;
+    input.form.insertAdjacentElement('afterend', tip);
+    const say = (h, ms) => { tip.innerHTML = h; tip.hidden = false; clearTimeout(say.t); if (ms) say.t = setTimeout(() => { tip.hidden = true; }, ms); };
+    let rec = null, chunks = [], stream = null, timer = null, ph = input.placeholder;
+    const stop = () => { if (rec && rec.state === 'recording') rec.stop(); };
+    async function toWav(blob) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ac = new AC(); const buf = await ac.decodeAudioData(await blob.arrayBuffer()); ac.close && ac.close();
+      const rate = 16000, len = Math.ceil(buf.duration * rate);
+      const off = new OfflineAudioContext(1, len, rate); const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+      const pcm = (await off.startRendering()).getChannelData(0);
+      const dv = new DataView(new ArrayBuffer(44 + pcm.length * 2)), w = (o, t) => [...t].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+      w(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); w(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+      dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+      for (let i = 0; i < pcm.length; i++) dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true);
+      let bin = ''; const u8 = new Uint8Array(dv.buffer);
+      for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+      return { data: btoa(bin), sec: buf.duration };
+    }
+    mic.onclick = async () => {
+      if (rec && rec.state === 'recording') return stop();
+      if (mic.classList.contains('busy')) return;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (e) { say('🎙 ใช้ไมค์ไม่ได้ ลองอนุญาตไมโครโฟนให้แอปในตั้งค่าของเครื่อง', 6000); return; }
+      chunks = []; rec = new MediaRecorder(stream);
+      rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+      rec.onstop = async () => {
+        clearTimeout(timer); stream.getTracks().forEach(t => t.stop());
+        mic.classList.remove('rec'); mic.classList.add('busy'); input.placeholder = 'กำลังฟัง…';
+        say('🎙 กำลังถอดเสียง…');
+        try {
+          const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+          if (blob.size < 1500) throw new Error('เสียงสั้นเกินไป');
+          const wav = await toWav(blob);
+          if (wav.sec < 0.6) throw new Error('เสียงสั้นเกินไป');
+          if (typeof window.api !== 'function') throw new Error('ยังไม่ได้เชื่อมเครื่อง');
+          const r = await window.api('ai_voice', { data: wav.data, mime: 'audio/wav', page: PAGE_EARLY() });
+          if (!r.text || !r.cmd) { say('🎙 ไม่ได้ยินคำพูดชัดๆ ลองใหม่ใกล้ไมค์อีกนิด', 5000); return; }
+          let cmd = r.cmd;
+          if (PAGE_EARLY() === 'inbox') cmd = cmd.replace(/^ฝาก\s*/, '');
+          input.value = cmd; input.focus(); input.dispatchEvent(new Event('input', { bubbles: true }));
+          const esc2 = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          const wrong = { tasks: /expense|income|owe/, money: /task|note/, inbox: /expense|income|owe|task/ }[PAGE_EARLY()];
+          const where = { expense: ['money.html', 'หน้าเงิน'], income: ['money.html', 'หน้าเงิน'], owe: ['money.html#owe', 'หน้าค้างกัน'], task: ['./', 'หน้างาน'], note: ['inbox.html', 'กล่องฝาก'] }[r.kind];
+          say(`🎙 ได้ยินว่า "${esc2(r.text)}" · ตรวจแล้วแตะ ＋ เพื่อ${T[1]}` + (wrong && wrong.test(r.kind) && where ? `<br>ดูเหมือนเรื่องของ${where[1]} <a href="${where[0].replace(/(#.*)?$/, '?say=' + encodeURIComponent(r.kind === 'note' ? cmd.replace(/^ฝาก\s*/, '') : cmd) + '$1')}">ไป${where[1]} ›</a>` : ''), 12000);
+        } catch (e) { say('🎙 ' + (e.message || 'ถอดเสียงไม่สำเร็จ'), 6000); }
+        finally { mic.classList.remove('busy'); input.placeholder = ph; }
+      };
+      rec.start(); mic.classList.add('rec'); input.placeholder = 'กำลังฟัง… แตะไมค์อีกครั้งเมื่อพูดจบ';
+      say('🔴 กำลังอัด… พูดได้เลย แล้วแตะไมค์อีกครั้ง (สูงสุด 30 วินาที)');
+      timer = setTimeout(stop, 30000);
+    };
   })();
 
   /* ---------- 🗒 หน้าว่าง: ไอคอนของหมวด + ปุ่มเริ่มใช้ (ไม่ใส่ปุ่มในผลค้นหาที่ไม่เจอ) ---------- */
@@ -244,7 +338,7 @@
     const go = () => {
       inflight++; paint();
       return realFetch(input, init).then(res => {
-        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); } })
+        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); setTimeout(() => window.badgeUpdateRef && window.badgeUpdateRef(), 400); } })
           .catch(() => { lastErr = 'ตอบกลับไม่ถูกต้อง'; }).finally(() => { inflight = Math.max(0, inflight - 1); paint(); });
         return res;
       }, err => {

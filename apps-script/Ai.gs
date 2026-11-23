@@ -460,10 +460,22 @@ function lineVoice_(ev) {
   const blob = res.getBlob();
   let mime = String(blob.getContentType() || 'audio/mp4');
   if (/m4a|x-m4a|mp4/.test(mime)) mime = 'audio/mp4';
-  const today = todayStr_();
+  const j = voiceParse_(blob.getBytes(), mime, '');
+  const heard = String(j.text || '').trim(), cmd = String(j.cmd || '').replace(/\s+/g, ' ').trim();
+  if (!heard || !cmd) { reply_(ev.replyToken, '🎙 ไม่ได้ยินคำพูดชัดๆ ลองอัดใหม่ใกล้ไมค์อีกนิดครับ'); return; }
+  REPLY_PREFIX = '🎙 ได้ยินว่า "' + heard.slice(0, 200) + '"\n\n';
+  try {
+    handleLine_([{ type: 'message', replyToken: ev.replyToken, source: ev.source, message: { type: 'text', id: msg.id, text: cmd.slice(0, 500) } }]);
+  } finally { REPLY_PREFIX = ''; }
+}
+
+
+/** 🎙 ถอดเสียง + แปลงเป็นคำสั่งแบบพิมพ์ · page = หน้าที่กดไมค์ (tasks/money/inbox) ช่วยเดาประเภท */
+function voiceParse_(bytes, mime, page) {
   const S = (type, extra) => Object.assign({ type: type }, extra || {});
-  const j = aiJson_(blob.getBytes(), mime, [
-    'นี่คือข้อความเสียงภาษาไทย (อาจมีอังกฤษปน) ที่เจ้าของพูดสั่งแอปจดงาน/จดเงิน วันนี้คือ ' + today,
+  const hint = { tasks: 'ผู้ใช้กดไมค์ในหน้า "งาน" ส่วนใหญ่จะเป็น task', money: 'ผู้ใช้กดไมค์ในหน้า "เงิน" ส่วนใหญ่จะเป็น expense หรือ income', inbox: 'ผู้ใช้กดไมค์ในหน้า "กล่องฝาก" ส่วนใหญ่จะเป็น note' }[page] || '';
+  return aiJson_(bytes, mime, [
+    'นี่คือข้อความเสียงภาษาไทย (อาจมีอังกฤษปน) ที่เจ้าของพูดสั่งแอปจดงาน/จดเงิน วันนี้คือ ' + todayStr_() + (hint ? ' · ' + hint : ''),
     '1) text = ถอดคำพูดตามที่ได้ยิน ไม่แต่งเพิ่ม ถ้าไม่ได้ยินคำพูดเลยให้เว้นว่าง',
     '2) kind = task (งาน/นัด/สิ่งที่ต้องทำ) | expense (จ่ายเงิน) | income (ได้เงิน) | owe (ยืม/คืน/หารกับเพื่อน หรือถามว่าใครค้าง) | note (ไอเดีย/ข้อมูลเก็บไว้)',
     '3) cmd = แปลงเป็นข้อความสั้นตามรูปแบบนี้เท่านั้น ใช้ตัวเลขอารบิก เวลาแบบ 24 ชม. HH:MM',
@@ -475,10 +487,11 @@ function lineVoice_(ev) {
     properties: { text: S('STRING'), kind: S('STRING', { enum: ['task', 'expense', 'income', 'owe', 'note'] }), cmd: S('STRING') },
     required: ['text', 'kind', 'cmd'],
   }));
-  const heard = String(j.text || '').trim(), cmd = String(j.cmd || '').replace(/\s+/g, ' ').trim();
-  if (!heard || !cmd) { reply_(ev.replyToken, '🎙 ไม่ได้ยินคำพูดชัดๆ ลองอัดใหม่ใกล้ไมค์อีกนิดครับ'); return; }
-  REPLY_PREFIX = '🎙 ได้ยินว่า "' + heard.slice(0, 200) + '"\n\n';
-  try {
-    handleLine_([{ type: 'message', replyToken: ev.replyToken, source: ev.source, message: { type: 'text', id: msg.id, text: cmd.slice(0, 500) } }]);
-  } finally { REPLY_PREFIX = ''; }
+}
+function aiVoice_(body) {
+  const b64 = String(body.data || '');
+  if (!b64) throw new Error('ไม่มีเสียง');
+  if (b64.length > 8e6) throw new Error('เสียงยาวเกินไป');
+  const j = voiceParse_(Utilities.base64Decode(b64), String(body.mime || 'audio/wav'), String(body.page || ''));
+  return { text: String(j.text || '').trim(), kind: j.kind || '', cmd: String(j.cmd || '').replace(/\s+/g, ' ').trim() };
 }
