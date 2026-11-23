@@ -1,6 +1,7 @@
 /* จดครบ — 🩺 สถานะระบบ: เว็บ · เครื่องนี้ · หลังบ้าน · LINE · AI · สำรอง · Gmail (ไม่โชว์ค่าลับ บอกแค่ตั้งแล้วหรือยัง) */
 const ago = s => {
   if (!s) return '';
+  if (String(s).length === 10) { const d = Math.round((Date.parse(today()) - Date.parse(s)) / 864e5); return d <= 0 ? 'วันนี้' : d === 1 ? 'เมื่อวาน' : d + ' วันก่อน'; }
   const t = Date.parse(String(s).length === 10 ? s + 'T00:00:00+07:00' : String(s).replace(' ', 'T') + (/[zZ+]/.test(String(s).slice(10)) ? '' : '+07:00'));
   if (isNaN(t)) return s;
   const m = Math.round((Date.now() - t) / 60000);
