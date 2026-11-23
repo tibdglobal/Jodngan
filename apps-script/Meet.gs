@@ -346,3 +346,23 @@ function meetLine_() {
   return '📋 งานจากประชุมค้าง ' + mine.length + ' งาน' + (late.length ? ' (เลยกำหนด ' + late.length + ')\n' + late.slice(0, 5).map(t => '• ' + cut_(t.task, 60) + ' · ' + fmt_(t.due, '')).join('\n') : '') +
     '\nดูในแอป แท็บงาน ปุ่ม 📋';
 }
+
+
+/** หารายงานในคลังที่น่าจะตรงกับบันทึกประชุม (วันเดียวกัน ±3 วัน) ให้ผูกกลับมาที่บันทึก */
+function meetFind_(p) {
+  const book = meetBook_();
+  const d0 = String(p.date || '').slice(0, 10);
+  const key = meetKey_(p.title || '');
+  const out = [];
+  meetRows_(book, 'Meetings').forEach(row => {
+    let m; try { m = JSON.parse(row.json); } catch (e) { return; }
+    if (!m || !m.id) return;
+    const date = meetDate_(m);
+    const gap = d0 && date ? Math.abs((Date.parse(date) - Date.parse(d0)) / 864e5) : 99;
+    const t = String(m.title || '');
+    const hit = key && meetKey_(t).indexOf(key.slice(0, 6)) >= 0;
+    if (gap <= 3 || hit) out.push({ id: String(m.id), title: t, date: date, url: String(m.url || row.url || ''), score: (gap <= 3 ? 10 - gap : 0) + (hit ? 5 : 0) });
+  });
+  out.sort((a, b) => b.score - a.score);
+  return out.slice(0, 8);
+}

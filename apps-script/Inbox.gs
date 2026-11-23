@@ -1,7 +1,7 @@
 /* ===================== 📌 กล่องฝาก (ลิงก์ / โน้ต / รูป ที่ไม่ใช่งาน) + แยกประเภทข้อความจาก LINE ===================== */
 
 const INBOX_SHEET = 'Inbox';
-const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated', 'data'];   // data = JSON ของ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม
+const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated', 'data', 'remind', 'ocr'];   // remind = วันให้กลับมาดู · ocr = ข้อความในรูป (ไว้ค้นหา)   // data = JSON ของ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม
 const INBOX_FOLDER = 'จดครบ - กล่องฝาก';
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 
@@ -78,6 +78,8 @@ function inboxSave_(t) {
   const cur = row ? inboxAll_().find(x => x.id === t.id) : null;
   const now = stamp_();
   const o = cur || { id: t.id || Utilities.getUuid().replace(/-/g, ''), created: now, file: null, title: '' };
+  if (t.remind !== undefined) o.remind = String(t.remind || '').slice(0, 10);   // ⏰ วันให้กลับมาดู ('' = ไม่เตือน)
+  if (t.only === 'remind' && cur) { o.updated = now; inboxWrite_(o, row); return o; }
   if (t.kind === 'card' || t.kind === 'meet') {   // การ์ดข้อมูล / บันทึกประชุม: เก็บเป็น JSON + ข้อความไว้ค้นหา
     const d = t.data || {};
     if (JSON.stringify(d).length > 45000) throw new Error('บันทึกยาวเกินไป ลองแยกเป็น 2 บันทึก หรือลบรูปบางรูป');
@@ -408,4 +410,31 @@ function audioToTibd_(p) {
   const name = audioName_(p.name).replace(/\.[a-z0-9]{2,5}$/i, '') + ext;
   const c = src.makeCopy(name, DriveApp.getFolderById(dest));
   return { id: c.getId(), name: c.getName(), url: c.getUrl() };
+}
+
+
+/* ===================== ⏰ ให้กลับมาดู + 🔍 ข้อความในรูป ===================== */
+/** รายการที่ถึงวันให้กลับมาดู (สำหรับสรุปตอนเช้า) */
+function inboxDueLine_() {
+  const today = todayStr_();
+  const due = inboxAll_().filter(o => o.remind && o.remind <= today);
+  if (!due.length) return '';
+  const name = o => (o.title || (o.data && o.data.title) || String(o.text || '').split('\n')[0] || 'รายการ').slice(0, 60);
+  return '📌 ที่ฝากไว้ให้กลับมาดู ' + due.length + ' รายการ\n' + due.slice(0, 8).map(o => '• ' + name(o)).join('\n') + (due.length > 8 ? '\n• …อีก ' + (due.length - 8) : '');
+}
+/** อ่านข้อความในรูปด้วย OCR ของ Drive (ฟรี ไม่ใช้ AI) · ทำนอกล็อก */
+function inboxOcrRead_(id) {
+  const o = inboxAll_().find(x => x.id === String(id || ''));
+  if (!o || !o.file || !o.file.id) throw new Error('ไม่พบรูป');
+  if (o.file.mime && !/^image\/|pdf/.test(o.file.mime)) return '';
+  const text = ocrText_(DriveApp.getFileById(o.file.id)).replace(/\s+/g, ' ').trim().slice(0, 8000);
+  return text || ' ';   // ว่าง = ใส่ช่องว่างไว้ ไม่ต้องอ่านซ้ำ
+}
+function inboxOcrSave_(id, text) {
+  const row = inboxRow_(id);
+  if (!row) return null;
+  const o = inboxAll_().find(x => x.id === id);
+  o.ocr = text;
+  inboxWrite_(o, row);
+  return o;
 }

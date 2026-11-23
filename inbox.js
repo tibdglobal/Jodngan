@@ -17,7 +17,7 @@ let toastTimer = 0;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const KINDS = [['', 'ทั้งหมด'], ['meet', '📋 บันทึก'], ['card', '📇 ข้อมูล'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
+const KINDS = [['', 'ทั้งหมด'], ['due', '⏰ ถึงวันดู'], ['meet', '📋 บันทึก'], ['card', '📇 ข้อมูล'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
 
 async function api(action, payload = {}) {
   const res = await fetch(cfg.url, { method: 'POST', body: JSON.stringify({ action, key: cfg.key, ...payload }), redirect: 'follow' });
@@ -40,7 +40,7 @@ function busyEnd() { $('#busy').hidden = true; }
 async function sync() {
   if (!cfg.key) { showStatus('ยังไม่ได้เชื่อมเครื่องนี้ กลับไปหน้าหลักแล้วเปิดลิงก์จาก LINE ก่อน'); return; }
   $('#btnSync').classList.add('spin');
-  try { items = (await api('inbox_list')).items; LS.set('inbox', items); mergePending(); showStatus(''); render(); flushDrafts(); }
+  try { items = (await api('inbox_list')).items; LS.set('inbox', items); mergePending(); showStatus(''); render(); flushDrafts(); setTimeout(ocrBackfill, 1500); }
   catch (e) { showStatus('ดึงข้อมูลไม่สำเร็จ: ' + e.message); }
   finally { $('#btnSync').classList.remove('spin'); }
 }
@@ -67,31 +67,85 @@ function looksSecret(t) {
   return (t.match(/[A-Za-z0-9+/_=-]{24,}/g) || []).some(w => /[a-z]/.test(w) && /[A-Z]/.test(w) && /\d/.test(w) && !/^https?/.test(w));
 }
 
+/* ---------- ⏰ ให้กลับมาดู ---------- */
+const ymd = d => d.toLocaleDateString('sv-SE');
+const todayS = () => ymd(new Date());
+const isDue = o => o.remind && o.remind <= todayS();
+function remHtml(o) {
+  if (!o.remind) return '';
+  const d = new Date(o.remind + 'T00:00:00'), lbl = isNaN(d) ? o.remind : d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+  return isDue(o) ? `<div class="in-rem due">⏰ ถึงวันกลับมาดูแล้ว<button class="mini" data-act="remdone">✓ ดูแล้ว</button><button class="mini ghost" data-act="rem">เลื่อน</button></div>`
+    : `<div class="in-rem">⏰ เตือนให้ดู ${esc(lbl)}<button class="mini ghost" data-act="rem">เปลี่ยน</button></div>`;
+}
+const REM_OPTS = [['พรุ่งนี้', 1], ['อีก 3 วัน', 3], ['สัปดาห์หน้า', 7], ['เดือนหน้า', 30]];
+function remPick(o) {
+  let dlg = $('#remDlg');
+  if (!dlg) {
+    document.body.insertAdjacentHTML('beforeend', `<dialog id="remDlg" class="rem-dlg"><form method="dialog"><h2 tabindex="-1" autofocus>⏰ ให้กลับมาดูเมื่อไหร่</h2>
+      <div class="rem-opts">${REM_OPTS.map(([n, d]) => `<button type="button" data-d="${d}">${n}</button>`).join('')}<label class="rem-date">📅 เลือกวัน<input type="date"></label></div>
+      <div class="dlg-actions"><button type="button" class="danger" data-d="clear">ไม่ต้องเตือน</button><span class="spacer"></span><button type="button" class="ghost" data-d="cancel">ปิด</button></div></form></dialog>`);
+    dlg = $('#remDlg');
+    dlg.addEventListener('click', e => { const b = e.target.closest('[data-d]'); if (!b) return; const v = b.dataset.d; dlg.close(); if (v !== 'cancel') dlg.onPick(v === 'clear' ? '' : ymd(new Date(Date.now() + Number(v) * 864e5))); });
+    dlg.querySelector('input[type=date]').addEventListener('change', e => { if (e.target.value) { dlg.close(); dlg.onPick(e.target.value); } });
+  }
+  dlg.querySelector('input[type=date]').value = o.remind || '';
+  dlg.querySelector('input[type=date]').min = ymd(new Date(Date.now() + 864e5));
+  dlg.onPick = v => setRemind(o, v);
+  dlg.showModal();
+}
+async function setRemind(o, v) {
+  const before = o.remind || '';
+  o.remind = v; upsert(o); render();
+  toast(v ? '⏰ จะเตือนในสรุปตอนเช้าทาง LINE วันนั้น' : '✓ ไม่เตือนแล้ว');
+  try { const r = await api('inbox_save', { item: { id: o.id, remind: v, only: 'remind' } }); if (r.item) { r.item.data = r.item.data || o.data; upsert({ ...o, remind: r.item.remind }); } }
+  catch (err) { o.remind = before; upsert(o); render(); showStatus('ตั้งเตือนไม่สำเร็จ: ' + err.message); }
+}
+
+/* ---------- 🔍 อ่านข้อความในรูป (OCR ของ Drive ทำทีละรูปเบื้องหลัง ไว้ค้นหา) ---------- */
+let ocrBusy = false;
+async function ocrBackfill() {
+  if (ocrBusy || !cfg.key || !navigator.onLine) return;
+  const todo = items.filter(o => o.kind === 'image' && o.file && o.file.id && !o.ocr).slice(0, 4);
+  if (!todo.length) return;
+  ocrBusy = true;
+  for (const o of todo) {
+    try { const r = await api('inbox_ocr', { id: o.id }); if (r.item) { o.ocr = r.item.ocr; upsert(o); } } catch (e) { o.ocr = o.ocr || ''; break; }
+  }
+  ocrBusy = false;
+  if (q) render();
+}
+
 function render() {
-  const counts = { '': items.length };
+  const counts = { '': items.length, due: items.filter(isDue).length };
   items.forEach(o => { counts[o.kind] = (counts[o.kind] || 0) + 1; });
   $('#iFilters').innerHTML = KINDS.filter(([k]) => !k || counts[k]).map(([k, n]) =>
     `<button class="chip${filter === k ? ' on' : ''}" data-k="${k}">${n}<span class="n">${counts[k] || 0}</span></button>`).join('');
   const qq = q.trim().toLowerCase();
-  const list = items.filter(o => (!filter || o.kind === filter) && (!qq || [o.text, o.title, o.url, o.tags].join(' ').toLowerCase().includes(qq)))
-    .sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  if (filter === 'due' && !counts.due) filter = '';
+  const list = items.filter(o => (!filter || (filter === 'due' ? isDue(o) : o.kind === filter)) && (!qq || [o.text, o.title, o.url, o.tags, o.ocr].join(' ').toLowerCase().includes(qq)))
+    .sort((a, b) => (+!!isDue(b) - +!!isDue(a)) || String(b.created).localeCompare(String(a.created)));   // ถึงวันดู = ขึ้นก่อน
   if (!items.length) {
     $('#iList').innerHTML = `<div class="empty"><b>ยังไม่มีของฝาก</b>ส่งลิงก์ในแชท LINE หรือพิมพ์ "ฝาก ข้อความ" ก็เข้ามาที่นี่<br>รูปที่ไม่ใช่บิล แตะ "📌 เก็บไว้เฉยๆ" ในแชทได้</div>`;
     return;
   }
   if (!list.length) { $('#iList').innerHTML = '<div class="empty small">ไม่เจอรายการที่ค้นหา</div>'; return; }
   $('#iList').innerHTML = list.map(o => {
-    if (o.kind === 'card') return cardHtml(o);
-    if (o.kind === 'meet') return meetHtml(o);
+    const remBtn = '<span class="spacer"></span><button class="mini ghost" data-act="rem" title="ให้กลับมาดู" aria-label="ตั้งเตือนให้กลับมาดู">⏰</button>';
+    const withRem = h => h.replace('<footer>', remHtml(o) + '<footer>').replace('<span class="spacer"></span>', remBtn).replace('class="in-card ', `class="in-card ${isDue(o) ? 'due ' : ''}`);
+    if (o.kind === 'card') return withRem(cardHtml(o));
+    if (o.kind === 'meet') return withRem(meetHtml(o));
     const rest = String(o.text || '').replace(o.url ? URL_RE : /$^/, '').trim();
     const pic = o.file && o.file.thumb ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener"><img src="${o.file.thumb}" alt="" loading="lazy"></a>`
       : o.file ? `<a class="in-pic-big none" href="${esc(o.file.url)}" target="_blank" rel="noopener">🖼 เปิดรูป</a>` : '';
     const link = o.url ? `<a class="in-link" href="${esc(o.url)}" target="_blank" rel="noopener"><b>${esc(o.title || host(o.url) || o.url)}</b><small>🔗 ${esc(host(o.url))}</small></a>` : '';
     const body = rest ? `<p class="in-text">${textHtml(rest)}</p>` : '';
     const warn = looksSecret(o.text) ? `<div class="in-warn"><span>🔒 มีข้อความคล้ายรหัส/คีย์ กล่องฝากไม่ได้เข้ารหัส</span><button class="mini" data-act="vault">🔒 ย้ายไปตู้รหัส</button><button class="mini" data-act="del">🗑 ลบทิ้ง</button></div>` : '';
-    return `<article class="in-card" data-id="${o.id}">
-      ${warn}${pic}${link}${body}
+    const hitOcr = qq && o.ocr && ![o.text, o.title, o.url, o.tags].join(' ').toLowerCase().includes(qq);
+    const ocrSnip = hitOcr ? (() => { const t = o.ocr, i = t.toLowerCase().indexOf(qq); return `<p class="in-ocr">🔍 พบในรูป: …${esc(t.slice(Math.max(0, i - 30), i))}<mark>${esc(t.slice(i, i + qq.length))}</mark>${esc(t.slice(i + qq.length, i + qq.length + 40))}…</p>`; })() : '';
+    return `<article class="in-card${isDue(o) ? ' due' : ''}" data-id="${o.id}">
+      ${warn}${pic}${link}${body}${ocrSnip}${remHtml(o)}
       <footer><small>${when(o.created)}</small><span class="spacer"></span>
+        <button class="mini ghost" data-act="rem" title="ให้กลับมาดู" aria-label="ตั้งเตือนให้กลับมาดู">⏰</button>
         <button class="mini" data-act="task" title="ย้ายเป็นงาน">✓ ทำเป็นงาน</button>
         <button class="mini ghost" data-act="edit" aria-label="แก้ไข">✏️</button>
         <button class="mini ghost" data-act="del" aria-label="ลบ" title="ลบ">🗑</button>
@@ -152,6 +206,8 @@ $('#iList').addEventListener('click', e => {
   if (b.dataset.act === 'edit') openEdit(o);
   if (b.dataset.act === 'task') toTask(o);
   if (b.dataset.act === 'del') delItem(o);
+  if (b.dataset.act === 'rem') remPick(o);
+  if (b.dataset.act === 'remdone') setRemind(o, '');
   if (b.dataset.act === 'vault') {
     const name = (String(o.title || o.text || '').split('\n').map(x => x.trim()).find(Boolean) || 'จากกล่องฝาก').replace(/[:：].*$/, '').slice(0, 60) || 'จากกล่องฝาก';
     try { sessionStorage.setItem('vaultFromInbox', JSON.stringify({ id: o.id, name, text: String(o.text || '') })); } catch (err) { return showStatus('ส่งต่อไม่ได้ในเบราว์เซอร์นี้'); }

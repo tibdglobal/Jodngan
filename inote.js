@@ -50,6 +50,7 @@ function valHtml(k, v) {
   const act = isPhone(s) ? `<a class="mini" href="tel:${esc(s.replace(/[^\d+]/g, ''))}">📞 โทร</a>`
     : isEmail(s) ? `<a class="mini" href="mailto:${esc(s)}">✉️</a>`
     : isUrl(s) ? `<a class="mini" href="${esc(/^http/i.test(s) ? s : 'https://' + s)}" target="_blank" rel="noopener">เปิด ↗</a>`
+    : /^line$|ไลน์/i.test(k) && /^@?[\w.\-]{3,}$/.test(s) ? `<a class="mini" href="https://line.me/R/ti/p/${encodeURIComponent(s.startsWith('@') ? s : '~' + s)}" target="_blank" rel="noopener">💬 LINE</a>`
     : /ที่อยู่|แผนที่|สถานที่/.test(k) ? `<a class="mini" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s)}" target="_blank" rel="noopener">🗺</a>` : '';
   return `<div class="rf"><dt>${esc(k)}</dt><dd><button type="button" class="rf-v" data-copy="${esc(s)}" title="แตะเพื่อคัดลอก">${esc(s)}</button>${act}</dd></div>`;
 }
@@ -66,10 +67,32 @@ function cardHtml(o) {
     ${show.length ? `<dl class="rec-f">${show.slice(0, 5).map(f => valHtml(f.k, f.v)).join('')}${show.length > 5 ? `<div class="rf more" data-act="open">+ อีก ${show.length - 5} ช่อง</div>` : ''}</dl>` : ''}
     ${d.note ? `<p class="in-text small">${textHtml(d.note)}</p>` : ''}
     <footer><small>${when(o.created)}</small><span class="spacer"></span>
+      ${fs.some(f => isPhone(String(f.v)) || isEmail(String(f.v))) ? '<button class="mini" data-act="vcard" title="บันทึกลงรายชื่อในมือถือ">💾 บันทึกเบอร์</button>' : ''}
       <button class="mini" data-act="share" title="คัดลอกเป็นข้อความ">📤 ส่งต่อ</button>
       <button class="mini ghost" data-act="edit" aria-label="แก้ไข">✏️</button>
     </footer>
   </article>`;
+}
+/** 💾 การ์ด → ไฟล์ vCard (เปิดแล้วมือถือถามบันทึกลงรายชื่อ) */
+function cardVcf(d) {
+  const v = k => ((d.fields || []).find(f => f.k === k) || {}).v || '';
+  const esc2 = x => String(x).replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
+  const L = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:' + esc2(d.title || 'ผู้ติดต่อ'), 'N:' + esc2(d.title || '') + ';;;;'];
+  const org = v('บริษัท') || (d.tpl === 'company' ? d.title : '');
+  if (org) L.push('ORG:' + esc2(org));
+  if (v('ตำแหน่ง')) L.push('TITLE:' + esc2(v('ตำแหน่ง')));
+  (d.fields || []).forEach(f => {
+    const x = String(f.v || '').trim();
+    if (!x) return;
+    if (isPhone(x)) L.push('TEL;TYPE=CELL:' + x.replace(/[^\d+]/g, ''));
+    else if (isEmail(x)) L.push('EMAIL:' + x);
+    else if (/ที่อยู่/.test(f.k)) L.push('ADR:;;' + esc2(x) + ';;;;');
+    else if (isUrl(x)) L.push('URL:' + x);
+  });
+  const note = [v('LINE') ? 'LINE: ' + v('LINE') : '', d.note || ''].filter(Boolean).join('\n');
+  if (note) L.push('NOTE:' + esc2(note));
+  L.push('END:VCARD');
+  return L.join('\r\n');
 }
 function meetHtml(o) {
   const d = o.data || {}, ty = MTYPE[d.type] || MTYPE.meet;
@@ -87,6 +110,7 @@ function meetHtml(o) {
     </div>
     ${ppl.length ? `<p class="mt-ppl">👥 ${esc(ppl.slice(0, 3).join(', '))}${ppl.length > 3 ? ` +${ppl.length - 3}` : ''}</p>` : ''}
     <p class="mt-stat" data-act="open">${[secs.length ? secs.length + ' ส่วน' : '', nRows ? nRows + ' ข้อมูล' : '', nPh ? '📷 ' + nPh : '', (d.audio || []).length ? '🎙 ' + d.audio.length : '', open ? '☐ ' + open + ' งานต่อ' : '', d.summary ? '✨ มีสรุป' : ''].filter(Boolean).join(' · ') || 'แตะเพื่อจดต่อ'}</p>
+    ${d.report ? `<a class="mt-rep" href="${esc(d.report.url || '#')}" target="_blank" rel="noopener">📋 รายงานที่ยืนยันแล้ว: ${esc(d.report.title)} ↗</a>` : ''}
     <footer><small>${o._pending ? '⏳ ยังไม่ได้ส่งขึ้น' : when(o.created)}</small><span class="spacer"></span>
       <button class="mini" data-act="share" title="คัดลอกเป็นข้อความ">📤 ส่งต่อ</button>
       <button class="mini" data-act="open">✏️ เปิด</button>
@@ -127,7 +151,17 @@ $('#iList').addEventListener('click', e => {
   if (!b || !card) return;
   const o = items.find(x => x.id === card.dataset.id);
   if (!o || (o.kind !== 'card' && o.kind !== 'meet')) return;
+  if (b.dataset.act === 'rem' || b.dataset.act === 'remdone') return;   // ⏰ ให้ inbox.js จัดการ
   e.stopImmediatePropagation();
+  if (b.dataset.act === 'vcard') {
+    const d = o.data || {};
+    const blob = new Blob([cardVcf(d)], { type: 'text/vcard' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = (d.title || 'contact').replace(/[\\/:*?"<>|]/g, ' ') + '.vcf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return toast('💾 เปิดไฟล์ที่ได้ แล้วกดบันทึกลงรายชื่อ');
+  }
   if (b.dataset.act === 'share') copyText(o.kind === 'card' ? cardText(o.data || {}) : ((o.data || {}).summary || meetText(o.data || {})), (o.data || {}).summary ? '📋 คัดลอกสรุปแล้ว วางใน LINE ได้เลย' : '📋 คัดลอกแล้ว วางใน LINE ได้เลย');
   else if (o.kind === 'card') openCard(o);
   else openMeet(o);
@@ -216,7 +250,9 @@ document.body.insertAdjacentHTML('beforeend', `
           <button type="button" class="mini" id="mArcGo">🏢 ทำร่างรายงาน</button>
           <button type="button" class="mini arc-send" id="mArcSend" hidden>📤 ส่งเข้าคลัง</button>
           <a class="mini" id="mArcLink" target="_blank" rel="noopener" hidden>เปิดหน้ายืนยัน ↗</a>
+          <button type="button" class="mini" id="mRepFind">🔗 ผูกรายงานที่ยืนยันแล้ว</button>
         </div>
+        <div id="mRep" class="arc-rep"></div>
       </section>
       <button type="button" id="mDel" class="m-del">🗑 ลบบันทึกนี้</button>
     </div>
@@ -615,8 +651,34 @@ $('#mSumGo').addEventListener('click', async () => {
   finally { b.disabled = false; }
 });
 
+/* 🔗 ผูกรายงานที่ยืนยันแล้วในคลัง (เช่น หลังส่งเสียงให้ TIBD ถอด) */
+function mRenderRep() {
+  const r = m.report;
+  $('#mRep').innerHTML = r ? `<p class="arc-st">📋 รายงานที่ผูกไว้: <a href="${esc(r.url || '#')}" target="_blank" rel="noopener">${esc(r.title)} ↗</a> <small>${esc(r.date || '')}</small> <button type="button" class="mini ghost" data-rep="unlink">เอาออก</button></p>` : '';
+  $('#mRepFind').textContent = r ? '🔗 เปลี่ยนรายงานที่ผูก' : '🔗 ผูกรายงานที่ยืนยันแล้ว';
+}
+$('#mRepFind').addEventListener('click', async () => {
+  const b = $('#mRepFind'); b.disabled = true; b.textContent = '🔗 กำลังหาในคลัง…';
+  try {
+    const { list } = await api('meet_find', { date: (m.when || '').slice(0, 10), title: m.title || '' });
+    if (!list.length) { $('#mRep').innerHTML = '<p class="hint">ยังไม่เจอรายงานในคลังที่วันใกล้กัน (±3 วัน) ถ้า TIBD ยังถอดไม่เสร็จ ลองใหม่ภายหลัง</p>'; return; }
+    $('#mRep').innerHTML = '<p class="arc-h">เลือกรายงานที่ตรงกับบันทึกนี้</p>' + list.map((x, i) => `<button type="button" class="arc-pick" data-rep="${i}"><b>${esc(x.title)}</b><small>${esc(x.date)}</small></button>`).join('');
+    $('#mRep').__list = list;
+  } catch (err) { showStatus('หาในคลังไม่สำเร็จ: ' + err.message); }
+  finally { b.disabled = false; if (!$('#mRep').__list) mRenderRep(); else b.textContent = '🔗 ผูกรายงานที่ยืนยันแล้ว'; }
+});
+$('#mRep').addEventListener('click', e => {
+  const b = e.target.closest('[data-rep]');
+  if (!b) return;
+  if (b.dataset.rep === 'unlink') { delete m.report; }
+  else { const x = ($('#mRep').__list || [])[+b.dataset.rep]; if (!x) return; m.report = { id: x.id, title: x.title, date: x.date, url: x.url }; toast('📋 ผูกรายงานแล้ว'); }
+  $('#mRep').__list = null;
+  mRenderRep(); mDirty(true);
+});
+
 /* 🏢 ส่งเข้าคลังรายงาน TIBD */
 function mRenderArc() {
+  mRenderRep();
   const a = m.arc || {}, d = a.minute;
   $('#mArcSend').hidden = !d;
   $('#mArcSend').textContent = a.fileId ? '📤 ส่งฉบับแก้ทับ' : '📤 ส่งเข้าคลัง';

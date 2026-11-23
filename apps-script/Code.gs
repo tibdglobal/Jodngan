@@ -179,6 +179,8 @@ function doPost(e) {
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
       case 'meet_tasks': return json_({ ok: true, ...meetTasks_(!!body.all) });
       case 'meet_draft': return json_({ ok: true, minute: meetDraft_(body) });
+      case 'meet_find':  return json_({ ok: true, list: meetFind_(body) });
+      case 'inbox_ocr':  body.__ocr = inboxOcrRead_(body.id); break;   // อ่านนอกล็อก แล้วค่อยบันทึกในล็อก
       case 'audio_start': return json_({ ok: true, ...audioStart_(body) });
       case 'audio_chunk': return json_({ ok: true, ...audioChunk_(body) });
       case 'audio_tibd':  return json_({ ok: true, copy: audioToTibd_(body) });
@@ -239,6 +241,7 @@ function doPost(e) {
       case 'inbox_upload': return json_({ ok: true, item: inboxUpload_(body) });
       case 'inbox_task':   return json_({ ok: true, task: inboxToTask_(body.id) });
       case 'inbox_photo':  return json_({ ok: true, photo: inboxPhoto_(body) });
+      case 'inbox_ocr':    return json_({ ok: true, item: inboxOcrSave_(body.id, body.__ocr) });
       case 'inbox_todo':   return json_({ ok: true, task: inboxTodo_(body) });
       case 'meet_setup':   return json_({ ok: true, ...meetSetup_(body) });
       case 'meet_status':  return json_({ ok: true, ...meetSetStatus_(body.meetingId, body.index, body.status) });
@@ -360,7 +363,9 @@ function morningSummary() {
   let bills = '', meet = '';
   try { bills = billLine_(); } catch (e) {}
   try { meetSync_(true); meet = meetLine_(); } catch (e) {}
-  const msg = [buildToday_(tasks), pre.text, meet, bills, warn].filter(Boolean).join('\n\n');
+  let inbox = '';
+  try { inbox = inboxDueLine_(); } catch (e) {}
+  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
   const sh = sheet_(), col = HEADERS.indexOf('prenoted') + 1;
