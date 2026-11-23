@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=73">
+  <link rel="stylesheet" href="style.css?v=74">
 </head>
 <body class="tasks">
   <header class="top">
@@ -96,6 +96,24 @@
       <label class="check">
         <input name="remind" type="checkbox"> เตือนทาง LINE ตามเวลา
       </label>
+      <div class="field">
+        <span class="field-label">🔁 ทำซ้ำ (ติ๊กเสร็จแล้วสร้างรอบถัดไปให้เอง)</span>
+        <div class="when-chips wrap" id="eRep">
+          <button type="button" data-r="">ไม่ซ้ำ</button>
+          <button type="button" data-r="day">ทุกวัน</button>
+          <button type="button" data-r="week">ทุกสัปดาห์</button>
+          <button type="button" data-r="month">ทุกเดือน</button>
+          <button type="button" data-r="year">ทุกปี</button>
+        </div>
+      </div>
+      <label>⏳ รอคนอื่นอยู่ไหม (ใส่ชื่อคนหรือบริษัท · วันที่ด้านบน = วันที่จะตามเรื่อง)
+        <input name="wait" placeholder="เช่น อาจารย์ศิ, บริษัท A" autocomplete="off">
+      </label>
+      <div class="field">
+        <span class="field-label">☑ เช็กลิสต์ย่อย</span>
+        <div id="eChecks" class="ck-list"></div>
+        <div class="ck-add"><input id="eCkNew" placeholder="เพิ่มขั้นตอน แล้วกด Enter" autocomplete="off"><button type="button" id="eCkAdd" class="mini">＋</button></div>
+      </div>
       <label>โน้ต
         <textarea name="note" rows="3"></textarea>
       </label>
@@ -158,8 +176,8 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="hub.js?v=73"></script>
-  <script src="app.js?v=73"></script>
-  <script src="meet.js?v=73"></script>
+  <script src="hub.js?v=74"></script>
+  <script src="app.js?v=74"></script>
+  <script src="meet.js?v=74"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ const SHEET_NAME = 'Tasks';
 // 'due' = ชนิดกำหนดส่ง: '' วันแน่นอน | week ภายในสัปดาห์ | month ภายในเดือน | before ก่อนงานอื่น
 // 'dep' = id ของงานที่ต้องเสร็จก่อน (ใช้กับ due = before)
 // 'pre' = เตือนล่วงหน้ากี่วัน เช่น "7,3" | 'prenoted' = ระยะที่เตือนไปแล้ว
-const HEADERS = ['id', 'title', 'note', 'date', 'time', 'remind', 'done', 'notified', 'created', 'updated', 'project', 'source', 'due', 'dep', 'pre', 'prenoted'];
+const HEADERS = ['id', 'title', 'note', 'date', 'time', 'remind', 'done', 'notified', 'created', 'updated', 'project', 'source', 'due', 'dep', 'pre', 'prenoted', 'repeat', 'wait', 'checks'];
 const CAL_DAYS = 14;             // ดึงประชุมล่วงหน้ากี่วัน
 // ปฏิทินเพิ่มเติมที่แชร์ให้บัญชีนี้โดยตรง — ปฏิทินหลักของบัญชีนี้ดึงเสมอ
 const EXTRA_CALENDARS = [];
@@ -414,6 +414,7 @@ function checkReminders() {
       return at >= from && at <= to;
     }).sort(byWhen_);
     try { meetSync_(false); } catch (e) { console.warn('meetSync: ' + e); }   // งานจากคลังประชุม (ทุก 1 ชม.)
+    try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
@@ -497,7 +498,32 @@ function line1_(t) {
   if (t.due === 'before' && t.dep && !/^[0-9a-f]{32}$/.test(t.dep)) tail = ' (ก่อน' + t.dep + ')';   // dep เป็นชื่องานที่พิมพ์เอง
   return (when ? when + ' ' : '') + t.title + tail + tag_(t);
 }
-function tag_(t) { return t.project ? ' [' + t.project + ']' : ''; }
+function tag_(t) { return (t.wait ? ' ⏳รอ ' + t.wait : '') + (t.project ? ' [' + t.project + ']' : ''); }
+
+/** 📊 สรุปสัปดาห์ ส่งศุกร์เย็น (เรียกจาก checkReminders ส่งครั้งเดียวต่อสัปดาห์) */
+function weeklySummary_(force) {
+  const now = new Date();
+  const dow = Number(Utilities.formatDate(now, TZ, 'u'));   // 1=จ. … 5=ศ.
+  const hour = Number(Utilities.formatDate(now, TZ, 'H'));
+  const wk = Utilities.formatDate(now, TZ, "YYYY-'W'ww");
+  if (!force && (dow !== 5 || hour < 17 || props.getProperty('WEEKLY_SENT') === wk)) return;
+  const tasks = readAll_(), today = todayStr_();
+  const weekAgo = Utilities.formatDate(new Date(now.getTime() - 7 * 864e5), TZ, 'yyyy-MM-dd');
+  const in7 = Utilities.formatDate(new Date(now.getTime() + 7 * 864e5), TZ, 'yyyy-MM-dd');
+  const doneW = tasks.filter(t => t.done && String(t.updated).slice(0, 10) >= weekAgo);
+  const open = tasks.filter(t => !t.done);
+  const late = open.filter(t => t.date && t.date < today && !t.wait);
+  const wait = open.filter(t => t.wait).sort(byWhen_);
+  const next = open.filter(t => t.date && t.date >= today && t.date <= in7 && !t.wait).sort(byWhen_);
+  const NL = '\n';
+  const L = ['📊 สรุปสัปดาห์นี้'];
+  L.push('✅ เสร็จ ' + doneW.length + ' งาน' + (doneW.length ? NL + doneW.slice(0, 8).map(t => '• ' + t.title).join(NL) + (doneW.length > 8 ? NL + '• …อีก ' + (doneW.length - 8) : '') : ''));
+  if (late.length) L.push('⚠️ เลยกำหนด ' + late.length + ' งาน' + NL + late.slice(0, 6).map(t => '• ' + fmt_(t.date, '') + ' ' + t.title + tag_(t)).join(NL));
+  if (wait.length) L.push('⏳ รอคนอื่น ' + wait.length + ' งาน' + NL + wait.slice(0, 6).map(t => '• ' + t.wait + ': ' + t.title + (t.date ? ' (ตาม ' + fmt_(t.date, '') + ')' : '')).join(NL));
+  L.push('📅 สัปดาห์หน้า ' + next.length + ' งาน' + (next.length ? NL + next.slice(0, 10).map(t => '• ' + fmt_(t.date, '') + ' ' + t.title + tag_(t)).join(NL) : ''));
+  push_(L.join(NL + NL));
+  props.setProperty('WEEKLY_SENT', wk);
+}
 
 /* ===================== Google Calendar ===================== */
 
@@ -744,10 +770,49 @@ function vaultDelete_(id, space) {
 
 /* ===================== Sheet ===================== */
 
+let sheetChecked_ = false;
 function sheet_() {
   const id = props.getProperty('SHEET_ID');
   const ss = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
-  return ss.getSheetByName(SHEET_NAME);
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sheetChecked_ && sh) {   // เพิ่มคอลัมน์ใหม่ (repeat / wait / checks) ให้ชีตเดิมอัตโนมัติ
+    sheetChecked_ = true;
+    if (sh.getLastColumn() < HEADERS.length) {
+      if (sh.getMaxColumns() < HEADERS.length) sh.insertColumnsAfter(sh.getMaxColumns(), HEADERS.length - sh.getMaxColumns());
+      sh.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]).setFontWeight('bold');
+      sh.getRange(1, 1, sh.getMaxRows(), HEADERS.length).setNumberFormat('@');
+    }
+  }
+  return sh;
+}
+
+/* ---------- 🔁 งานทำซ้ำ ---------- */
+const REPEAT_TH = { day: 'ทุกวัน', week: 'ทุกสัปดาห์', month: 'ทุกเดือน', year: 'ทุกปี' };
+/** วันถัดไปของงานทำซ้ำ (เลื่อนจนเลยวันนี้) */
+function nextRepeat_(date, rep) {
+  const today = todayStr_();
+  let d = date || today, guard = 0;
+  const step = x => {
+    const p = x.split('-').map(Number), y = p[0], m = p[1], dd = p[2];
+    let nd;
+    if (rep === 'day') nd = new Date(Date.UTC(y, m - 1, dd + 1));
+    else if (rep === 'week') nd = new Date(Date.UTC(y, m - 1, dd + 7));
+    else if (rep === 'month') { const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); nd = new Date(Date.UTC(y, m, Math.min(dd, last))); }
+    else { const last = new Date(Date.UTC(y + 1, m, 0)).getUTCDate(); nd = new Date(Date.UTC(y + 1, m - 1, Math.min(dd, last))); }
+    return nd.toISOString().slice(0, 10);
+  };
+  do { d = step(d); } while (d <= today && ++guard < 1000);
+  return d;
+}
+/** ติ๊กเสร็จงานทำซ้ำ → สร้างรอบถัดไป (id คงที่ ฝั่งแอปสร้างซ้ำได้โดยไม่เกิดงานซ้ำ) */
+function spawnRepeat_(t) {
+  if (!REPEAT_TH[t.repeat]) return null;
+  const date = nextRepeat_(t.date, t.repeat);
+  const base = String(t.id).split('~')[0];
+  const id = base + '~' + date.replace(/-/g, '');
+  if (findRow_(id)) return null;
+  const checks = (() => { try { return JSON.stringify(JSON.parse(t.checks || '[]').map(c => ({ t: c.t, d: '' }))); } catch (e) { return ''; } })();
+  return addTask_({ id: id, title: t.title, note: t.note, date: date, time: t.time, remind: t.remind === '1', project: t.project, pre: t.pre, repeat: t.repeat, wait: t.wait, checks: checks === '[]' ? '' : checks });
 }
 
 function readAll_() {
@@ -789,6 +854,9 @@ function addTask_(t) {
     dep: String(t.dep || ''),
     pre: String(t.pre || ''),
     prenoted: '',
+    repeat: String(t.repeat || ''),
+    wait: String(t.wait || '').trim(),
+    checks: typeof t.checks === 'string' ? t.checks : (t.checks ? JSON.stringify(t.checks) : ''),
   };
   if (!row.title) throw new Error('ไม่มีชื่องาน');
   const sh = sheet_();
@@ -809,7 +877,8 @@ function updateTask_(t) {
   const wasDone = cur.done;
   const beforePre = cur.pre;
 
-  ['title', 'note', 'date', 'time', 'project', 'due', 'dep', 'pre'].forEach(k => { if (t[k] !== undefined) cur[k] = String(t[k]).trim(); });
+  ['title', 'note', 'date', 'time', 'project', 'due', 'dep', 'pre', 'repeat', 'wait'].forEach(k => { if (t[k] !== undefined) cur[k] = String(t[k]).trim(); });
+  if (t.checks !== undefined) cur.checks = typeof t.checks === 'string' ? t.checks : JSON.stringify(t.checks || []);
   ['remind', 'done'].forEach(k => { if (t[k] !== undefined) cur[k] = t[k] ? '1' : ''; });
   if ([cur.date, cur.time, cur.due, cur.dep].join('|') !== before) {   // เปลี่ยนกำหนด = เตือนใหม่ทั้งหมด
     cur.notified = '';
@@ -819,6 +888,7 @@ function updateTask_(t) {
 
   rng.setNumberFormat('@').setValues([HEADERS.map(h => cur[h])]);
   if (/^meet:/.test(cur.id) && wasDone !== cur.done) meetOnLocalDone_(cur.id, cur.done === '1');   // งานจากคลังประชุม → อัปเดตสถานะในคลัง
+  if (!wasDone && cur.done === '1' && cur.repeat) { const nx = spawnRepeat_(cur); if (nx) cur.next = nx; }   // 🔁 สร้างรอบถัดไป
   return cur;
 }
 

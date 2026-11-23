@@ -170,19 +170,51 @@ async function sync() {
 /* บันทึกบนเครื่องทันที แล้วส่งขึ้น Sheet */
 async function save(action, task) {
   const i = tasks.findIndex(t => t.id === task.id);
+  const was = i > -1 ? tasks[i] : null;
   if (action === 'delete') { if (i > -1) tasks.splice(i, 1); }
   else if (i > -1) tasks[i] = { ...tasks[i], ...task };
   else tasks.push(task);
+  // 🔁 ติ๊กเสร็จงานทำซ้ำ → รอบถัดไปขึ้นทันที (id เดียวกับที่ระบบหลังบ้านสร้าง จึงไม่ซ้ำ)
+  let spawned = null;
+  if (action === 'update' && was && was.done !== '1' && task.done === '1' && REPEAT_TH[was.repeat]) {
+    const cur = tasks[i], d = nextRepeat(cur.date, cur.repeat), id = String(cur.id).split('~')[0] + '~' + d.replace(/-/g, '');
+    if (!tasks.some(x => x.id === id)) {
+      let ck = ''; try { const a = JSON.parse(cur.checks || '[]'); ck = a.length ? JSON.stringify(a.map(c => ({ t: c.t, d: '' }))) : ''; } catch (e) {}
+      spawned = { ...cur, id, date: d, done: '', notified: '', prenoted: '', checks: ck, created: new Date().toISOString(), updated: new Date().toISOString() };
+      tasks.push(spawned);
+    }
+  }
   LS.set('tasks', tasks);
   render();
+  if (spawned) showStatus(`✅ 🔁 สร้างรอบถัดไปแล้ว: ${dayName(spawned.date)} ${short(spawned.date)}`);
   try {
     if (action === 'delete') await api('delete', { id: task.id });
     else await api(action, { task });
-    showStatus('');
+    if (!spawned) showStatus('');
+    else setTimeout(() => showStatus(''), 3500);
   } catch (e) {
     showStatus('บันทึกขึ้นระบบไม่สำเร็จ: ' + e.message + ' (กด ⟳ เพื่อลองใหม่)');
   }
 }
+
+/* ---------- 🔁 ทำซ้ำ ---------- */
+const REPEAT_TH = { day: 'ทุกวัน', week: 'ทุกสัปดาห์', month: 'ทุกเดือน', year: 'ทุกปี' };
+function nextRepeat(date, rep) {
+  const t = today();
+  let d = date || t, guard = 0;
+  const step = x => {
+    const [y, m, dd] = x.split('-').map(Number);
+    let nd;
+    if (rep === 'day') nd = new Date(Date.UTC(y, m - 1, dd + 1));
+    else if (rep === 'week') nd = new Date(Date.UTC(y, m - 1, dd + 7));
+    else if (rep === 'month') nd = new Date(Date.UTC(y, m, Math.min(dd, new Date(Date.UTC(y, m + 1, 0)).getUTCDate())));
+    else nd = new Date(Date.UTC(y + 1, m - 1, Math.min(dd, new Date(Date.UTC(y + 1, m, 0)).getUTCDate())));
+    return nd.toISOString().slice(0, 10);
+  };
+  do { d = step(d); } while (d <= t && ++guard < 1000);
+  return d;
+}
+const checksOf = t => { try { const a = JSON.parse(t.checks || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
 
 /* ---------- แสดงผล ---------- */
 const whenKey = t => (effDate(t) || '9999-99-99') + (t.time || '99:99');
@@ -242,13 +274,16 @@ function render() {
   const done = view.filter(x => x.done === '1').sort((a, b) => (b.updated || '') < (a.updated || '') ? -1 : 1).slice(0, 15);
 
   const E = x => effDate(x), soft = x => !!SOFT[x.due];
+  const waiting = open.filter(x => x.wait);
+  const mine = open.filter(x => !x.wait);   // งานที่รอคนอื่นแยกกลุ่มไว้ ไม่ปนกับงานที่ต้องลงมือเอง
   const groups = [
-    ['เลยกำหนด', 'overdue', open.filter(x => E(x) && E(x) < t)],
-    ['วันนี้', '', open.filter(x => !soft(x) && E(x) === t)],
-    ['พรุ่งนี้', '', open.filter(x => !soft(x) && E(x) === tmr)],
-    ['ภายในช่วงเวลา', '', open.filter(x => soft(x) && E(x) >= t)],
-    ['ถัดไป', '', open.filter(x => !soft(x) && E(x) > tmr)],
-    ['ยังไม่กำหนดวัน', '', open.filter(x => !E(x))],
+    ['เลยกำหนด', 'overdue', mine.filter(x => E(x) && E(x) < t)],
+    ['วันนี้', '', mine.filter(x => !soft(x) && E(x) === t)],
+    ['พรุ่งนี้', '', mine.filter(x => !soft(x) && E(x) === tmr)],
+    ['ภายในช่วงเวลา', '', mine.filter(x => soft(x) && E(x) >= t)],
+    ['ถัดไป', '', mine.filter(x => !soft(x) && E(x) > tmr)],
+    ['⏳ รอคนอื่น', 'waiting', waiting],
+    ['ยังไม่กำหนดวัน', '', mine.filter(x => !E(x))],
     ['เสร็จแล้ว', '', done],
   ];
 
@@ -531,6 +566,9 @@ function row(task, t) {
   if (task.time && !SOFT[task.due]) meta.push(task.time);
   if (task.remind === '1' && task.time) meta.push('🔔');
   if (task.pre) meta.push('⏳' + task.pre.split(',').join('/') + ' วัน');
+  if (REPEAT_TH[task.repeat]) meta.push('🔁 ' + REPEAT_TH[task.repeat]);
+  const cks = checksOf(task);
+  if (cks.length) meta.push(`☑ ${cks.filter(c => c.d).length}/${cks.length}`);
   if (task.note) meta.push('📝');
   if (task.source) meta.push('👥');
   const late = task.done !== '1' && ed && ed < t;
@@ -545,9 +583,26 @@ function row(task, t) {
   const m = body.querySelector('.meta');
   m.textContent = meta.join(' · ');
   if (!meta.length) m.remove();
+  if (task.wait && task.done !== '1') {   // ⏳ รอใคร + ปุ่มก็อปข้อความตามเรื่อง
+    const w = document.createElement('span');
+    w.className = 'wait-tag';
+    w.textContent = '⏳ รอ ' + task.wait + (ed ? (ed <= t ? ' · ถึงวันตามเรื่อง' : ' · ตาม ' + short(ed)) : '');
+    body.appendChild(w);
+  }
   body.onclick = () => openEdit(task);   // กดที่ตัวงาน = แก้ไข
   body.setAttribute('aria-label', 'แก้ไข ' + task.title);
   el.append(chk, body);
+  if (task.wait && task.done !== '1') {
+    const fu = document.createElement('button');
+    fu.type = 'button'; fu.className = 'follow-btn'; fu.textContent = '💬 ตาม';
+    fu.title = 'ก็อปข้อความตามเรื่อง';
+    fu.onclick = async () => {
+      const msg = `สวัสดีครับ ขอติดตามเรื่อง "${task.title}" ครับ ไม่ทราบว่าคืบหน้าถึงไหนแล้วครับ 🙏`;
+      try { await navigator.clipboard.writeText(msg); fu.textContent = '✓ ก็อปแล้ว'; } catch (e) { prompt('ก็อปข้อความนี้', msg); }
+      setTimeout(() => { fu.textContent = '💬 ตาม'; }, 1800);
+    };
+    el.append(fu);
+  }
 
   // เลยกำหนด → ปุ่มเลื่อนเร็วในแถว ไม่ต้องเปิดแก้ทีละงาน
   if (late) {
@@ -675,6 +730,11 @@ function openEdit(task, creating) {
   f.note.value = task.note || '';
   f.project.value = task.project || '';
   setPre(task.pre);
+  eRepV = REPEAT_TH[task.repeat] ? task.repeat : '';
+  paintRep();
+  f.wait.value = task.wait || '';
+  eChecks = checksOf(task).map(c => ({ ...c }));
+  paintChecks();
   eKind = task.kind ?? kindOf(task);
   fillDeps(isNew ? null : task.id);
   f.dep.value = task.due === 'before' ? depName(task) : '';
@@ -723,6 +783,9 @@ editForm.addEventListener('submit', () => {
     date, time, due, dep, pre,
     remind: f.remind.checked && time ? '1' : '',
     note: f.note.value,
+    repeat: eRepV,
+    wait: f.wait.value.trim(),
+    checks: eChecks.length ? JSON.stringify(eChecks) : '',
     project: known ? known.name : v,
     updated: new Date().toISOString(),
   };
@@ -735,6 +798,21 @@ editForm.addEventListener('submit', () => {
   editing = null;
 });
 $('#btnCancel').onclick = () => { editing = null; editDlg.close(); };
+
+/* ทำซ้ำ / เช็กลิสต์ ในหน้าแก้งาน */
+let eRepV = '', eChecks = [];
+function paintRep() { $('#eRep').querySelectorAll('[data-r]').forEach(b => b.classList.toggle('on', b.dataset.r === eRepV)); }
+$('#eRep').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { eRepV = b.dataset.r; paintRep(); } });
+function paintChecks() {
+  const box = $('#eChecks');
+  box.innerHTML = eChecks.map((c, i) => `<div class="ck-row${c.d ? ' on' : ''}"><label><input type="checkbox" data-i="${i}"${c.d ? ' checked' : ''}><span></span></label><button type="button" class="ck-x" data-x="${i}" aria-label="ลบขั้นตอน">✕</button></div>`).join('');
+  box.querySelectorAll('.ck-row span').forEach((sp, i) => { sp.textContent = eChecks[i].t; });
+}
+$('#eChecks').addEventListener('change', e => { const i = e.target.dataset.i; if (i !== undefined) { eChecks[i].d = e.target.checked ? '1' : ''; paintChecks(); } });
+$('#eChecks').addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { eChecks.splice(+b.dataset.x, 1); paintChecks(); } });
+const addCheck = () => { const v = $('#eCkNew').value.trim(); if (!v) return; eChecks.push({ t: v, d: '' }); $('#eCkNew').value = ''; paintChecks(); $('#eCkNew').focus(); };
+$('#eCkAdd').onclick = addCheck;
+$('#eCkNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCheck(); } });
 $('#btnDelete').onclick = () => {
   if (!editing || isNew) return;
   if (!confirm('ลบงานนี้?')) return;
