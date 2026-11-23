@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=77">
+  <link rel="stylesheet" href="style.css?v=78">
 </head>
 <body class="vault">
   <header class="top">
@@ -64,11 +64,26 @@
     <form id="vQuick" class="quick" autocomplete="off">
       <input id="vSearch" type="search" placeholder="🔍 ค้นหาชื่อ ผู้ใช้ หรือเว็บ" aria-label="ค้นหา">
       <button type="button" id="btnImp" class="icon-btn" aria-label="วางหลายรายการ" title="วางหลายรายการ">📋</button>
+      <button type="button" id="btnBak" class="icon-btn" aria-label="สำรอง/กู้คืน" title="ไฟล์สำรอง (เข้ารหัส)">💾</button>
       <button type="button" id="btnAdd" class="add-btn" aria-label="เพิ่มรหัส">＋</button>
     </form>
     <nav id="vCats" class="chips" aria-label="หมวด"></nav>
     <div id="vList"></div>
   </section>
+
+  <!-- 💾 สำรอง / กู้คืน -->
+  <dialog id="bakDlg">
+    <form method="dialog">
+      <h2 tabindex="-1" autofocus>💾 ไฟล์สำรองตู้รหัส</h2>
+      <p class="hint">ไฟล์สำรองเป็นข้อมูลที่<b>เข้ารหัสแล้ว</b> เปิดอ่านได้ด้วยรหัสหลักของตู้นี้เท่านั้น เก็บไว้ในไดรฟ์หรือเครื่องตัวเองได้ · ถ้าลืมรหัสหลัก ไฟล์นี้ก็เปิดไม่ได้</p>
+      <button type="button" id="bakSave" class="primary wide">⬇️ ดาวน์โหลดไฟล์สำรองของ <span id="bakSpace"></span></button>
+      <button type="button" id="bakLoad" class="ghost wide">📂 กู้คืนจากไฟล์สำรอง</button>
+      <input type="file" id="bakFile" accept=".json,application/json" hidden>
+      <div id="bakPwRow" class="bak-pw" hidden><label>ไฟล์นี้มาจากตู้อื่นหรือรหัสหลักเก่า ใส่รหัสหลักของไฟล์นี้ <input type="password" id="bakPw" autocomplete="off"></label><button type="button" id="bakPwGo" class="mini">เปิดไฟล์</button></div>
+      <p class="hint" id="bakInfo"></p>
+      <div class="dlg-actions"><span class="spacer"></span><button class="ghost">ปิด</button></div>
+    </form>
+  </dialog>
 
   <!-- เพิ่ม/แก้ไข -->
   <dialog id="vDlg">
@@ -86,6 +101,7 @@
           <button type="button" id="btnShow" class="mini">แสดง</button>
           <button type="button" id="btnGen" class="mini">สุ่ม</button>
         </span>
+        <span id="pwMeter" class="pw-meter" hidden><i></i><small></small></span>
       </label>
       <label>เว็บไซต์ <input name="url" type="text" inputmode="url" autocapitalize="off" placeholder="https://…"></label>
       <label>โน้ต <textarea name="note" rows="2"></textarea></label>
@@ -148,7 +164,7 @@ shopee.co.th"></textarea>
     <a href="vault.html" aria-current="page"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="hub.js?v=77"></script>
-  <script src="vault.js?v=77"></script>
+  <script src="hub.js?v=78"></script>
+  <script src="vault.js?v=78"></script>
 </body>
 </html>

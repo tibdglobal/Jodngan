@@ -176,6 +176,14 @@ function render() {
     Object.entries(groups).forEach(([claim, items]) => {
       const whole = bills.filter(b => b.status === 'submitted' && (b.claim || 'ไม่ระบุใบเบิก') === claim);
       const sec = section(`${claim} · ${baht(sum(whole))}` + (whole.length > items.length ? ` (รวมเดือนอื่น ${whole.length - items.length})` : ''));
+      const since = whole.map(b => b.submitted).filter(Boolean).sort()[0];
+      if (since) {
+        const days = Math.round((Date.parse(today()) - Date.parse(since)) / 864e5);
+        const ag = document.createElement('small');
+        ag.className = 'claim-age' + (days >= 30 ? ' late' : '');
+        ag.textContent = days >= 30 ? `⚠️ ยื่นมา ${days} วัน ยังไม่ได้เงิน` : `ยื่นมา ${days} วัน`;
+        sec.querySelector('h3').appendChild(ag);
+      }
       const btn = document.createElement('button');
       btn.className = 'mini paid-btn';
       btn.textContent = '✅ ได้เงินแล้ว';
@@ -1017,7 +1025,7 @@ $('#btnCopy').onclick = async () => {
 /* ---------- ข้อมูลบนใบเบิก (เก็บที่ระบบ ใช้ได้ทุกเครื่อง) ---------- */
 const CFG_DEFAULT = { company: 'บริษัท ทีไอบีดี จำกัด', short: 'TIBD', addr: '8/24 ซอยนาวงประชาพัฒนา 6 แขวงสีกัน เขตดอนเมือง กรุงเทพมหานคร',
   contact: 'โทร. 097-297-1777  Email : nutto0925@gmail.com', payer: 'นายณัชพล สมรักษ์', payee: 'นิติธร สีดำ', payeeAddr: '', payeeId: '', wht: '', idFile: '', idShow: true };
-const CF = { company: '#cfCompany', short: '#cfShort', addr: '#cfAddr', contact: '#cfContact', payer: '#cfPayer', payee: '#cfPayee', payeeAddr: '#cfPayeeAddr', payeeId: '#cfPayeeId', wht: '#cfWht' };
+const CF = { company: '#cfCompany', short: '#cfShort', addr: '#cfAddr', contact: '#cfContact', payer: '#cfPayer', payee: '#cfPayee', payeeAddr: '#cfPayeeAddr', payeeId: '#cfPayeeId', wht: '#cfWht', acct: '#cfAcct' };
 let claimCfg = { ...CFG_DEFAULT, ...LS.get('claimCfg', {}) };
 function fillCfg() {
   Object.entries(CF).forEach(([k, sel]) => { $(sel).value = claimCfg[k] || ''; });
@@ -1098,6 +1106,7 @@ function pvFit() {
   if (d) d.style.zoom = Math.min(1, (window.innerWidth - 16) / 794);
 }
 window.addEventListener('resize', pvFit);
+let pvMailFor = null;
 function pvOpen(html, title) {
   let pv = $('#pv');
   if (!pv) {
@@ -1109,13 +1118,16 @@ function pvOpen(html, title) {
     }
     pv = document.createElement('div');
     pv.id = 'pv';
-    pv.innerHTML = '<div class="pv-bar"><button type="button" id="pvClose" class="ghost">‹ กลับ</button><b id="pvTitle">ใบเบิก</b><button type="button" id="pvPrint" class="primary">🖨 พิมพ์ / บันทึก PDF</button></div><div id="pvDoc"></div>';
+    pv.innerHTML = '<div class="pv-bar"><button type="button" id="pvClose" class="ghost">‹ กลับ</button><b id="pvTitle">ใบเบิก</b><button type="button" id="pvMail" class="ghost" hidden>✉️ อีเมล</button><button type="button" id="pvPrint" class="primary">🖨 พิมพ์ / บันทึก PDF</button></div><div id="pvDoc"></div>';
     document.body.appendChild(pv);
     $('#pvClose').onclick = () => { pv.hidden = true; document.body.classList.remove('pv-on'); };
     $('#pvPrint').onclick = () => { document.body.classList.add('printing'); setTimeout(() => { window.print(); }, 50); };
     window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
   }
   $('#pvTitle').textContent = title || 'ใบเบิก';
+  const mailFn = pvMailFor;
+  $('#pvMail').hidden = !mailFn;
+  $('#pvMail').onclick = () => { if (mailFn) mailFn(); };
   $('#pvPrint').disabled = !title;
   $('#pvDoc').innerHTML = html;
   pv.hidden = false;
@@ -1265,8 +1277,22 @@ tr.wd td:first-child{white-space:nowrap;font-size:13.5px;padding:2px 3px}
 .fc{break-before:page;page-break-before:always}.it.big.nb{break-before:page;page-break-before:always}.it.big{break-inside:auto}
 .it.big img{max-height:240mm;margin:6px auto;object-fit:contain}.it.big:not(.nb)>img:first-of-type{max-height:212mm}.pgw{break-before:page;page-break-before:always}.pgw img{max-height:258mm}.cap{font-size:12px;color:#555;margin:2px 0}
 a{color:#0f766e}`;
+  pvMailFor = () => claimMail(docs);
   pvOpen(`<style>${scopeCss(css)}</style>${docs.map(doc).join('')}`, docs.map(d => d.no).join(' + '));
+  pvMailFor = null;
 };
+/** ✉️ เปิดแอปอีเมลพร้อมหัวเรื่อง/สรุป ให้เจ้าของแนบ PDF แล้วกดส่งเอง (ระบบไม่ส่งแทน) */
+function claimMail(docs) {
+  const all = docs.flatMap(d => d.groups.flatMap(x => x[1]));
+  const subj = `ขอเบิกเงินสำรองจ่าย ${docs.map(d => d.no).join(' + ')} · ${baht(sum(all))}`;
+  const body = [`เรียน ฝ่ายบัญชี`, '', `ขอส่งใบเบิกเงินสำรองจ่าย ${docs.map(d => d.no).join(' + ')} รวม ${all.length} รายการ ยอด ${baht(sum(all))} ครับ`, '']
+    .concat(all.slice(0, 40).map((b, i) => `${i + 1}. ${b.date} ${b.desc}${b.project ? ' [' + b.project + ']' : ''} ${baht(Number(b.amount))}`))
+    .concat(all.length > 40 ? ['…'] : [])
+    .concat(['', '(แนบไฟล์ PDF ใบเบิกและหลักฐาน)', '', 'ขอบคุณครับ', claimCfg.payee || '']).join('\n');
+  if (!claimCfg.acct && !confirm('ยังไม่ได้ใส่อีเมลฝ่ายบัญชี (ตั้งได้ที่ ⚙ ข้อมูลบนใบเบิก)\nเปิดอีเมลแบบไม่ใส่ผู้รับไปก่อนไหม?')) return;
+  alert('ขั้นตอน\n1) กด 🖨 พิมพ์ / บันทึก PDF เก็บไฟล์ไว้ก่อน\n2) แอปอีเมลจะเปิดพร้อมหัวเรื่องและสรุป แนบไฟล์ PDF แล้วกดส่งเองครับ');
+  location.href = `mailto:${encodeURIComponent(claimCfg.acct || '')}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+}
 $('#btnCCancel').onclick = () => cDlg.close();
 $('#btnSubmitted').onclick = async () => {
   const items = claimItems();

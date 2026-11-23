@@ -270,13 +270,16 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- รายการ ---------- */
 const catsOf = () => [...new Set([...items.map(i => i.cat || '🔖 อื่นๆ')])].sort((a, b) => a.localeCompare(b, 'th'));
 
+const FIX = '\u0000fix';
 function render() {
   // หมวด
   const nav = $('#vCats');
   nav.innerHTML = '';
   const cats = catsOf();
-  if (cat && !cats.includes(cat)) cat = '';
-  [['ทั้งหมด', '', items.length], ...cats.map(c => [c, c, items.filter(i => (i.cat || '🔖 อื่นๆ') === c).length])].forEach(([label, val, n]) => {
+  if (cat && cat !== FIX && !cats.includes(cat)) cat = '';
+  const fixN = items.filter(needFix).length;
+  if (cat === FIX && !fixN) cat = '';
+  [['ทั้งหมด', '', items.length], ...(fixN ? [['⚠️ ควรเปลี่ยน', FIX, fixN]] : []), ...cats.map(c => [c, c, items.filter(i => (i.cat || '🔖 อื่นๆ') === c).length])].forEach(([label, val, n]) => {
     const b = document.createElement('button');
     b.className = 'chip' + (cat === val ? ' on' : '');
     b.innerHTML = '<span></span><span class="n"></span>';
@@ -290,7 +293,7 @@ function render() {
   // รายการ
   const q = $('#vSearch').value.trim().toLowerCase();
   const list = items
-    .filter(i => !cat || (i.cat || '🔖 อื่นๆ') === cat)
+    .filter(i => !cat || (cat === FIX ? needFix(i) : (i.cat || '🔖 อื่นๆ') === cat))
     .filter(i => !q || [i.name, i.user, i.url, i.note, i.cat].join(' ').toLowerCase().includes(q))
     .sort((a, b) => (a.cat || '🔖 อื่นๆ').localeCompare(b.cat || '🔖 อื่นๆ', 'th') || a.name.localeCompare(b.name, 'th'));
 
@@ -327,6 +330,7 @@ function row(it) {
   body.innerHTML = '<span class="title"></span><span class="meta"></span>';
   body.querySelector('.title').textContent = it.name;
   body.querySelector('.meta').textContent = it.user || (it.url ? it.url.replace(/^https?:\/\//, '') : '');
+  if (needFix(it)) { const w = document.createElement('span'); w.className = 'pw-warn'; w.textContent = reuseOf(it).length ? 'ใช้ซ้ำ' : 'รหัสอ่อน'; body.querySelector('.title').appendChild(w); }
   body.onclick = () => openDlg(it);
   const acts = document.createElement('span');
   acts.className = 'v-acts';
@@ -370,6 +374,7 @@ function openDlg(it) {
   f.note.value = it ? (it.note || '') : '';
   f.pass.type = 'password';
   $('#btnShow').textContent = 'แสดง';
+  paintMeter();
   dlg.showModal();
 }
 $('#btnAdd').onclick = () => openDlg(null);
@@ -379,13 +384,47 @@ $('#btnShow').onclick = () => {
   p.type = p.type === 'password' ? 'text' : 'password';
   $('#btnShow').textContent = p.type === 'password' ? 'แสดง' : 'ซ่อน';
 };
+/* สุ่มรหัส 20 ตัว มีครบ ตัวใหญ่ ตัวเล็ก ตัวเลข สัญลักษณ์ (ไม่มีตัวที่สับสน 0/O 1/l/I) · สุ่มแบบไม่เอียง */
+function genPass(n = 20) {
+  const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%&*-_?'];
+  const all = sets.join('');
+  const pick = str => { const lim = 256 - (256 % str.length); for (;;) { const x = rand(1)[0]; if (x < lim) return str[x % str.length]; } };
+  const out = sets.map(pick);
+  while (out.length < n) out.push(pick(all));
+  for (let i = out.length - 1; i > 0; i--) { const j = rand(1)[0] % (i + 1); [out[i], out[j]] = [out[j], out[i]]; }
+  return out.join('');
+}
 $('#btnGen').onclick = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*-_?';
-  const r = rand(16);
-  form.elements.pass.value = Array.from(r, x => chars[x % chars.length]).join('');
+  form.elements.pass.value = genPass(20);
   form.elements.pass.type = 'text';
   $('#btnShow').textContent = 'ซ่อน';
+  paintMeter();
 };
+
+/* ---------- 🩺 ความแข็งแรงของรหัส + รหัสซ้ำ (ตรวจในเครื่องเท่านั้น) ---------- */
+const COMMON = /^(123456|password|qwerty|abc123|111111|000000|iloveyou|admin|welcome|letmein|12345678|123123|1q2w3e|asdf)/i;
+function pwScore(p) {
+  p = String(p || '');
+  if (!p) return 0;
+  const cls = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(r => r.test(p)).length;
+  let sc = p.length >= 16 ? 3 : p.length >= 12 ? 2 : p.length >= 8 ? 1 : 0;
+  sc += cls >= 3 ? 1 : 0;
+  if (COMMON.test(p) || /^(\d+|[a-z]+)$/i.test(p) || /(.)\1{3,}/.test(p) || /^0\d{9}$/.test(p)) sc = Math.min(sc, 1);
+  return Math.max(1, Math.min(4, sc));   // 1 อ่อน · 2 พอใช้ · 3 ดี · 4 แข็งแรง
+}
+const PW_LBL = ['', '🔴 อ่อน', '🟠 พอใช้', '🟢 ดี', '🟢 แข็งแรง'];
+const reuseOf = it => it.pass ? items.filter(x => x !== it && x.id !== it.id && x.pass === it.pass) : [];
+const needFix = it => it.pass && (pwScore(it.pass) <= 1 || reuseOf(it).length > 0);
+function paintMeter() {
+  const p = form.elements.pass.value, m = $('#pwMeter');
+  m.hidden = !p;
+  if (!p) return;
+  const sc = pwScore(p);
+  const dup = items.filter(x => x.pass === p && (!editing || x.id !== editing.id));
+  m.className = 'pw-meter s' + sc;
+  m.querySelector('small').textContent = PW_LBL[sc] + (dup.length ? ` · ⚠️ ใช้ซ้ำกับ ${dup.slice(0, 2).map(x => x.name).join(', ')}${dup.length > 2 ? ' …' : ''}` : '') + (sc <= 2 ? ' · แตะ "สุ่ม" ได้รหัสที่แข็งแรง' : '');
+}
+form.elements.pass.addEventListener('input', paintMeter);
 
 form.addEventListener('submit', async () => {
   if (!key) return;
@@ -751,3 +790,58 @@ if (!window.crypto || !crypto.subtle) {
   load();
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+
+/* ---------- 💾 ไฟล์สำรอง (ข้อมูลที่เข้ารหัสแล้วจากเซิร์ฟเวอร์ ไม่ถอดรหัสออกมา) ---------- */
+$('#btnBak').onclick = () => { $('#bakPwRow').hidden = true; bakPending = null; $('#bakSpace').textContent = SPACE_NAME[space]; $('#bakInfo').textContent = `${vault.items.length} รายการ`; $('#bakDlg').showModal(); };
+$('#bakSave').onclick = () => {
+  const data = { app: 'jodkrob-vault', v: 1, space, iter: ITER, salt: vault.salt, check: vault.check, saved: new Date().toISOString(), items: vault.items };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `jodkrob-vault-${space}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  $('#bakInfo').textContent = `✅ ดาวน์โหลดแล้ว ${vault.items.length} รายการ (เข้ารหัสอยู่)`;
+};
+$('#bakLoad').onclick = () => { $('#bakFile').value = ''; $('#bakFile').click(); };
+$('#bakFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file || !key) return;
+  let bk;
+  try { bk = JSON.parse(await file.text()); } catch { $('#bakInfo').textContent = 'ไฟล์ไม่ถูกต้อง'; return; }
+  if (bk.app !== 'jodkrob-vault' || !Array.isArray(bk.items) || !bk.salt) { $('#bakInfo').textContent = 'ไม่ใช่ไฟล์สำรองตู้รหัสของจดครบ'; return; }
+  // ไฟล์จากตู้เดียวกัน (salt เดียวกัน) ใช้กุญแจที่เปิดอยู่ได้เลย · ตู้อื่น/รหัสหลักเก่า ให้เจ้าของพิมพ์รหัสหลักของไฟล์นั้นเองในช่องด้านล่าง
+  if (bk.salt !== vault.salt) { bakPending = bk; $('#bakPwRow').hidden = false; $('#bakPw').value = ''; $('#bakPw').focus(); return; }
+  restoreFrom(bk, key);
+});
+let bakPending = null;
+$('#bakPwGo').onclick = async () => {
+  const bk = bakPending, pw = $('#bakPw').value;
+  if (!bk || !pw) return;
+  let k;
+  try { k = await deriveKey(pw, bk.salt); const c = typeof bk.check === 'string' ? JSON.parse(bk.check) : bk.check; await decryptJSON(k, c.iv, c.ct); }
+  catch { $('#bakInfo').textContent = '❌ รหัสหลักของไฟล์สำรองไม่ถูกต้อง'; return; }
+  $('#bakPw').value = ''; $('#bakPwRow').hidden = true; bakPending = null;
+  restoreFrom(bk, k);
+};
+async function restoreFrom(bk, k) {
+  const have = new Set(items.map(i => i.id));
+  const sig = i => [i.name, i.user, i.pass].join('\u0001');
+  const haveSig = new Set(items.map(sig));
+  const add = [];
+  for (const x of bk.items) {
+    let o; try { o = await decryptJSON(k, x.iv, x.ct); } catch { continue; }
+    if (have.has(x.id) || haveSig.has(sig(o))) continue;
+    add.push({ id: x.id, ...o });
+  }
+  if (!add.length) { $('#bakInfo').textContent = '👍 ทุกรายการในไฟล์มีอยู่ในตู้แล้ว'; return; }
+  if (!confirm(`กู้คืน ${add.length} รายการที่ยังไม่มีในตู้นี้?\n(รายการที่มีอยู่แล้วจะไม่ถูกแตะ)`)) return;
+  let ok = 0;
+  for (const it of add) {
+    const { id, ...data } = it;
+    const sealed = await encryptJSON(key, data);
+    try { await api('vault_save', { item: { id, ...sealed } }); vault.items.push({ id, ...sealed }); items.push(it); ok++; } catch (err) { showStatus('กู้คืนบางรายการไม่สำเร็จ: ' + err.message); }
+  }
+  render();
+  $('#bakInfo').textContent = `✅ กู้คืนแล้ว ${ok} รายการ`;
+}

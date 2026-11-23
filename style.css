@@ -1868,3 +1868,19 @@ i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 .pp-side small { color: #555; }
 .pp-side .link-btn { font-size: 12px; padding: 0; }
 .pp-set { font-size: 13px; text-align: left; }
+.claim-age { font-weight: 400; font-size: 12px; color: var(--muted, #6b7280); margin-left: 6px; }
+.claim-age.late { color: #dc2626; font-weight: 600; }
+
+/* 🩺 ตู้รหัส: ความแข็งแรง / ใช้ซ้ำ / สำรอง */
+.pw-meter { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.pw-meter i { display: block; height: 5px; border-radius: 3px; background: rgba(127,127,127,.18); position: relative; overflow: hidden; }
+.pw-meter i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 3px; transition: width .25s; }
+.pw-meter.s1 i::after { width: 25%; background: #dc2626; }
+.pw-meter.s2 i::after { width: 50%; background: #ea580c; }
+.pw-meter.s3 i::after { width: 75%; background: #16a34a; }
+.pw-meter.s4 i::after { width: 100%; background: #15803d; }
+.pw-meter small { font-size: 12px; color: var(--muted, #6b7280); font-weight: 400; }
+.pw-warn { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: #fee2e2; color: #b91c1c; vertical-align: 1px; }
+#bakDlg .wide { width: 100%; margin: 6px 0; }
+.bak-pw { display: flex; gap: 6px; align-items: flex-end; margin-top: 8px; }
+.bak-pw label { flex: 1; font-size: 13px; }

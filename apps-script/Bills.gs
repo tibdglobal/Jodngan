@@ -599,11 +599,30 @@ function billFromChat_(text) {
 /** บรรทัดสรุปบิลสำหรับข้อความตอนเช้า (เฉพาะวันจันทร์) */
 function billLine_() {
   const dow = Number(Utilities.formatDate(new Date(), TZ, 'u'));   // 1 = จันทร์
-  if (dow !== 1) return '';
-  const open = billsAll_().filter(b => b.status === 'draft');
-  if (!open.length) return '';
-  const sum = open.reduce((s, b) => s + Number(b.amount || 0), 0);
-  return '🧾 ขาดหลักฐานเบิกเงิน ' + open.length + ' รายการ (฿' + sum.toLocaleString('en-US') + ')';
+  const today = todayStr_(), all = billsAll_(), out = [];
+  const sumOf = list => '฿' + list.reduce((s, b) => s + Number(b.amount || 0), 0).toLocaleString('en-US');
+  // จันทร์: ขาดหลักฐาน
+  const open = all.filter(b => b.status === 'draft');
+  if (dow === 1 && open.length) out.push('🧾 ขาดหลักฐานเบิกเงิน ' + open.length + ' รายการ (' + sumOf(open) + ')');
+  // ใบเบิกที่ยื่นแล้วเกิน 30 วันยังไม่ได้เงิน: เตือนวันที่ครบ 30/45/60… และทุกวันจันทร์
+  const late = {};
+  all.filter(b => b.status === 'submitted' && b.submitted).forEach(b => {
+    const k = b.claim || 'ไม่ระบุใบเบิก';
+    const d = daysBetween_(String(b.submitted).slice(0, 10), today);
+    if (d < 30) return;
+    const g = late[k] = late[k] || { days: 0, list: [] };
+    g.days = Math.max(g.days, d); g.list.push(b);
+  });
+  const lk = Object.keys(late).filter(k => dow === 1 || (late[k].days - 30) % 15 === 0);
+  if (lk.length) out.push('⏳ ยื่นเบิกแล้วยังไม่ได้เงินคืน\n' + lk.map(k => '• ' + k + ' ' + sumOf(late[k].list) + ' (' + late[k].days + ' วัน)').join('\n') + '\nได้เงินแล้วกด ✅ ในแอป หน้า 🧾 → รอเงินคืน');
+  // ใกล้สิ้นเดือน (วันทำงานแรกตั้งแต่ 25): บิลพร้อมเบิก → เตือนทำใบเบิก (เดือนละครั้ง)
+  const ym = today.slice(0, 7), day = Number(today.slice(8, 10));
+  const ready = all.filter(b => b.status === 'ready');
+  if (day >= 25 && dow <= 5 && ready.length && props.getProperty('BILL_MONTH_SENT') !== ym) {
+    out.push('📅 ใกล้สิ้นเดือนแล้ว มีบิลพร้อมเบิก ' + ready.length + ' รายการ (' + sumOf(ready) + ')\nทำใบเบิกได้ในแอป หน้า 🧾 → 📎 พร้อมเบิก → ทำใบเบิก');
+    props.setProperty('BILL_MONTH_SENT', ym);
+  }
+  return out.join('\n\n');
 }
 
 function billSummaryText_() {

@@ -235,6 +235,7 @@ function doPost(e) {
       }
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
+      case 'backup_now':   return json_({ ok: true, id: weeklyBackup_(true) });
       case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '' }); }
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
@@ -443,6 +444,7 @@ function checkReminders() {
     }).sort(byWhen_);
     try { meetSync_(false); } catch (e) { console.warn('meetSync: ' + e); }   // งานจากคลังประชุม (ทุก 1 ชม.)
     try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
+    try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }        // 💾 สำรองชีตทุกวันอาทิตย์
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
@@ -1034,4 +1036,33 @@ function addDays_(ymd, n) {
 }
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+/* ===================== 💾 สำรองชีต "จดงาน" ทุกสัปดาห์ ===================== */
+/* วันอาทิตย์ตั้งแต่ 02:00 ทำสำเนาทั้งไฟล์ไว้ที่ "จดครบ - สำรองข้อมูล" (ข้างไฟล์ชีต) เก็บ 8 สัปดาห์ล่าสุด ตู้รหัสในชีตเป็นข้อมูลเข้ารหัสอยู่แล้ว */
+function weeklyBackup_(force) {
+  const now = new Date();
+  const dow = Number(Utilities.formatDate(now, TZ, 'u')), hr = Number(Utilities.formatDate(now, TZ, 'H'));
+  const ymd = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+  if (!force && (dow !== 7 || hr < 2 || props.getProperty('BACKUP_SENT') === ymd)) return '';
+  const id = props.getProperty('SHEET_ID') || SpreadsheetApp.getActiveSpreadsheet().getId();
+  const src = DriveApp.getFileById(id);
+  const NAME = 'จดครบ - สำรองข้อมูล';
+  let folder;
+  const fid = props.getProperty('BACKUP_FOLDER_ID');
+  try { if (fid) folder = DriveApp.getFolderById(fid); } catch (e) { folder = null; }
+  if (!folder || folder.isTrashed()) {
+    const parent = src.getParents().hasNext() ? src.getParents().next() : DriveApp.getRootFolder();
+    const it = parent.getFoldersByName(NAME);
+    folder = it.hasNext() ? it.next() : parent.createFolder(NAME);
+    props.setProperty('BACKUP_FOLDER_ID', folder.getId());
+  }
+  const copy = src.makeCopy(src.getName() + ' (สำรอง ' + ymd + ')', folder);
+  // เก็บ 8 ฉบับล่าสุด (เฉพาะสำเนาที่ระบบสร้าง ชื่อขึ้นต้นตามไฟล์ต้นฉบับ + "(สำรอง ")
+  const old = [], files = folder.getFiles(), pre = src.getName() + ' (สำรอง ';
+  while (files.hasNext()) { const f = files.next(); if (f.getName().indexOf(pre) === 0) old.push(f); }
+  old.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(8).forEach(f => f.setTrashed(true));
+  props.setProperty('BACKUP_SENT', ymd);
+  return copy.getId();
 }

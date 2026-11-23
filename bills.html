@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=77">
+  <link rel="stylesheet" href="style.css?v=78">
 </head>
 <body class="bills">
   <header class="top">
@@ -219,6 +219,7 @@
           <label>ที่อยู่ผู้รับเงิน <input id="cfPayeeAddr" placeholder="ไม่ใส่ก็ได้"></label>
           <label>เลขบัตรประชาชนผู้รับเงิน <input id="cfPayeeId" inputmode="numeric" maxlength="17" placeholder="ไม่ใส่ก็ได้"></label>
           <label>หักภาษี ณ ที่จ่าย (%) <input id="cfWht" inputmode="decimal" placeholder="0"></label>
+          <label>อีเมลฝ่ายบัญชี (ส่งใบเบิก) <input id="cfAcct" type="email" inputmode="email" placeholder="ไม่ใส่ก็ได้"></label>
           <div class="id-up">
             <span class="field-label">สำเนาบัตรประชาชน (แสดงในใบสำคัญรับเงิน)</span>
             <div class="id-row"><button type="button" id="cfIdBtn" class="mini">📇 อัปโหลดสำเนาบัตรประชาชน</button><span id="cfIdState" class="hint"></span><button type="button" id="cfIdDel" class="mini" hidden>ลบ</button></div>
@@ -248,7 +249,7 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="hub.js?v=77"></script>
-  <script src="bills.js?v=77"></script>
+  <script src="hub.js?v=78"></script>
+  <script src="bills.js?v=78"></script>
 </body>
 </html>
