@@ -40,7 +40,7 @@ function render(o) {
   const tiles = `<section class="ov-tiles">
     <a href="./" class="ov-tile t-task"><b>${T.done}</b><span>งานเสร็จ</span><small>${T.overdue ? `เลยกำหนด ${T.overdue}` : `ค้าง ${T.open}`}</small></a>
     <a href="money.html" class="ov-tile t-out"><b>${baht(M.out)}</b><span>รายจ่าย</span><small>${M.prevOut ? (diff > 0 ? '▲ เพิ่ม ' : '▼ ลด ') + baht(Math.abs(diff)) : M.count + ' รายการ'}</small></a>
-    <a href="money.html" class="ov-tile ${net < 0 ? 't-neg' : 't-in'}"><b>${baht(net)}</b><span>คงเหลือ</span><small>รับ ${baht(M.inc)}</small></a>
+    <a href="money.html" class="ov-tile ${net < 0 ? 't-neg' : 't-in'}"><b>${net < 0 ? '−' + baht(-net) : baht(net)}</b><span>${net < 0 ? 'จ่ายเกินรับ' : 'คงเหลือ'}</span><small>รับ ${baht(M.inc)}</small></a>
   </section>`;
 
   const task = `<section class="s-card ov-card">
