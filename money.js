@@ -7,6 +7,20 @@ let qDate = '';   // วันที่ที่จะจด (ว่าง = ว
 
 
 /* ---------- แสดงผล ---------- */
+/* ตัวเลขวิ่งไปหายอดใหม่ เมื่อยอดเปลี่ยน (จด/ลบ/เลื่อนเดือน) · ปิดถ้าเครื่องตั้งลดการเคลื่อนไหว */
+function countTo(el, to, fmt) {
+  const from = el.__v;
+  el.__v = to;
+  cancelAnimationFrame(el.__raf);
+  if (from === undefined || from === to || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = fmt(to); return; }
+  const t0 = performance.now(), dur = 520;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(k < 1 ? Math.round(from + (to - from) * e) : to);
+    if (k < 1) el.__raf = requestAnimationFrame(step);
+  };
+  el.__raf = requestAnimationFrame(step);
+}
 function render() {
   if (!month) month = today().slice(0, 7);
   const cur = today().slice(0, 7);
@@ -16,9 +30,9 @@ function render() {
   const prev = items.filter(x => inMonth(x, addMonth(month, -1)));
   const I = sum(mm.filter(x => x.type === 'in')), O = sum(mm.filter(x => x.type === 'out'));
   const pI = sum(prev.filter(x => x.type === 'in')), pO = sum(prev.filter(x => x.type === 'out'));
-  $('#sIn').textContent = baht(I);
-  $('#sOut').textContent = baht(O);
-  $('#sBal').textContent = (I - O < 0 ? '-' : '') + baht(Math.abs(I - O));
+  countTo($('#sIn'), I, baht);
+  countTo($('#sOut'), O, baht);
+  countTo($('#sBal'), I - O, v => (v < 0 ? '-' : '') + baht(Math.abs(v)));
   $('#hero').classList.toggle('neg', I - O < 0);
   const cmp = (a, b) => !b ? '' : (a >= b ? '▲ ' : '▼ ') + Math.abs(Math.round((a - b) / b * 100)) + '% จากเดือนก่อน';
   $('#sInCmp').textContent = cmp(I, pI);

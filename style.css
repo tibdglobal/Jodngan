@@ -2104,3 +2104,25 @@ dialog::backdrop { background: rgba(10, 12, 14, .45); -webkit-backdrop-filter: n
 .mo-sec a[aria-current="page"] { background: var(--ink); color: var(--on-ink); box-shadow: none; }
 .mo-add { box-shadow: none; }
 .mo-sec { background: var(--card); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* 🗒 หน้าว่าง */
+.empty:not(.small)::before { content: none; display: none; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; border: 1.5px dashed var(--line-strong); background: transparent; }
+.empty .em-ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); color: var(--accent); margin-bottom: 6px; }
+.empty .em-ico svg { width: 26px; height: 26px; }
+.empty .em-go { margin-top: 10px; padding: 10px 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--on-ink); font: inherit; font-size: 15px; font-weight: 600; min-height: var(--tap); cursor: pointer; }
+.empty b { display: block; color: var(--text); }
+
+/* ✓ ติ๊กเสร็จ: วงเต็ม + เส้นขีดฆ่าวิ่ง */
+.item:not(.done) .title { text-decoration: line-through 1.5px transparent; transition: text-decoration-color .35s ease-out, color .35s; }
+.item.completing .title { text-decoration-color: currentColor; color: var(--faint); }
+.item.completing .chk { color: var(--on-accent); }
+.item.completing .chk::before { background: var(--accent); border-color: var(--accent); animation: chkPop .32s ease-out; }
+@keyframes chkPop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .item:not(.done) .title { transition: none; } .item.completing .chk::before { animation: none; } }
+
+/* 🔠 ขนาดตัวอักษรให้เป็นระดับเดียวกันทุกหน้า: หัวการ์ด 16 · หัวกลุ่ม 15 · รายละเอียด 13 · คำอธิบาย 13 */
+.s-card h3, .ov-card h3 { font-size: 16px; font-weight: 600; letter-spacing: -.005em; }
+.s-card h3 small, .ov-card h3 small { font-size: 13px; }
+.group h3 { font-size: 15px; }
+.item .meta, .hint { font-size: 13px; }

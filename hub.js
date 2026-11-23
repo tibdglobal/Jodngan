@@ -44,11 +44,42 @@
     chart: sv('<path d="M4 20h16"/><path d="M7.5 16.5v-5M12 16.5v-9M16.5 16.5v-7"/>'),
     gear: sv('<path d="M4 7.5h8.5M17.5 7.5H20M4 16.5h2.5M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.4"/><circle cx="9" cy="16.5" r="2.4"/>'),
     moon: sv('<path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7Z"/>'),
+    text: sv('<path d="M4 18 8.5 6h1L14 18M5.6 14h6.8"/><path d="M15 18l2.8-7.5h.4L21 18M15.9 15.6h4.2"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
+
+  /* ---------- 🔠 ขนาดตัวอักษร (LS fontScale 1 | 1.1 | 1.2) ---------- */
+  const applyScale = v => { document.body.style.zoom = v && v !== 1 ? String(v) : ''; };
+  window.hubScale = { get: () => get('fontScale', 1), set: v => { put('fontScale', v); applyScale(v); } };
+  applyScale(get('fontScale', 1));
+
+  /* ---------- 🗒 หน้าว่าง: ไอคอนของหมวด + ปุ่มเริ่มใช้ (ไม่ใส่ปุ่มในผลค้นหาที่ไม่เจอ) ---------- */
+  const PAGE = ['tasks', 'money', 'bills', 'inbox', 'vault', 'split'].find(c => document.body.classList.contains(c));
+  const START = {
+    tasks: ['＋ จดงานแรก', () => document.getElementById('quickInput')],
+    money: ['＋ จดรายการแรก', () => document.getElementById('mInput')],
+    bills: ['📷 ถ่ายบิลใบแรก', () => document.getElementById('btnSnap'), true],
+    inbox: ['＋ ฝากโน้ตแรก', () => document.getElementById('iInput')],
+    vault: ['＋ เพิ่มรหัสแรก', () => document.getElementById('btnAdd'), true],
+  };
+  function decorateEmpty(root) {
+    (root.querySelectorAll ? root : document).querySelectorAll('.empty:not(.small):not([data-dec])').forEach(el => {
+      el.dataset.dec = '1';
+      const k = { split: 'money' }[PAGE] || PAGE;
+      if (ICO[k]) el.insertAdjacentHTML('afterbegin', `<span class="em-ico" aria-hidden="true">${ICO[k]}</span>`);
+      const st = START[PAGE];
+      if (!st || /ไม่พบ|ไม่เจอ|ค้นหา|ในโปรเจ็คนี้|ตามที่เลือก/.test(el.textContent)) return;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'em-go'; b.textContent = st[0];
+      b.onclick = () => { const t = st[1](); if (!t) return; if (st[2]) t.click(); else { t.scrollIntoView({ block: 'center' }); t.focus(); } };
+      el.appendChild(b);
+    });
+  }
+  new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) decorateEmpty(document); }).observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => decorateEmpty(document), 0);
 
   /* ---------- 1) ป้ายสถานะซิงก์ ---------- */
   let inflight = 0, lastOk = get('hubLastSync', 0), lastErr = '';

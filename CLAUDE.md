@@ -45,6 +45,8 @@
 - 🎨 ไอคอนเส้น SVG ชุดเดียว (`window.ICO` ใน hub.js): แถบล่าง, ปุ่มหัวหน้างาน (`data-ico`), ช่องแถบวันนี้ · หน้างานหัวมี ประชุม / ปฏิทิน / ⋯ เพิ่มเติม (`#moreMenu`: ภาพรวมเดือน, ตั้งค่า `#btnSettings`, สถานะระบบ) · สีหน้าใหม่ `--ink-month` (body.month) `--ink-status` (body.sysstat — ห้ามใช้ class `status` ที่ body เพราะชนกับกล่องข้อความ `.status`)
 - 🌗 โหมดสี (LS `theme` auto/light/dark, ปุ่มในเมนู ⋯ หน้างาน): hub.js `applyTheme` เปลี่ยน `media.mediaText` ของกฎ `@media (prefers-color-scheme: dark)` ทุกอัน (all / not all) จึงไม่ต้องเขียน CSS ซ้ำ — กฎโหมดมืดใหม่ให้เขียนใน `@media (prefers-color-scheme: dark)` เท่านั้น
 - 🎨 ดีไซน์ v5 "สมุดพกงาน" (ท้าย style.css): พื้นเทาเรียบ การ์ดขาวขอบบางไม่มีเงา ไม่มีแสงฟุ้ง/กระจกฝ้า/ไล่สี · ปุ่มหลัก/ชิปที่เลือก = หมึก `--ink` (ดำ, โหมดมืดเป็นขาว) · สีหมวดใช้เฉพาะไอคอน/เครื่องหมาย
+- 🗒 หน้าว่าง (hub.js `decorateEmpty`, MutationObserver): `.empty` ใหญ่ได้ไอคอนหมวด + ปุ่มเริ่มใช้ (ไม่ใส่ในผลค้นหาที่ไม่เจอ) · ✓ ติ๊กเสร็จมีวงเต็ม+ขีดฆ่าค่อยๆ ขึ้น (class `completing` รอ 420ms ก่อน save) · หน้าเงิน `countTo` ตัวเลขวิ่ง · ทั้งหมดปิดเมื่อเครื่องตั้งลดการเคลื่อนไหว
+- 🔠 ขนาดตัวอักษร (LS `fontScale` 1/1.1/1.2, ปุ่มในเมนู ⋯) ใช้ `body.style.zoom` ใน hub.js
 - `style.css` — สไตล์รวม (สีประจำหมวด, โหมดมืด, tabbar ล่าง 5 แท็บ)
 - `sw.js` — service worker (cache-first)
 

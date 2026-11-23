@@ -555,7 +555,13 @@ function row(task, t) {
   chk.className = 'chk';
   chk.setAttribute('aria-label', task.done === '1' ? 'ยกเลิกเสร็จ' : 'ทำเสร็จ');
   chk.textContent = task.done === '1' ? '✓' : '';
-  chk.onclick = () => save('update', { id: task.id, done: task.done === '1' ? '' : '1' });
+  chk.onclick = () => {
+    if (task.done === '1' || el.classList.contains('completing')) return save('update', { id: task.id, done: task.done === '1' ? '' : '1' });
+    // ✓ ติ๊กเสร็จ: วงเต็ม + ขีดฆ่าวิ่งผ่านชื่องาน แล้วค่อยย้ายไปกลุ่มเสร็จ
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.classList.add('completing'); chk.textContent = '✓';
+    setTimeout(() => save('update', { id: task.id, done: '1' }), calm ? 0 : 420);
+  };
 
   const body = document.createElement('button');
   body.className = 'body';
@@ -869,6 +875,13 @@ const setDlg = $('#setDlg'), setForm = $('#setForm');
   const paint = () => { const el = $('#themeName'); if (el && window.hubTheme) el.textContent = NAME[hubTheme.get()]; };
   paint();
   $('#btnTheme').onclick = e => { e.stopPropagation(); if (!window.hubTheme) return; hubTheme.set(NEXT[hubTheme.get()]); paint(); };
+})();
+/* 🔠 ขนาดตัวอักษร */
+(() => {
+  const L = [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']];
+  const paint = () => { const v = window.hubScale ? hubScale.get() : 1; $('#scaleName').textContent = (L.find(x => x[0] === v) || L[0])[1]; };
+  paint();
+  $('#btnScale').onclick = e => { e.stopPropagation(); if (!window.hubScale) return; const i = L.findIndex(x => x[0] === hubScale.get()); hubScale.set(L[(i + 1) % L.length][0]); paint(); };
 })();
 /* ⋯ เมนูเพิ่มเติม */
 (() => {
