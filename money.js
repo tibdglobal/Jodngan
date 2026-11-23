@@ -48,6 +48,7 @@ function render() {
   $('#vOwe').hidden = view !== 'owe';
   ['#hero', '.mo-comp', '.m-bar'].forEach(q => { const el = $(q); if (el) el.hidden = view === 'owe'; });
   if (view === 'owe' && typeof renderOwe === 'function') renderOwe();
+  renderBudStrip(mm);
   if (view === 'list') renderList(mm);
   if (view === 'cal') renderCal(mm);
   if (view === 'chart') renderChart(mm);
@@ -209,6 +210,16 @@ function catCard(title, list, type) {
 function renderChart(mm) {
   const box = $('#vChart');
   box.innerHTML = '';
+  // 🎯 งบ + 🔁 รายการประจำ
+  const tools = document.createElement('section');
+  tools.className = 's-card mo-tools';
+  const nb = Object.keys(mcfg.budgets || {}).length, nr = (mcfg.recur || []).length;
+  tools.innerHTML = `<button type="button" id="goBud">🎯 งบรายหมวด<small>${nb ? 'ตั้งไว้ ' + nb + ' หมวด' : 'ยังไม่ได้ตั้ง'}</small></button><button type="button" id="goRec">🔁 รายการประจำ<small>${nr ? nr + ' รายการ' : 'เช่น ค่าเน็ต ค่าโทรศัพท์'}</small></button>`;
+  tools.querySelector('#goBud').onclick = openBud;
+  tools.querySelector('#goRec').onclick = openRec;
+  box.appendChild(tools);
+  const bud = budCard(mm);
+  if (bud) box.appendChild(bud);
   box.appendChild(catCard('รายจ่ายแยกหมวด', mm.filter(x => x.type === 'out'), 'out'));
   box.appendChild(catCard('รายรับแยกหมวด', mm.filter(x => x.type === 'in'), 'in'));
   // 12 เดือน
@@ -228,6 +239,77 @@ function renderChart(mm) {
     `<tr><td>${monthName(m)}</td><td class="in">${baht(i)}</td><td class="out">${baht(o)}</td><td class="${i - o < 0 ? 'out' : ''}">${i - o < 0 ? '-' : ''}${baht(Math.abs(i - o))}</td></tr>`).join('') || '<tr><td colspan="4" class="hint">ยังไม่มีข้อมูล</td></tr>'}</tbody></table>`;
   box.appendChild(t);
 }
+
+/* ---------- 🎯 งบรายหมวด / 🔁 รายการประจำ (เก็บที่หลังบ้าน MONEY_CFG) ---------- */
+let mcfg = LS.get('moneyCfg', { budgets: {}, recur: [] });
+async function syncCfg() { try { const r = await api('money_cfg'); mcfg = { budgets: r.budgets || {}, recur: r.recur || [] }; LS.set('moneyCfg', mcfg); render(); } catch (e) {} }
+function budUse(mm) {
+  const by = {};
+  mm.filter(x => x.type === 'out').forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });
+  return Object.entries(mcfg.budgets || {}).map(([k, lim]) => ({ k, lim, used: by[k] || 0, pct: lim ? (by[k] || 0) / lim * 100 : 0 })).sort((a, b) => b.pct - a.pct);
+}
+const budBar = b => `<div class="bud-r${b.pct >= 100 ? ' over' : b.pct >= 80 ? ' near' : ''}"><span>${icon('out', b.k)} ${esc(b.k)}</span><b>${baht(b.used)} <small>/ ${baht(b.lim)}</small></b><i><em style="width:${Math.min(100, b.pct)}%"></em></i></div>`;
+function renderBudStrip(mm) {
+  const el = $('#budStrip');
+  const list = budUse(mm);
+  el.hidden = !list.length || view === 'owe' || view === 'chart';
+  if (el.hidden) return;
+  const top = list.slice(0, 3);
+  el.innerHTML = `<button type="button" class="bud-h" id="budMore"><b>🎯 งบเดือนนี้</b><small>${list.filter(b => b.pct >= 100).length ? '🔴 เกินงบ ' + list.filter(b => b.pct >= 100).length + ' หมวด' : list.filter(b => b.pct >= 80).length ? '🟡 ใกล้เต็ม ' + list.filter(b => b.pct >= 80).length + ' หมวด' : 'อยู่ในงบ'} · ดูทั้งหมด ›</small></button>${top.map(budBar).join('')}`;
+  el.querySelector('#budMore').onclick = () => { view = 'chart'; LS.set('moneyView', view); render(); };
+}
+function budCard(mm) {
+  const list = budUse(mm);
+  if (!list.length) return null;
+  const c = document.createElement('section');
+  c.className = 's-card bud-card';
+  const lim = list.reduce((s, b) => s + b.lim, 0), used = list.reduce((s, b) => s + Math.min(b.used, b.lim * 10), 0);
+  c.innerHTML = `<h3>🎯 งบเดือนนี้ <small>${baht(used)} / ${baht(lim)}</small></h3>${list.map(budBar).join('')}`;
+  return c;
+}
+function openBud() {
+  const cats = allCats('out').filter(c => c !== 'อื่นๆ').concat('อื่นๆ');
+  const by = {};
+  items.filter(x => x.type === 'out').forEach(x => { by[x.cat] = (by[x.cat] || 0) + 1; });
+  cats.sort((a, b) => (by[b] || 0) - (by[a] || 0));
+  $('#budRows').innerHTML = cats.map(k => `<label class="bud-in"><span>${icon('out', k)} ${esc(k)}</span><input inputmode="numeric" data-k="${esc(k)}" placeholder="—" value="${(mcfg.budgets || {})[k] || ''}"></label>`).join('');
+  $('#budDlg').showModal();
+}
+$('#budCancel').onclick = () => $('#budDlg').close();
+$('#budForm').addEventListener('submit', async () => {
+  const b = {};
+  $('#budRows').querySelectorAll('input').forEach(i => { const v = Number(i.value.replace(/[,\s]/g, '')); if (v > 0) b[i.dataset.k] = v; });
+  mcfg.budgets = b; LS.set('moneyCfg', mcfg); render();
+  try { await api('money_cfg_set', { budgets: b }); toast('🎯 บันทึกงบแล้ว'); } catch (e) { showStatus('บันทึกงบไม่สำเร็จ: ' + e.message); }
+});
+let recDraft = [];
+function paintRec() {
+  const opts = t => allCats(t).map(c => `<option>${esc(c)}</option>`).join('');
+  $('#recRows').innerHTML = recDraft.length ? recDraft.map((r, i) => `<div class="rec-r" data-i="${i}">
+      <div class="rec-l1"><select data-f="type"><option value="out"${r.type !== 'in' ? ' selected' : ''}>💸 จ่าย</option><option value="in"${r.type === 'in' ? ' selected' : ''}>💰 รับ</option></select>
+        <input data-f="note" placeholder="ชื่อ เช่น ค่าเน็ต" value="${esc(r.note)}"><input data-f="amount" inputmode="decimal" placeholder="ยอด" value="${r.amount || ''}"></div>
+      <div class="rec-l2"><label>ทุกวันที่ <input data-f="day" inputmode="numeric" value="${r.day || 1}"></label><select data-f="cat">${opts(r.type === 'in' ? 'in' : 'out')}</select>
+        <label class="rec-auto"><input type="checkbox" data-f="auto"${r.auto ? ' checked' : ''}> จดให้เลย</label><button type="button" class="ck-x" data-x="${i}" aria-label="ลบ">✕</button></div>
+    </div>`).join('') : '<p class="hint">ยังไม่มีรายการ</p>';
+  $('#recRows').querySelectorAll('.rec-r').forEach(el => { const r = recDraft[el.dataset.i]; const sel = el.querySelector('[data-f=cat]'); sel.value = r.cat || guessCat(r.type, r.note || '') || sel.options[0].value; r.cat = sel.value; });
+}
+function openRec() { recDraft = JSON.parse(JSON.stringify(mcfg.recur || [])); paintRec(); $('#recDlg').showModal(); }
+$('#recAdd').onclick = () => { recDraft.push({ id: uid(), type: 'out', note: '', amount: '', day: new Date().getDate(), cat: '', auto: false }); paintRec(); const l = $('#recRows').lastElementChild; if (l) l.querySelector('[data-f=note]').focus(); };
+$('#recRows').addEventListener('input', e => {
+  const el = e.target.closest('.rec-r'), f = e.target.dataset.f; if (!el || !f) return;
+  const r = recDraft[el.dataset.i]; r[f] = f === 'auto' ? e.target.checked : e.target.value;
+  if (f === 'cat') r.catSet = true;
+  if (f === 'note' && !r.catSet) { const g = guessCat(r.type, r.note); const sel = el.querySelector('[data-f=cat]'); if (g && [...sel.options].some(o => o.value === g)) { sel.value = g; r.cat = g; } }
+});
+$('#recRows').addEventListener('change', e => { const el = e.target.closest('.rec-r'), f = e.target.dataset.f; if (!el || !f) return; const r = recDraft[el.dataset.i]; r[f] = f === 'auto' ? e.target.checked : e.target.value; if (f === 'cat') r.catSet = true; if (f === 'type') { r.cat = ''; r.catSet = false; paintRec(); } });
+$('#recRows').addEventListener('click', e => { const b = e.target.closest('[data-x]'); if (b) { recDraft.splice(+b.dataset.x, 1); paintRec(); } });
+$('#recCancel').onclick = () => $('#recDlg').close();
+$('#recForm').addEventListener('submit', async () => {
+  const list = recDraft.filter(r => r.note && Number(r.amount) > 0).map(({ catSet, ...r }) => ({ ...r, amount: Number(r.amount), day: Math.min(31, Math.max(1, parseInt(r.day) || 1)) }));
+  try { const r = await api('money_cfg_set', { recur: list }); mcfg.recur = r.recur; LS.set('moneyCfg', mcfg); render(); toast('🔁 บันทึกรายการประจำแล้ว'); }
+  catch (e) { showStatus('บันทึกไม่สำเร็จ: ' + e.message); }
+});
+setTimeout(syncCfg, 800);
 
 /* ---------- จดเร็ว ---------- */
 function parseQuick(text) {
@@ -357,7 +439,8 @@ $('#mFile').addEventListener('change', async e => {
   const p = parseQuick($('#mInput').value);
   let preps;
   try { preps = await Promise.all(files.map(prepare)); } catch (err) { showStatus(err.message); return; }
-  // หลายรูป = รวมเป็นรายการเดียว (ยอดรวมทุกใบ)
+  // หลายรูป: ถามว่าแยกเป็นทีละรายการ หรือรวมเป็นรายการเดียว
+  if (preps.length > 1 && confirm(`เลือกมา ${preps.length} รูป\n\nตกลง = แยกเป็น ${preps.length} รายการ (สลิปคนละครั้ง)\nยกเลิก = รวมเป็นรายการเดียว (ยอดรวมทุกใบ)`)) return snapEach(preps, p);
   const prep = preps.length === 1 ? preps[0] : { files: preps };
   busyStart(preps[0].thumb);
   if (preps.length > 1) $('#busyMsg').textContent = `กำลังอ่าน ${preps.length} รูป แล้วรวมยอด…`;
@@ -383,6 +466,26 @@ $('#mFile').addEventListener('change', async e => {
   box.innerHTML = `${sumLine}<p>${got.length ? '🔎 อ่านได้: ' + got.join(' · ') : '📷 เก็บรูปแล้ว แต่อ่านข้อมูลไม่ได้ กรอกเองได้เลย'}</p><p class="hint">${got.length ? 'บันทึกแล้ว · ตรวจอีกครั้ง ถ้าแก้อะไรกด บันทึก' : 'รูปชัด ไม่เอียง จะอ่านได้ดีขึ้น'}${parts.some(x => !x.amount) ? ' · มีบางรูปอ่านยอดไม่ได้ ตรวจยอดรวมอีกครั้ง' : ''}</p>`;
   box.hidden = false;
 });
+
+/** หลายสลิป → อ่านทีละใบ จดแยกรายการ */
+async function snapEach(preps, p) {
+  const done = [];
+  for (let i = 0; i < preps.length; i++) {
+    busyStart(preps[i].thumb);
+    $('#busyMsg').textContent = `กำลังอ่านสลิป ${i + 1}/${preps.length}…`;
+    const item = { id: uid() };
+    if (p.date || qDate) item.date = p.date || qDate;
+    if (qCat) item.cat = qCat;
+    try { const r = await api('money_snap', { item, type: qType, ...preps[i] }); upsert(r.item); done.push(r.item); }
+    catch (err) { showStatus(`สลิปที่ ${i + 1} อ่านไม่สำเร็จ: ${err.message}`); }
+  }
+  busyEnd();
+  $('#mInput').value = ''; qCat = '';
+  if (done.length && !inMonth(done[done.length - 1], month)) month = done[done.length - 1].date.slice(0, 7);
+  view = 'list'; render();
+  const bad = done.filter(x => !Number(x.amount));
+  toast(`🧾 จดแล้ว ${done.length} รายการ รวม ${baht(done.reduce((s, x) => s + Number(x.amount || 0), 0))}${bad.length ? ` · ${bad.length} ใบอ่านยอดไม่ได้ แตะแก้ในรายการ` : ''}`);
+}
 
 /* ---------- เดือน / มุมมอง ---------- */
 /* เปลี่ยนเดือน = วันที่จดย้ายไปเดือนนั้นด้วย (จดย้อนหลังง่าย) */

@@ -236,3 +236,77 @@ function moneyFromPending_(fid, type, pend) {
     cat: (type === 'out' && o.mcat) || moneyGuessCat_(type, note, moneyAll_()), pay: o.pay || (pend && pend.kind === 'slip' ? 'โอน' : '') });
   return moneyAttach_(m, file, (pend && pend.mime) || file.getMimeType(), '');
 }
+
+/* ===================== 🎯 งบรายหมวด · 🔁 รายจ่ายประจำ · 📊 สรุปเดือน ===================== */
+/* ตั้งค่าเก็บใน Script Property MONEY_CFG = { budgets: {หมวด: บาท}, recur: [{id, note, cat, amount, day, type, auto, last}], warned: {'yyyy-mm': {หมวด: 80|100}}, monthSent } */
+function moneyCfg_() {
+  let c = {};
+  try { c = JSON.parse(props.getProperty('MONEY_CFG') || '{}'); } catch (e) { c = {}; }
+  c.budgets = c.budgets || {}; c.recur = Array.isArray(c.recur) ? c.recur : []; c.warned = c.warned || {};
+  return c;
+}
+function moneyCfgSet_(p) {
+  const c = moneyCfg_();
+  if (p.budgets) {
+    const b = {};
+    Object.keys(p.budgets).forEach(k => { const v = Number(String(p.budgets[k]).replace(/[,\s]/g, '')); if (k && v > 0) b[String(k).slice(0, 40)] = Math.round(v); });
+    c.budgets = b;
+  }
+  if (p.recur) {
+    c.recur = p.recur.slice(0, 50).map(r => ({
+      id: String(r.id || Utilities.getUuid().replace(/-/g, '').slice(0, 12)),
+      note: String(r.note || '').trim().slice(0, 80), cat: String(r.cat || '').slice(0, 40),
+      amount: Math.max(0, Number(String(r.amount).replace(/[,\s]/g, '')) || 0), day: Math.min(31, Math.max(1, Number(r.day) || 1)),
+      type: r.type === 'in' ? 'in' : 'out', auto: !!r.auto, last: String(r.last || ''),
+    })).filter(r => r.note && r.amount);
+  }
+  props.setProperty('MONEY_CFG', JSON.stringify(c));
+  return { budgets: c.budgets, recur: c.recur };
+}
+/** ทุกเช้า: รายการประจำที่ถึงวัน (auto = จดให้เลย) + เตือนงบใกล้เต็ม + วันที่ 1 สรุปเดือนก่อน → ข้อความรวมไว้ในสรุปตอนเช้า */
+function moneyDaily_() {
+  const c = moneyCfg_();
+  const today = todayStr_(), month = today.slice(0, 7), dd = Number(today.slice(8, 10));
+  const lastDay = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0).getDate();
+  const out = [];
+  let changed = false;
+  // 🔁 รายการประจำ
+  const due = c.recur.filter(r => r.last !== month && (r.day === dd || (r.day > lastDay && dd === lastDay)));
+  const done = [], remind = [];
+  due.forEach(r => {
+    if (r.auto) { moneySave_({ date: today, type: r.type, amount: r.amount, cat: r.cat, note: '🔁 ' + r.note }); done.push(r); }
+    else remind.push(r);
+    r.last = month; changed = true;
+  });
+  if (done.length) out.push('🔁 จดรายการประจำให้แล้ว\n' + done.map(r => '• ' + r.note + ' ' + fmtBaht_(r.amount)).join('\n'));
+  if (remind.length) out.push('🔔 ถึงวันจ่ายรายการประจำ\n' + remind.map(r => '• ' + r.note + ' ' + fmtBaht_(r.amount)).join('\n') + '\n(จ่ายแล้วจดในแอปหรือพิมพ์ "จ่าย ' + remind[0].amount + ' ' + remind[0].note + '")');
+  // 🎯 งบใกล้เต็ม (เตือนครั้งเดียวต่อระดับ 80% / 100% ต่อเดือน)
+  const cats = Object.keys(c.budgets);
+  if (cats.length) {
+    const m = moneyMonth_(month), by = {};
+    m.list.filter(x => x.type === 'out').forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });
+    const w = c.warned[month] = c.warned[month] || {};
+    const warns = [];
+    cats.forEach(k => {
+      const used = by[k] || 0, lim = c.budgets[k], pct = used / lim * 100, lvl = pct >= 100 ? 100 : pct >= 80 ? 80 : 0;
+      if (lvl && (w[k] || 0) < lvl) { warns.push((lvl === 100 ? '🔴 ' : '🟡 ') + k + ' ใช้ไป ' + Math.round(pct) + '% (' + fmtBaht_(used) + ' จากงบ ' + fmtBaht_(lim) + ')'); w[k] = lvl; changed = true; }
+    });
+    if (warns.length) out.push('🎯 งบเดือนนี้\n' + warns.join('\n'));
+    Object.keys(c.warned).forEach(k => { if (k < month) delete c.warned[k]; });
+  }
+  // 📊 วันที่ 1 = สรุปเดือนก่อน
+  if (dd === 1 && c.monthSent !== month) {
+    const pm = Utilities.formatDate(new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 15), TZ, 'yyyy-MM');
+    const ppm = Utilities.formatDate(new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 3, 15), TZ, 'yyyy-MM');
+    const a = moneyMonth_(pm), b = moneyMonth_(ppm), by = {};
+    a.list.filter(x => x.type === 'out').forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });
+    const top = Object.entries(by).sort((x, y) => y[1] - x[1]).slice(0, 5);
+    const cmp = b.out ? ' (' + (a.out >= b.out ? '▲' : '▼') + Math.abs(Math.round((a.out - b.out) / b.out * 100)) + '% จากเดือนก่อน)' : '';
+    const bud = Object.keys(c.budgets).map(k => { const u = by[k] || 0; return (u > c.budgets[k] ? '🔴 ' : '🟢 ') + k + ' ' + fmtBaht_(u) + ' / ' + fmtBaht_(c.budgets[k]); });
+    out.push('📊 สรุปเดือน ' + pm + '\nรายรับ ' + fmtBaht_(a.inc) + '\nรายจ่าย ' + fmtBaht_(a.out) + cmp + '\nคงเหลือ ' + fmtBaht_(a.inc - a.out) +
+      (top.length ? '\n\nจ่ายมากสุด\n' + top.map(([k, v]) => '• ' + k + ' ' + fmtBaht_(v)).join('\n') : '') + (bud.length ? '\n\nงบรายหมวด\n' + bud.join('\n') : ''));
+    c.monthSent = month; changed = true;
+  }
+  if (changed) props.setProperty('MONEY_CFG', JSON.stringify(c));
+  return out.join('\n\n');
+}

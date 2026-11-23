@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=75">
+  <link rel="stylesheet" href="style.css?v=76">
 </head>
 <body class="money">
   <header class="top">
@@ -72,6 +72,7 @@
   </section>
 
   <!-- มุมมอง -->
+  <section id="budStrip" class="bud-strip" hidden></section>
   <nav class="seg mo-tabs" id="vTabs">
     <button class="chip" data-v="list">รายการ</button>
     <button class="chip" data-v="cal">ปฏิทิน</button>
@@ -147,6 +148,23 @@
       </div>
     </form>
   </dialog>
+  <dialog id="budDlg">
+    <form id="budForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus>🎯 งบรายจ่ายต่อเดือน</h2>
+      <p class="hint">ใส่เฉพาะหมวดที่อยากคุม เว้นว่าง = ไม่ตั้งงบ · ใช้ถึง 80% และ 100% จะเตือนในสรุปตอนเช้าทาง LINE</p>
+      <div id="budRows" class="bud-rows"></div>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" class="ghost" id="budCancel">ยกเลิก</button><button type="submit" class="primary">บันทึก</button></div>
+    </form>
+  </dialog>
+  <dialog id="recDlg" class="wide">
+    <form id="recForm" method="dialog" autocomplete="off">
+      <h2 tabindex="-1" autofocus>🔁 รายการประจำ</h2>
+      <p class="hint">เช่น ค่าเน็ต ค่าโทรศัพท์ เงินเดือน · ถึงวันแล้ว "จดให้เลย" หรือแค่ "เตือน" ในสรุปตอนเช้าทาง LINE</p>
+      <div id="recRows" class="rec-rows"></div>
+      <button type="button" class="ghost rec-add" id="recAdd">＋ เพิ่มรายการประจำ</button>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" class="ghost" id="recCancel">ยกเลิก</button><button type="submit" class="primary">บันทึก</button></div>
+    </form>
+  </dialog>
   <datalist id="owPeople"></datalist>
 
   <!-- รายละเอียดคน -->
@@ -194,9 +212,9 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="hub.js?v=75"></script>
-  <script src="mcore.js?v=75"></script>
-  <script src="money.js?v=75"></script>
-  <script src="owe.js?v=75"></script>
+  <script src="hub.js?v=76"></script>
+  <script src="mcore.js?v=76"></script>
+  <script src="money.js?v=76"></script>
+  <script src="owe.js?v=76"></script>
 </body>
 </html>

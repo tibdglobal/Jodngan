@@ -228,6 +228,8 @@ function doPost(e) {
       }
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
+      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur }); }
+      case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
       case 'money_delete': moneyDelete_(body.id); return json_({ ok: true });
       case 'owe_list':     return json_({ ok: true, docs: oweAll_() });
@@ -363,9 +365,10 @@ function morningSummary() {
   let bills = '', meet = '';
   try { bills = billLine_(); } catch (e) {}
   try { meetSync_(true); meet = meetLine_(); } catch (e) {}
-  let inbox = '';
+  let inbox = '', money = '';
   try { inbox = inboxDueLine_(); } catch (e) {}
-  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, warn].filter(Boolean).join('\n\n');
+  try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
+  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
   const sh = sheet_(), col = HEADERS.indexOf('prenoted') + 1;
