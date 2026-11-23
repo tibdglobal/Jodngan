@@ -863,6 +863,13 @@ $('#btnDelete').onclick = () => {
 
 /* ---------- ตั้งค่า ---------- */
 const setDlg = $('#setDlg'), setForm = $('#setForm');
+/* 🌗 โหมดสี */
+(() => {
+  const NAME = { auto: 'อัตโนมัติ (ตามเครื่อง)', light: 'กลางวัน', dark: 'กลางคืน' }, NEXT = { auto: 'light', light: 'dark', dark: 'auto' };
+  const paint = () => { const el = $('#themeName'); if (el && window.hubTheme) el.textContent = NAME[hubTheme.get()]; };
+  paint();
+  $('#btnTheme').onclick = e => { e.stopPropagation(); if (!window.hubTheme) return; hubTheme.set(NEXT[hubTheme.get()]); paint(); };
+})();
 /* ⋯ เมนูเพิ่มเติม */
 (() => {
   const btn = $('#btnMore'), menu = $('#moreMenu');

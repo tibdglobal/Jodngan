@@ -11,6 +11,24 @@
   const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 });
   const isApi = u => /script\.google(usercontent)?\.com\/macros\/|x\.test\/exec/.test(String(u && u.url || u || ''));
 
+  /* ---------- 🌗 โหมดกลางวัน / กลางคืน (LS theme: auto | light | dark) ----------
+   * ไม่ต้องเขียน CSS ซ้ำ: เปลี่ยนเงื่อนไขของกฎ @media (prefers-color-scheme: dark) ใน style.css
+   * บังคับกลางคืน = ใช้กฎมืดเสมอ (all) · บังคับกลางวัน = ไม่ใช้เลย (not all) · อัตโนมัติ = ตามเครื่อง */
+  const DARK_Q = '(prefers-color-scheme: dark)';
+  function applyTheme(t) {
+    const want = t === 'dark' ? 'all' : t === 'light' ? 'not all' : DARK_Q;
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      const walk = list => { for (const r of list) { if (r.media && r.cssRules) { const mt = r.media.mediaText; if (r.__dk || /prefers-color-scheme:\s*dark/.test(mt)) { r.__dk = 1; r.media.mediaText = want; } else walk(r.cssRules); } } };
+      walk(rules);
+    }
+    const dark = t === 'dark' || (t !== 'light' && matchMedia(DARK_Q).matches);
+    document.documentElement.style.colorScheme = t === 'auto' ? '' : (dark ? 'dark' : 'light');
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.media = ''; m.content = dark ? '#111214' : '#f1f2f4'; });
+  }
+  window.hubTheme = { get: () => get('theme', 'auto'), set: t => { put('theme', t); applyTheme(t); } };
+  if (get('theme', 'auto') !== 'auto') applyTheme(get('theme', 'auto'));
+
   /* ---------- 🎨 ไอคอนเส้นชุดเดียวทั้งแอป (แทนอีโมจิในแถบล่าง/ปุ่มหัวหน้า) ---------- */
   const sv = d => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const ICO = window.ICO = {
@@ -25,6 +43,7 @@
     more: sv('<path d="M5.5 12h.01M12 12h.01M18.5 12h.01" stroke-width="3"/>'),
     chart: sv('<path d="M4 20h16"/><path d="M7.5 16.5v-5M12 16.5v-9M16.5 16.5v-7"/>'),
     gear: sv('<path d="M4 7.5h8.5M17.5 7.5H20M4 16.5h2.5M11.5 16.5H20"/><circle cx="15" cy="7.5" r="2.4"/><circle cx="9" cy="16.5" r="2.4"/>'),
+    moon: sv('<path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7Z"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };

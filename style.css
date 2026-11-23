@@ -2030,3 +2030,77 @@ body.sysstat { --accent: var(--ink-status); }
   .spark i { background: color-mix(in srgb, var(--out) 30%, var(--card)); }
   .more-menu { background: var(--raised); }
 }
+
+/* ======================================================================
+   ดีไซน์ v5 — สมุดพกงาน (เรียบ แบน ไม่มีแสงฟุ้ง/กระจกฝ้า/ไล่สี)
+   พื้นเทาอ่อนเรียบ · การ์ดขาวขอบบาง ไม่มีเงา · ปุ่มหลักเป็น "หมึกดำ"
+   สีประจำหมวดใช้แค่จุดเล็กๆ (ไอคอนแถบล่าง, เครื่องหมาย, หลอด) ไม่ย้อมทั้งหน้า
+   ====================================================================== */
+:root {
+  --bg: #f1f2f4; --card: #ffffff; --raised: #ffffff; --sunken: #e9ebee;
+  --text: #16181b; --muted: #676c73; --faint: #9aa0a7; --line: #e2e4e8; --line-strong: #d3d6db;
+  --warn: #b45309; --danger: #c0392b; --in: #2e7d5b; --out: #c2410c; --ok: #2e7d5b;
+  --ink-tasks: #2e7d5b; --ink-inbox: #b26a12; --ink-money: #2f5bb7; --ink-bills: #7646b0; --ink-vault: #4b5563;
+  --ink-month: #1f5f88; --ink-status: #4b5563;
+  --ink: #16181b; --on-ink: #ffffff;
+  --shadow-1: none; --shadow-2: 0 1px 2px rgba(16, 18, 22, .06); --shadow-3: 0 12px 32px -8px rgba(16, 18, 22, .22);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111214; --card: #1a1b1e; --raised: #202125; --sunken: #0c0d0f;
+    --text: #eceef0; --muted: #9a9fa6; --faint: #6b7078; --line: #2a2c30; --line-strong: #383b40;
+    --warn: #f0a33a; --danger: #f2837a; --in: #6fcf9b; --out: #ff9a62; --ok: #6fcf9b;
+    --ink-tasks: #6fcf9b; --ink-inbox: #f2b36b; --ink-money: #8fb0ff; --ink-bills: #c2a4ff; --ink-vault: #aeb8c6;
+    --ink-month: #86c2ea; --ink-status: #aeb8c6;
+    --ink: #eceef0; --on-ink: #111214;
+    --shadow-2: none; --shadow-3: 0 16px 40px -10px rgba(0, 0, 0, .7);
+  }
+}
+body.split { --accent: var(--out); }
+html, body { background: var(--bg); }
+body::before, body::after { content: none; display: none; }
+body { --shadow-card: none; --glass: var(--card); --glass-strong: var(--card); }
+
+/* การ์ด: ขาวทึบ ขอบบาง ไม่มีเงา ไม่มีเบลอ */
+.items, .s-card, .cal, .h-link, .b-tile, .v-card, .mo-comp, .f-card, .empty, .today-strip, .bud-strip,
+.quick input, .search input, .top .icon-btn, .chip, .mo-cats button, .ov-tile {
+  background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none;
+  border-color: var(--line);
+}
+@media (prefers-color-scheme: dark) {
+  .items, .s-card, .cal, .h-link, .b-tile, .v-card, .mo-comp, .f-card, .empty { border-color: var(--line); }
+}
+.group h3 { text-shadow: none; }
+.top .sub { color: var(--muted); }
+#goClaim { background: var(--card); }
+
+/* ปุ่มหลัก = หมึกดำ (ในโหมดมืดเป็นหมึกขาว) */
+.add-btn, .btn.primary, .dlg-actions .primary, button.primary, .chip.on, .mo-go, #mGo {
+  background: var(--ink); color: var(--on-ink); border-color: var(--ink); box-shadow: none;
+}
+@media (prefers-color-scheme: dark) { .add-btn, .btn.primary, .dlg-actions .primary, button.primary, .chip.on { background: var(--ink); color: var(--on-ink); } }
+.chip.on .n { color: color-mix(in srgb, var(--on-ink) 70%, transparent); }
+
+/* แถบล่าง: ทึบ เรียบ · หน้าที่เปิดอยู่ = ไอคอนสีหมวด + ตัวหนังสือเข้ม */
+.tabbar { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; border-top: 1px solid var(--line); }
+.tabbar a[aria-current="page"] { color: var(--text); }
+.tabbar a[aria-current="page"] span, .tabbar a[aria-current="page"] span.ico { background: var(--sunken); color: var(--c); }
+
+/* หน้าว่าง: ไอคอนบนพื้นเรียบ */
+.empty:not(.small)::before { background: var(--sunken); box-shadow: none; }
+
+/* หัวการ์ดเงิน: สีหมึกน้ำเงินเรียบ ไม่มีไล่สี/เส้น */
+.mo-hero { background: var(--hero-bg); box-shadow: none; }
+:root { --hero-bg: #24408f; }
+@media (prefers-color-scheme: dark) { body.money { --hero-bg: #1c2a55; } }
+
+/* ไม่ไล่สีในของเล็กๆ */
+.goal-bar em, .sync-bar i { background: var(--accent); }
+@media (prefers-color-scheme: dark) { .goal-bar em { background: var(--accent); } }
+.today-strip .td-chip { background: var(--bg); }
+.more-menu i { background: var(--sunken); color: var(--text); }
+.icon-btn.lab b svg { color: var(--text); }
+dialog::backdrop { background: rgba(10, 12, 14, .45); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.mo-sec a[aria-current="page"] { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.mo-add { box-shadow: none; }
+.mo-sec { background: var(--card); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
