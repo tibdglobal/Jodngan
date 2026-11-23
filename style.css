@@ -1763,3 +1763,35 @@ button.td-chip { font: inherit; text-align: left; width: 100%; }
 i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 .di-off { justify-self: start; }
 .di-r.muted span, .di-r.muted b { color: var(--muted); } .di-r.muted b { text-decoration: line-through; font-weight: 400; }
+
+/* ---------- หารกัน: ยอดค้างกับเพื่อน (หักลบกันให้) ---------- */
+.sp-bal { display: grid; gap: 8px; margin: 4px 0 18px; }
+.sp-bal:empty { display: none; }
+.sp-bal h3 { display: flex; align-items: baseline; gap: 8px; margin: 8px 2px 0; font-size: 15px; }
+.sp-bal h3 small { margin-left: auto; font-size: 14px; font-weight: 700; }
+.sp-bal h3:first-child { margin-top: 0; }
+.bal { background: var(--glass-strong, var(--card)); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden; }
+.bal summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
+.bal summary::-webkit-details-marker { display: none; }
+.bal summary .av { flex: none; }
+.bal-mid { flex: 1; min-width: 0; display: grid; }
+.bal-mid b { font-size: 15px; }
+.bal-mid small { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bal-amt { flex: none; font-size: 15px; white-space: nowrap; }
+.bal.pos .bal-amt { color: var(--in, #15803d); }
+.bal.neg .bal-amt { color: var(--out, #c2410c); }
+.bal.zero .bal-amt, .bal.pair .bal-amt { color: var(--text); }
+.bal summary::after { content: '›'; color: var(--muted); font-size: 18px; transition: transform .15s; }
+.bal[open] summary::after { transform: rotate(90deg); }
+.bal[open] summary { border-bottom: 1px dashed var(--line); }
+.bal-rows { padding: 2px 12px; }
+.bal-r { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.bal-r:last-child { border-bottom: 0; }
+.bal-r > span { flex: 1; min-width: 0; display: grid; font-size: 14px; }
+.bal-r > span small { color: var(--muted); font-size: 12px; }
+.bal-r > b { flex: none; font-size: 14px; font-variant-numeric: tabular-nums; }
+.bal-r > b.in { color: var(--in, #15803d); } .bal-r > b.out { color: var(--out, #c2410c); }
+.bal-r .mini { flex: none; }
+.bal-foot { padding: 6px 12px 12px; display: grid; gap: 8px; }
+.bal-net { margin: 0; padding: 8px 10px; border-radius: 10px; background: var(--bg); font-size: 13.5px; }
+.bal-clear { width: 100%; justify-content: center; min-height: 40px; font-weight: 600; }

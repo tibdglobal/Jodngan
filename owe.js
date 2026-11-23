@@ -671,11 +671,13 @@ function renderSplits() {
   const q = ($('#spQ') ? $('#spQ').value : '').trim().toLowerCase();
   const all = splits();
   const list = all.filter(s => !q || [s.title, ...(s.people || []), ...(s.bills || []).map(b => b.title || '')].join(' ').toLowerCase().includes(q)).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id).localeCompare(String(a.id)));
-  const sd = debts().filter(d => d.splitId);
-  const T = sd.filter(d => d.dir === 'they').reduce((s, d) => s + leftS(d), 0);
-  const M = sd.filter(d => d.dir === 'me').reduce((s, d) => s + leftS(d), 0);
+  // ยอดหลังหักลบกันรายคน (อ๊อก ค้างเรา 50 แต่เราค้างอ๊อก 30 → นับเป็นอ๊อกค้างเรา 20)
+  const nets = balances().me.map(p => p.they - p.me);
+  const T = nets.filter(n => n > 0).reduce((s, n) => s + n, 0);
+  const M = -nets.filter(n => n < 0).reduce((s, n) => s + n, 0);
   $('#spThey').textContent = bahtS(T); $('#spMe').textContent = bahtS(M);
   $('#spThey').classList.toggle('zero', !T); $('#spMe').classList.toggle('zero', !M);
+  renderBalances();
   if ($('#owPeople')) $('#owPeople').innerHTML = peopleAll().map(p => `<option value="${esc(p)}">`).join('');
   const box = $('#spList');
   if ($('#spCount')) $('#spCount').textContent = all.length ? `${q ? list.length + '/' : ''}${all.length} บิล` : '';
@@ -708,6 +710,102 @@ function renderSplits() {
 }
 
 if ($('#spQ')) $('#spQ').addEventListener('input', () => renderSplits());
+
+/* ---------- 🤝 ยอดค้างจากบิลหาร: ใครค้างเรา · เราค้างใคร · เพื่อนค้างกันเอง (หักลบกันให้) ---------- */
+const balOpen = {};
+function balances() {
+  const me = {}, pairs = {};
+  debts().filter(d => d.splitId && isOpen(d)).forEach(d => {
+    const p = me[d.person] = me[d.person] || { name: d.person, they: 0, me: 0, rows: [] };
+    p[d.dir] += leftS(d);
+    p.rows.push({ kind: 'debt', d, dir: d.dir, s: leftS(d), title: d.title || 'หารกัน', date: d.date });
+  });
+  splits().forEach(sp0 => (sp0.transfers || []).forEach(t => {
+    if (t.from === ME || t.to === ME || t.done || !toS(t.amount)) return;
+    const [a, b] = [t.from, t.to].sort((x, y) => x.localeCompare(y, 'th'));
+    const k = a + '|' + b;
+    const g = pairs[k] = pairs[k] || { a, b, ab: 0, ba: 0, rows: [] };
+    if (t.from === a) g.ab += toS(t.amount); else g.ba += toS(t.amount);
+    g.rows.push({ kind: 'tr', s: sp0, t, from: t.from, to: t.to, amt: toS(t.amount), title: sp0.title || 'หารกัน', date: sp0.date });
+  }));
+  return { me: Object.values(me), pairs: Object.values(pairs) };
+}
+function renderBalances() {
+  const box = $('#spBal');
+  if (!box) return;
+  const { me, pairs } = balances();
+  if (!me.length && !pairs.length) { box.innerHTML = ''; return; }
+  const W = who(ME);
+  const card = (key, name, cls, amtTxt, sub, rows, btn) => `<details class="bal ${cls}" data-key="${esc(key)}"${balOpen[key] ? ' open' : ''}>
+      <summary><span class="av">${esc(initial(name))}</span><div class="bal-mid"><b>${esc(name)}</b><small>${sub}</small></div><b class="bal-amt">${amtTxt}</b></summary>
+      <div class="bal-rows">${rows}</div>${btn}</details>`;
+  const row = (title, date, txt, txtCls, act) => `<div class="bal-r"><span>${esc(title)}<small>${fmtD(date)}</small></span><b class="${txtCls}">${txt}</b>${act}</div>`;
+  const theyOwe = me.filter(p => p.they - p.me > 0).sort((x, y) => (y.they - y.me) - (x.they - x.me));
+  const iOwe = me.filter(p => p.they - p.me < 0).sort((x, y) => (x.they - x.me) - (y.they - y.me));
+  const even = me.filter(p => p.they === p.me);
+  const meCard = p => {
+    const net = p.they - p.me, both = p.they && p.me;
+    const sub = both ? `ค้างเรา ${num(p.they)} · เราค้าง ${num(p.me)} → หักลบกันแล้ว` : `${p.rows.length} บิล`;
+    const amt = net > 0 ? `ค้างเรา ${bahtS(net)}` : net < 0 ? `เราค้าง ${bahtS(-net)}` : 'หักลบกันพอดี';
+    const rows = p.rows.sort((a, b) => String(a.date).localeCompare(String(b.date))).map(r => row(r.title, r.date, (r.dir === 'they' ? '+' : '−') + num(r.s), r.dir === 'they' ? 'in' : 'out',
+      `<button type="button" class="mini" data-pay="${esc(r.d.id)}">✓ ${r.dir === 'they' ? 'ได้แล้ว' : 'จ่ายแล้ว'}</button>`)).join('');
+    const how = net > 0 ? `${p.name} โอนให้${W} ${bahtS(net)}` : net < 0 ? `${W}โอนให้ ${p.name} ${bahtS(-net)}` : 'หักลบกันพอดี ไม่ต้องโอน';
+    return card('me:' + p.name, p.name, net > 0 ? 'pos' : net < 0 ? 'neg' : 'zero', amt, sub, rows,
+      `<div class="bal-foot">${both ? `<p class="bal-net">${num(p.they)} − ${num(p.me)} = <b>${bahtS(Math.abs(net))}</b> · ${esc(how)}</p>` : ''}<button type="button" class="mini bal-clear" data-clear="${esc(p.name)}">✅ เคลียร์กันแล้ว${net ? ' (' + esc(how) + ')' : ''}</button></div>`);
+  };
+  const pairCard = g => {
+    const net = g.ab - g.ba, [from, to] = net >= 0 ? [g.a, g.b] : [g.b, g.a];
+    const both = g.ab && g.ba;
+    const rows = g.rows.sort((a, b) => String(a.date).localeCompare(String(b.date))).map((r, i) => row(r.title, r.date, `${esc(r.from)} → ${esc(r.to)} ${num(r.amt)}`, '',
+      `<button type="button" class="mini" data-tr="${esc(g.a + '|' + g.b)}|${i}">✓ โอนแล้ว</button>`)).join('');
+    return card('pair:' + g.a + '|' + g.b, `${g.a} ↔ ${g.b}`, 'pair', net ? `${esc(from)} → ${esc(to)} ${bahtS(Math.abs(net))}` : 'หักลบกันพอดี',
+      both ? `${esc(g.a)}→${esc(g.b)} ${num(g.ab)} · ${esc(g.b)}→${esc(g.a)} ${num(g.ba)} → หักลบกันแล้ว` : `${g.rows.length} บิล`, rows,
+      `<div class="bal-foot"><button type="button" class="mini bal-clear" data-clearpair="${esc(g.a + '|' + g.b)}">✅ เคลียร์กันแล้ว</button></div>`);
+  };
+  box.innerHTML = (theyOwe.length ? `<h3>💰 ใครค้าง${esc(W)} <small>${bahtS(theyOwe.reduce((s, p) => s + p.they - p.me, 0))}</small></h3>${theyOwe.map(meCard).join('')}` : '')
+    + (iOwe.length ? `<h3>🙏 ${esc(W)}ค้างใคร <small>${bahtS(iOwe.reduce((s, p) => s + p.me - p.they, 0))}</small></h3>${iOwe.map(meCard).join('')}` : '')
+    + (even.length ? even.map(meCard).join('') : '')
+    + (pairs.length ? `<h3>👥 เพื่อนค้างกันเอง</h3>${pairs.map(pairCard).join('')}` : '');
+  box.__pairs = pairs;
+}
+if ($('#spBal')) {
+  $('#spBal').addEventListener('toggle', e => { const d = e.target; if (d.classList && d.classList.contains('bal')) balOpen[d.dataset.key] = d.open; }, true);
+  $('#spBal').addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.pay) {   // จ่าย/ได้รายบิล
+      const d = debts().find(x => x.id === b.dataset.pay);
+      if (!d) return;
+      const amt = leftS(d);
+      payDebt(d, amt, today(), 'ครบ');
+      await saveDocs([d]);
+      toast(`✓ ${d.title || 'หารกัน'} ${d.dir === 'they' ? d.person + ' จ่ายแล้ว' : 'เราจ่าย ' + d.person + ' แล้ว'} ${bahtS(amt)}`, async () => { d.payments.pop(); d.status = 'open'; await saveDocs([d]); });
+    }
+    if (b.dataset.clear) {   // เคลียร์ทุกบิลกับคนนี้ (หักลบกันแล้วจ่ายส่วนต่าง)
+      const name = b.dataset.clear;
+      const list = debts().filter(d => d.splitId && d.person === name && isOpen(d));
+      const they = list.filter(d => d.dir === 'they').reduce((s, d) => s + leftS(d), 0), mine = list.filter(d => d.dir === 'me').reduce((s, d) => s + leftS(d), 0);
+      const net = they - mine;
+      if (!confirm(`เคลียร์กับ ${name} ทั้งหมด ${list.length} บิล?\n${they && mine ? `หักลบกัน ${num(they)} − ${num(mine)} แล้ว ` : ''}${net > 0 ? `${name} โอนให้เรา ${bahtS(net)}` : net < 0 ? `เราโอนให้ ${name} ${bahtS(-net)}` : 'ไม่ต้องโอน'} แล้วใช่ไหม?`)) return;
+      const both = they && mine;
+      list.forEach(d => payDebt(d, leftS(d), today(), both ? 'หักลบ' : 'ครบ'));
+      await saveDocs(list);
+      toast(`✅ เคลียร์กับ ${name} แล้ว`, async () => { list.forEach(d => { d.payments.pop(); d.status = 'open'; }); await saveDocs(list); });
+    }
+    if (b.dataset.tr || b.dataset.clearpair) {   // เพื่อนโอนกันเอง
+      const pairs = $('#spBal').__pairs || [];
+      const [a, c, i] = (b.dataset.tr || b.dataset.clearpair).split('|');
+      const g = pairs.find(x => x.a === a && x.b === c);
+      if (!g) return;
+      const rows = b.dataset.tr ? [g.rows[+i]] : g.rows;
+      if (b.dataset.clearpair && !confirm(`${a} กับ ${c} เคลียร์กันแล้ว (${rows.length} บิล)?`)) return;
+      rows.forEach(r => { r.t.done = true; });
+      const docs = [...new Set(rows.map(r => r.s))];
+      await saveDocs(docs);
+      toast(b.dataset.tr ? `✓ ${rows[0].from} → ${rows[0].to} โอนแล้ว` : `✅ ${a} กับ ${c} เคลียร์กันแล้ว`, async () => { rows.forEach(r => { r.t.done = false; }); await saveDocs(docs); });
+    }
+  });
+}
 
 let dId = '', dSlipFor = null;
 function openDetail(id) {
