@@ -6,6 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
+const BACKEND_VER = 53;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -247,7 +248,8 @@ function doPost(e) {
         const t = (Array.isArray(body.tpl) ? body.tpl : []).slice(0, 30).map(x => ({ name: String(x.name || '').trim().slice(0, 40), items: (x.items || []).map(v => String(v).trim().slice(0, 120)).filter(Boolean).slice(0, 30) })).filter(x => x.name && x.items.length);
         props.setProperty('TASK_TPL', JSON.stringify(t)); return json_({ ok: true, tpl: t });
       }
-      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '' }); }
+      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '', goals: c.goals || [] }); }
+      case 'status':       return json_({ ok: true, ...statusInfo_() });
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
       case 'money_delete': moneyDelete_(body.id); return json_({ ok: true });
@@ -452,6 +454,7 @@ function checkReminders() {
   if (!lock.tryLock(10000)) return;
   try {
     const now = new Date();
+    props.setProperty('LAST_TICK', stamp_());   // หน้าสถานะระบบ: รอบเตือนล่าสุด
     const from = Utilities.formatDate(new Date(now.getTime() - 60 * 60000), TZ, 'yyyy-MM-dd HH:mm');
     const to = Utilities.formatDate(new Date(now.getTime() + REMIND_EVERY_MIN * 60000), TZ, 'yyyy-MM-dd HH:mm');
 
@@ -1089,4 +1092,30 @@ function weeklyBackup_(force) {
   old.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(8).forEach(f => f.setTrashed(true));
   props.setProperty('BACKUP_SENT', ymd);
   return copy.getId();
+}
+
+
+/* ===================== 🩺 สถานะระบบ (บอกแค่ว่าตั้งค่าแล้วหรือยัง ไม่ส่งค่าลับออกไป) ===================== */
+function statusInfo_() {
+  const P = props.getProperties(), has = k => !!(P[k] && String(P[k]).trim() && String(P[k]).indexOf('ใส่') !== 0);
+  let triggers = [];
+  try { triggers = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction()); } catch (e) {}
+  let quota = null;
+  try { quota = quota_(); } catch (e) {}
+  const counts = {};
+  try {
+    const id = P.SHEET_ID, ss = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+    ss.getSheets().forEach(sh => { counts[sh.getName()] = Math.max(0, sh.getLastRow() - 1); });
+  } catch (e) {}
+  let mail = '';
+  try { mail = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  return {
+    ver: BACKEND_VER, now: stamp_(), account: mail,
+    line: { token: has('LINE_TOKEN'), owner: has('LINE_USER_ID'), quota: quota },
+    ai: { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] },
+    lastTick: P.LAST_TICK || '', weeklySent: P.WEEKLY_SENT || '', backup: P.BACKUP_SENT || '',
+    mail: P.MAIL_ON === '1', meet: has('MEET_SHEET_ID'), bridge: has('BRIDGE_URL'),
+    vault: { work: has('VAULT_SALT'), personal: has('VAULT2_SALT') },
+    triggers: triggers, rows: counts,
+  };
 }

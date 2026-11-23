@@ -1939,3 +1939,41 @@ a.icon-btn.lab { text-decoration: none; color: inherit; }
 .tpl-chip .tpl-x { padding: 5px 9px 5px 4px; font-size: 11px; color: var(--muted); }
 .tpl-chip.hit { border-color: var(--accent); background: var(--accent-soft); }
 .tpl-save[disabled] { opacity: .4; }
+.dup-tag { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: #fef3c7; color: #92400e; }
+@media (prefers-color-scheme: dark) { .dup-tag { background: #78350f; color: #fde68a; } }
+
+/* 📈 แนวโน้ม · 🐷 เป้าออม */
+.trend-note { font-size: 13px; margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: #fff7ed; color: #9a3412; }
+@media (prefers-color-scheme: dark) { .trend-note { background: #431407; color: #fed7aa; } }
+.trend-r { display: grid; grid-template-columns: minmax(0, 1fr) 64px 104px; gap: 8px; align-items: end; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.trend-r:last-child { border-bottom: 0; }
+.trend-k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
+.spark i { flex: 1; border-radius: 2px; background: color-mix(in srgb, var(--out) 35%, transparent); }
+.spark i.now { background: var(--out); }
+.trend-v { display: flex; flex-direction: column; align-items: flex-end; }
+.trend-v small { font-size: 11px; color: var(--muted); }
+.trend-v small.up { color: #c2410c; }
+.trend-v small.down { color: var(--in); }
+.goal-card h3 { display: flex; justify-content: space-between; align-items: center; }
+.goal { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.goal:last-child { border-bottom: 0; }
+.goal-h { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.goal-h small { color: var(--muted); font-weight: 400; }
+.goal-bar { display: block; height: 8px; border-radius: 4px; background: rgba(127,127,127,.15); overflow: hidden; margin: 6px 0; }
+.goal-bar em { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #f472b6, #db2777); }
+.goal-f { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.goal-f small { color: var(--muted); font-size: 12px; }
+.goal-f span { display: flex; gap: 8px; align-items: center; flex: none; }
+.bio-btn { width: 100%; margin-top: 8px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line); }
+.bak-hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0 10px; }
+.bio-h { font-size: 15px; margin: 0 0 4px; }
+.bio-h small { font-weight: 400; color: var(--muted); }
+.ov-rows.st li { align-items: center; gap: 8px; }
+.ov-rows.st li span { display: flex; flex-direction: column; }
+.ov-rows.st li span small { margin: 2px 0 0 22px; }
+.ov-rows.st li b { text-align: right; font-weight: 600; font-size: 13px; }
+.ov-rows.st li.st-bad b { color: #dc2626; }
+.ov-rows.st li.st-warn b { color: #c2410c; }
+.st-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+a.btn-link { display: block; text-align: center; text-decoration: none; color: inherit; }

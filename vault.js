@@ -845,3 +845,65 @@ async function restoreFrom(bk, k) {
   render();
   $('#bakInfo').textContent = `✅ กู้คืนแล้ว ${ok} รายการ`;
 }
+
+
+/* ---------- 👆 ปลดล็อกด้วยนิ้ว / ใบหน้า (WebAuthn PRF) ----------
+ * ได้กุญแจลับจากชิปความปลอดภัยของเครื่อง (ต้องสแกนนิ้ว/หน้าทุกครั้ง) → ใช้เข้ารหัส "รหัสหลัก" เก็บไว้ในเครื่องนี้เท่านั้น (LS vaultBio:<ตู้>)
+ * รหัสหลักไม่ถูกส่งไปไหน · ตั้งรหัสหลักใหม่/ลบตู้ = salt เปลี่ยน → ข้อมูลเดิมใช้ไม่ได้เอง */
+const bioKey = () => 'vaultBio:' + space;
+const bioGet = () => { try { const b = JSON.parse(localStorage.getItem(bioKey()) || 'null'); return b && vault && b.salt === vault.salt ? b : null; } catch { return null; } };
+let bioOk = null;
+async function bioSupported() {
+  if (bioOk !== null) return bioOk;
+  try { bioOk = !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch { bioOk = false; }
+  return bioOk;
+}
+async function prfOut(credId, prfSalt) {
+  const a = await navigator.credentials.get({ publicKey: { challenge: rand(32), allowCredentials: [{ type: 'public-key', id: credId }], userVerification: 'required', timeout: 60000, extensions: { prf: { eval: { first: prfSalt } } } } });
+  const r = a.getClientExtensionResults();
+  const out = r.prf && r.prf.results && r.prf.results.first;
+  if (!out) throw new Error('เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับการปลดล็อกแบบนี้');
+  return out;
+}
+const prfAes = async out => crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', out), 'AES-GCM', false, ['encrypt', 'decrypt']);
+async function bioPaint() {
+  const sup = await bioSupported(), on = !!bioGet();
+  $('#btnBio').hidden = !(sup && on);
+  if (!$('#bioState')) return;
+  $('#bioState').textContent = !sup ? 'เครื่องนี้ไม่มีสแกนนิ้ว/ใบหน้า หรือเบราว์เซอร์ไม่รองรับ' : on ? '✅ เปิดใช้แล้วในเครื่องนี้ · หน้าล็อกจะมีปุ่ม 👆' : 'ยังไม่ได้เปิด · ปลดล็อกได้โดยไม่ต้องพิมพ์รหัสหลักทุกครั้ง';
+  $('#bioOn').hidden = !sup || on; $('#bioOff').hidden = !on;
+}
+$('#bioGo').onclick = async () => {
+  const pw = $('#bioPw').value;
+  if (!pw || !vault) return;
+  try {
+    const k = await deriveKey(pw, vault.salt); const c = JSON.parse(vault.check);
+    if ((await decryptJSON(k, c.iv, c.ct)).t !== CHECK_TEXT) throw new Error();
+  } catch { $('#bioState').textContent = '❌ รหัสหลักไม่ถูกต้อง'; return; }
+  try {
+    const ps = rand(32);
+    const cred = await navigator.credentials.create({ publicKey: {
+      rp: { name: 'จดครบ ตู้รหัส' }, user: { id: rand(16), name: 'jodkrob-vault-' + space, displayName: SPACE_NAME[space] },
+      challenge: rand(32), pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
+      timeout: 60000, extensions: { prf: { eval: { first: ps } } } } });
+    const ext = cred.getClientExtensionResults();
+    if (!ext.prf || ext.prf.enabled === false) throw new Error('เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับการปลดล็อกแบบนี้');
+    const out = (ext.prf.results && ext.prf.results.first) || await prfOut(cred.rawId, ps);
+    const sealed = await encryptJSON(await prfAes(out), { pw });
+    localStorage.setItem(bioKey(), JSON.stringify({ id: b64(cred.rawId), ps: b64(ps), salt: vault.salt, ...sealed }));
+    $('#bioPw').value = '';
+    await bioPaint();
+  } catch (e) { $('#bioState').textContent = '❌ เปิดไม่สำเร็จ: ' + (e.name === 'NotAllowedError' ? 'ยกเลิกการสแกน' : e.message); }
+};
+$('#bioOff').onclick = () => { localStorage.removeItem(bioKey()); bioPaint(); };
+$('#btnBio').onclick = async () => {
+  const b = bioGet(); if (!b) return bioPaint();
+  try {
+    const { pw } = await decryptJSON(await prfAes(await prfOut(unb64(b.id), unb64(b.ps))), b.iv, b.ct);
+    const f = $('#vUnlock'); f.elements.pw.value = pw; f.requestSubmit();
+  } catch (e) { showStatus(e.name === 'NotAllowedError' ? 'ยกเลิกการสแกน พิมพ์รหัสหลักแทนได้' : 'ปลดล็อกด้วยนิ้ว/หน้าไม่สำเร็จ: ' + e.message); }
+};
+// โชว์ปุ่มทุกครั้งที่หน้าล็อกขึ้น / สลับตู้ · เปิดเองอัตโนมัติ 1 ครั้งเมื่อเข้าหน้า
+new MutationObserver(() => { if (!$('#vUnlock').hidden) bioPaint(); }).observe($('#vUnlock'), { attributes: true, attributeFilter: ['hidden'] });
+$('#btnBak').addEventListener('click', bioPaint);

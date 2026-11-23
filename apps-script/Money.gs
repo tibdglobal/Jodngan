@@ -260,6 +260,14 @@ function moneyCfgSet_(p) {
       type: r.type === 'in' ? 'in' : 'out', auto: !!r.auto, last: String(r.last || ''),
     })).filter(r => r.note && r.amount);
   }
+  // 🐷 เป้าออมเงิน [{id, name, target, saved, by:'yyyy-mm', log:[{d, a}]}]
+  if (p.goals) {
+    c.goals = p.goals.slice(0, 20).map(g => ({
+      id: String(g.id || Utilities.getUuid().replace(/-/g, '').slice(0, 12)), name: String(g.name || '').trim().slice(0, 60),
+      target: Math.max(0, Number(g.target) || 0), saved: Math.max(0, Number(g.saved) || 0), by: /^\d{4}-\d{2}$/.test(String(g.by || '')) ? String(g.by) : '',
+      log: (Array.isArray(g.log) ? g.log : []).slice(-60).map(x => ({ d: String(x.d || '').slice(0, 10), a: Number(x.a) || 0 })),
+    })).filter(g => g.name && g.target);
+  }
   // 💳 พร้อมเพย์ของเจ้าของ (เบอร์ 10 หลัก / เลข 13 หลัก / e-wallet 15 หลัก) ใช้ทำ QR ในข้อความทวง
   if (p.pp !== undefined) {
     const d = String(p.pp || '').replace(/\D/g, '');
@@ -267,7 +275,7 @@ function moneyCfgSet_(p) {
     c.pp = d;
   }
   props.setProperty('MONEY_CFG', JSON.stringify(c));
-  return { budgets: c.budgets, recur: c.recur, pp: c.pp || '' };
+  return { budgets: c.budgets, recur: c.recur, pp: c.pp || '', goals: c.goals || [] };
 }
 /** ทุกเช้า: รายการประจำที่ถึงวัน (auto = จดให้เลย) + เตือนงบใกล้เต็ม + วันที่ 1 สรุปเดือนก่อน → ข้อความรวมไว้ในสรุปตอนเช้า */
 function moneyDaily_() {

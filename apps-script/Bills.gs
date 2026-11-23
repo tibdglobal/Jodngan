@@ -314,7 +314,10 @@ function billPendPrompt_(fid, waiting) {
   const text = (got ? '🧾 ดูเหมือน' + (KIND_NAME[kind] || 'ใบเสร็จ') + (ocr.via === 'ai' ? ' (AI อ่าน)' : '') + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
     '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)\n• 📇 การ์ดข้อมูล (นามบัตร/ป้ายร้าน)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
     (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง' : '');
-  const msg = { type: 'text', text: text.slice(0, 4900) };
+  // 🔁 กันเบิกซ้ำ: มีบิลวันเดียวกัน ยอดเท่ากันอยู่แล้ว (สถานะไหนก็ได้)
+  const dup = amt && ocr.date ? billsAll_().filter(b => String(b.date) === String(ocr.date) && Math.abs(Number(b.amount) - amt) < 0.01) : [];
+  const dupTxt = dup.length ? '\n\n⚠️ อาจซ้ำ: มีบิลวันเดียวกัน ยอดเท่ากันแล้ว ' + dup.slice(0, 2).map(b => '"' + cut_(b.desc, 30) + '" (' + ({ draft: 'ขาดหลักฐาน', ready: 'พร้อมเบิก', submitted: 'ยื่นแล้ว', paid: 'ได้เงินแล้ว' }[b.status] || b.status) + ')').join(', ') + ' ถ้าเป็นใบเดียวกันแตะ ✅ แนบกับบิลเดิม หรือ 🗑 ไม่ใช้' : '';
+  const msg = { type: 'text', text: (text + dupTxt).slice(0, 4900) };
   msg.quickReply = { items: items.slice(0, 13) };
   return msg;
 }

@@ -371,6 +371,13 @@ function section(title) {
   return sec;
 }
 
+/* 🔁 บิลที่อาจซ้ำ: วันเดียวกัน ยอดเท่ากัน (ยอด > 0) */
+const dupsOf = b => Number(b.amount) > 0 ? bills.filter(x => x.id !== b.id && x.date === b.date && Math.abs(Number(x.amount) - Number(b.amount)) < 0.01) : [];
+function dupWarn(b) {
+  const d = dupsOf(b);
+  if (!d.length) return true;
+  return confirm(`⚠️ อาจเป็นบิลซ้ำ\nมีบิลวันที่ ${short(b.date)} ยอด ${baht(b.amount)} อยู่แล้ว:\n${d.slice(0, 3).map(x => '• ' + x.desc + ' (' + ST[x.status] + ')').join('\n')}\n\nบันทึกต่อไหม?`);
+}
 function row(b) {
   const el = document.createElement('div');
   el.className = 'item b-item';
@@ -381,6 +388,7 @@ function row(b) {
   if (b.project) { const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = b.project; t.appendChild(tag); }
   t.append(b.desc);
   body.querySelector('.meta').textContent = [short(b.date), b.cat, vatOf(b) === 'yes' ? '🧾 VAT' : '', b.pay, view === 'list' && tab !== 'all' ? '' : ST[b.status]].filter(Boolean).join(' · ');
+  if (dupsOf(b).length) { const w = document.createElement('span'); w.className = 'dup-tag'; w.textContent = '⚠️ อาจซ้ำ'; w.title = 'มีบิลวันเดียวกัน ยอดเท่ากัน: ' + dupsOf(b).map(x => x.desc).join(', '); t.appendChild(w); }
   const pf = body.querySelector('.b-proofs');
   if (!(b.files || []).length) pf.innerHTML = '<span class="missing">ยังไม่มีหลักฐาน</span>';
   else (b.files || []).forEach(f => { const s = document.createElement('span'); s.className = 'pf ' + f.kind; s.textContent = KIND[f.kind].icon + ' ' + KIND[f.kind].name; pf.appendChild(s); });
@@ -440,6 +448,7 @@ $('#bQuick').addEventListener('submit', async e => {
   if (!p.desc) return;
   const now = new Date().toISOString();
   const b = { id: uid(), date: p.date || today(), amount: p.amount ?? 0, desc: p.desc, project: p.project, cat: '', pay: '', vendor: '', status: 'draft', files: [], note: '', created: now };
+  if (!dupWarn(b)) return;
   input.value = '';
   upsert(b);
   if (p.date && p.date.slice(0, 7) !== today().slice(0, 7)) sumMonth = p.date.slice(0, 7);
@@ -617,6 +626,7 @@ form.addEventListener('submit', async () => {
   ['date', 'desc', 'project', 'cat', 'pay', 'vendor', 'note', 'vat'].forEach(k => { b[k] = f[k].value.trim(); });
   b.vatAmt = b.vat === 'yes' ? String(f.vatAmt.value).replace(/,/g, '').trim() : '';
   b.amount = Number(String(f.amount.value).replace(/,/g, '')) || 0;
+  if ((b.date !== editing.date || b.amount !== Number(editing.amount)) && !dupWarn(b)) { dlg.showModal(); return; }
   const statusChanged = f.status.value !== editing.status;
   b.status = f.status.value;
   editing = null;

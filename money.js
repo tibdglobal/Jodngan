@@ -218,9 +218,12 @@ function renderChart(mm) {
   tools.querySelector('#goBud').onclick = openBud;
   tools.querySelector('#goRec').onclick = openRec;
   box.appendChild(tools);
+  box.appendChild(goalCard(mm));
   const bud = budCard(mm);
   if (bud) box.appendChild(bud);
   box.appendChild(catCard('รายจ่ายแยกหมวด', mm.filter(x => x.type === 'out'), 'out'));
+  const tr = trendCard();
+  if (tr) box.appendChild(tr);
   box.appendChild(catCard('รายรับแยกหมวด', mm.filter(x => x.type === 'in'), 'in'));
   // 12 เดือน
   const ms = Array.from({ length: 12 }, (_, i) => addMonth(month, i - 11));
@@ -240,9 +243,86 @@ function renderChart(mm) {
   box.appendChild(t);
 }
 
+/* ---------- 📈 แนวโน้ม 6 เดือนรายหมวด ---------- */
+function trendCard() {
+  const ms = Array.from({ length: 6 }, (_, i) => addMonth(month, i - 5));
+  const by = {};
+  items.filter(x => x.type === 'out' && ms.includes((x.date || '').slice(0, 7))).forEach(x => {
+    const k = x.cat || 'อื่นๆ', i = ms.indexOf(x.date.slice(0, 7));
+    (by[k] = by[k] || [0, 0, 0, 0, 0, 0])[i] += Number(x.amount || 0);
+  });
+  const cats = Object.entries(by).map(([k, v]) => {
+    const prev = v.slice(2, 5), avg = prev.reduce((a, b) => a + b, 0) / 3, cur = v[5];
+    return { k, v, cur, avg, total: v.reduce((a, b) => a + b, 0), ch: avg ? (cur - avg) / avg : (cur ? 1 : 0) };
+  }).filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 7);
+  if (!cats.length) return null;
+  const c = document.createElement('section');
+  c.className = 's-card trend-card';
+  const mx = Math.max(...cats.flatMap(x => x.v), 1);
+  const up = cats.filter(x => x.avg && x.ch >= 0.2 && x.cur - x.avg >= 300).sort((a, b) => (b.cur - b.avg) - (a.cur - a.avg))[0];
+  c.innerHTML = `<h3>📈 แนวโน้ม 6 เดือน <small>${ms.map(monthShort).join(' ')}</small></h3>
+    ${up ? `<p class="trend-note">⚠️ <b>${esc(up.k)}</b> เดือนนี้ ${baht(up.cur)} สูงกว่าค่าเฉลี่ย 3 เดือนก่อน ${baht(Math.round(up.cur - up.avg))} (+${Math.round(up.ch * 100)}%)</p>` : ''}
+    ${cats.map(x => `<div class="trend-r"><span class="trend-k">${icon('out', x.k)} ${esc(x.k)}</span>
+      <span class="spark">${x.v.map((v, i) => `<i style="height:${Math.max(2, Math.round(v / mx * 26))}px"${i === 5 ? ' class="now"' : ''} title="${monthShort(ms[i])} ${baht(v)}"></i>`).join('')}</span>
+      <span class="trend-v"><b>${baht(x.cur)}</b><small class="${x.ch > 0.15 ? 'up' : x.ch < -0.15 ? 'down' : ''}">${x.avg ? (x.ch > 0.15 ? '▲' : x.ch < -0.15 ? '▼' : '≈') + ' เฉลี่ย ' + baht(Math.round(x.avg)) : 'ใหม่'}</small></span></div>`).join('')}`;
+  return c;
+}
+
+/* ---------- 🐷 เป้าออมเงิน (เก็บใน MONEY_CFG.goals) ---------- */
+function goalCard(mm) {
+  const goals = mcfg.goals || [];
+  const net = sum(mm.filter(x => x.type === 'in')) - sum(mm.filter(x => x.type === 'out'));
+  const c = document.createElement('section');
+  c.className = 's-card goal-card';
+  const left = by => { if (!by) return 0; const [y, m] = by.split('-').map(Number), [y0, m0] = today().slice(0, 7).split('-').map(Number); return Math.max(1, (y - y0) * 12 + (m - m0) + 1); };
+  c.innerHTML = `<h3>🐷 เป้าออมเงิน <button type="button" class="mini" id="goalAdd">＋ ตั้งเป้า</button></h3>` + (goals.length ? goals.map((g, i) => {
+    const p = Math.min(100, Math.round(g.saved / g.target * 100)), rest = Math.max(0, g.target - g.saved), n = left(g.by), per = n ? Math.ceil(rest / n) : 0;
+    return `<div class="goal" data-i="${i}"><div class="goal-h"><b>${esc(g.name)}</b><span>${baht(g.saved)} <small>/ ${baht(g.target)}</small></span></div>
+      <i class="goal-bar"><em style="width:${p}%"></em></i>
+      <div class="goal-f"><small>${rest ? (g.by ? `ต้องเก็บเดือนละ ${baht(per)} ถึง ${monthName(g.by)}` : `เหลืออีก ${baht(rest)}`) : '🎉 ครบเป้าแล้ว'}${rest && per && net < per && month === today().slice(0, 7) ? ` · เดือนนี้เหลือ ${baht(net)}` : ''}</small>
+      <span><button type="button" class="mini" data-dep="${i}">＋ เก็บเพิ่ม</button><button type="button" class="link-btn" data-ed="${i}">แก้</button></span></div></div>`;
+  }).join('') : `<p class="hint">ตั้งเป้า เช่น "เที่ยวญี่ปุ่น ฿40,000 ภายใน มี.ค." แล้วบอกได้ว่าต้องเก็บเดือนละเท่าไหร่${net > 0 ? ` · เดือนนี้เหลือ ${baht(net)}` : ''}</p>`);
+  c.querySelector('#goalAdd').onclick = () => openGoal(-1);
+  c.querySelectorAll('[data-ed]').forEach(b => b.onclick = () => openGoal(+b.dataset.ed));
+  c.querySelectorAll('[data-dep]').forEach(b => b.onclick = () => {
+    const g = mcfg.goals[+b.dataset.dep];
+    const v = prompt(`เก็บเข้า "${g.name}" เพิ่มเท่าไหร่ (ใส่ติดลบ = ถอนออก)`, '');
+    const a = Number(String(v || '').replace(/[,\s฿]/g, ''));
+    if (!a) return;
+    g.saved = Math.max(0, (Number(g.saved) || 0) + a); g.log = [...(g.log || []), { d: today(), a }];
+    saveGoals(); toast(`🐷 ${g.name} ${a > 0 ? '+' : ''}${baht(a)} → ${baht(g.saved)}`);
+  });
+  return c;
+}
+async function saveGoals() {
+  LS.set('moneyCfg', mcfg); render();
+  try { const r = await api('money_cfg_set', { goals: mcfg.goals || [] }); mcfg.goals = r.goals || mcfg.goals; LS.set('moneyCfg', mcfg); }
+  catch (e) { showStatus('บันทึกเป้าออมไม่สำเร็จ: ' + e.message); }
+}
+let goalI = -1;
+function openGoal(i) {
+  goalI = i;
+  const g = i > -1 ? mcfg.goals[i] : { name: '', target: '', saved: 0, by: '' };
+  const f = $('#goalForm').elements;
+  f.gname.value = g.name; f.gtarget.value = g.target || ''; f.gsaved.value = g.saved || ''; f.gby.value = g.by || '';
+  $('#goalDel').hidden = i < 0;
+  $('#goalDlg').showModal();
+}
+$('#goalCancel').onclick = () => $('#goalDlg').close();
+$('#goalDel').onclick = () => { if (goalI > -1 && confirm('ลบเป้านี้?')) { mcfg.goals.splice(goalI, 1); $('#goalDlg').close(); saveGoals(); } };
+$('#goalForm').addEventListener('submit', () => {
+  const f = $('#goalForm').elements;
+  const num = v => Number(String(v || '').replace(/[,\s฿]/g, '')) || 0;
+  const g = { ...(goalI > -1 ? mcfg.goals[goalI] : { id: uid(), log: [] }), name: f.gname.value.trim(), target: num(f.gtarget.value), saved: num(f.gsaved.value), by: f.gby.value };
+  if (!g.name || !g.target) return;
+  mcfg.goals = mcfg.goals || [];
+  if (goalI > -1) mcfg.goals[goalI] = g; else mcfg.goals.push(g);
+  saveGoals();
+});
+
 /* ---------- 🎯 งบรายหมวด / 🔁 รายการประจำ (เก็บที่หลังบ้าน MONEY_CFG) ---------- */
 let mcfg = LS.get('moneyCfg', { budgets: {}, recur: [] });
-async function syncCfg() { try { const r = await api('money_cfg'); mcfg = { budgets: r.budgets || {}, recur: r.recur || [] }; LS.set('moneyCfg', mcfg); LS.set('ppId', r.pp || ''); render(); } catch (e) {} }
+async function syncCfg() { try { const r = await api('money_cfg'); mcfg = { budgets: r.budgets || {}, recur: r.recur || [], goals: r.goals || [] }; LS.set('moneyCfg', mcfg); LS.set('ppId', r.pp || ''); render(); } catch (e) {} }
 function budUse(mm) {
   const by = {};
   mm.filter(x => x.type === 'out').forEach(x => { const k = x.cat || 'อื่นๆ'; by[k] = (by[k] || 0) + Number(x.amount || 0); });

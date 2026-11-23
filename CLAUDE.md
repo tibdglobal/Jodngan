@@ -38,6 +38,10 @@
 - 📴 **กล่องรอส่ง** (hub.js ดัก fetch): คำสั่งบันทึก (`add` `update` `delete` `money_save` `money_delete` `inbox_save` `inbox_delete` `owe_save` `owe_delete` `bill_save`) ที่ส่งไม่ออก/ออฟไลน์ → เก็บ LS `hubOutbox` แล้วตอบแอปว่าสำเร็จ (echo ข้อมูลเดิม) · ส่งออกตามลำดับเมื่อออนไลน์/เปิดหน้า/ก่อนคำขอดึงข้อมูลทุกครั้ง (`hubFlush`) · ส่งแล้วหลังบ้านตอบ error → เก็บใน `hubOutboxFail` · ป้ายบนหัวโชว์ "รอส่ง N"
 - ⚡ ปุ่มลัด (manifest `shortcuts`, Android กดค้างไอคอน): `?do=task|expense|snap|note` จัดการใน hub.js (โฟกัสช่องจด / ปุ่มใหญ่ให้แตะเปิดกล้อง)
 - 📋 ชุดเช็กลิสต์ (app.js `#eTpl`): เลือกชุดเพิ่มขั้นตอน / 💾 เก็บเป็นชุด · เก็บใน Script Property `TASK_TPL` ผ่าน `tpl_list` / `tpl_save` (LS `taskTpl`) · ยังไม่เคยบันทึก = ใช้ `TPL_DEFAULT`
+- 📈 หน้าเงิน มุมมองสรุป: แนวโน้ม 6 เดือนรายหมวด (`trendCard`, เตือนหมวดที่สูงกว่าค่าเฉลี่ย 3 เดือนก่อน ≥20% และ ≥฿300) · 🐷 เป้าออมเงิน (`goalCard` / `#goalDlg`, เก็บใน `MONEY_CFG.goals` [{id,name,target,saved,by,log}] ผ่าน `money_cfg_set {goals}`)
+- 🧾 บิลซ้ำ: `dupsOf` (วันเดียวกัน ยอดเท่ากัน) ป้าย "⚠️ อาจซ้ำ" ในแถว + ถามก่อนบันทึก · LINE รูปรอจัดเตือน "อาจซ้ำ" ใน `billPendPrompt_`
+- 👆 ตู้รหัสปลดล็อกด้วยนิ้ว/หน้า (vault.js ท้ายไฟล์, WebAuthn **PRF**): ผลลับจากชิปเครื่อง → AES เข้ารหัสรหัสหลักเก็บใน LS `vaultBio:<work|personal>` (มี salt ของตู้ ถ้าตู้ถูกตั้งใหม่ใช้ไม่ได้เอง) · เปิด/ปิดในหน้าต่าง 💾 · เครื่องไม่รองรับ PRF = ปุ่มไม่ขึ้น
+- `status.html` + `status.js` — 🩺 สถานะระบบ (ลิงก์ในหน้า ⚙ ของหน้างาน): เครื่องนี้ (เวอร์ชันแคช, เชื่อมเครื่อง, รอส่ง) + หลังบ้าน `status` (`statusInfo_`: เวอร์ชัน `BACKEND_VER`, รอบเตือนล่าสุด `LAST_TICK`, ตัวตั้งเวลา, LINE/โควตา, AI, สำรอง, Gmail, คลังประชุม, ตู้รหัส — บอกแค่ตั้งแล้วหรือยัง ไม่ส่งค่าลับ) · ปุ่มทดสอบ AI / สำรองตอนนี้ / ล้างแคช
 - `style.css` — สไตล์รวม (สีประจำหมวด, โหมดมืด, tabbar ล่าง 5 แท็บ)
 - `sw.js` — service worker (cache-first)
 
@@ -65,10 +69,11 @@
 ### หลังบ้าน (Apps Script)
 1. แก้ `apps-script/*.gs` ใน repo นี้ก่อน (เป็นต้นฉบับ)
 2. เอาไปวางทับไฟล์เดียวกันใน editor ของโปรเจกต์ "จดงาน API" (ไฟล์ใหม่: กด ＋ → Script แล้วตั้งชื่อตรงกัน) → Ctrl+S
-3. **Deploy → Manage deployments → ✏️ ที่ deployment เดิม → Version: New version → Deploy**
+3. เพิ่ม `BACKEND_VER` ใน Code.gs ให้ตรงเลข version ที่จะ deploy
+4. **Deploy → Manage deployments → ✏️ ที่ deployment เดิม → Version: New version → Deploy**
    - ⚠️ **ห้ามสร้าง New deployment** — URL `AKfycbwaM09...` ฝังอยู่ใน `DEFAULT_URL` ของทุกไฟล์ js และตั้งเป็น webhook ของ LINE ถ้า URL เปลี่ยน ทั้งแอปและ LINE จะใช้ไม่ได้
    - เช็กว่าเลือก "New version" จริงก่อนกด Deploy
-4. ทดสอบหลังอัป: เรียก API จากหน้าเว็บจริง (`await api('...')` ใน console ของหน้าที่เชื่อมเครื่องแล้ว) แล้วลบข้อมูลทดสอบทิ้ง
+5. ทดสอบหลังอัป: เรียก API จากหน้าเว็บจริง (`await api('...')` ใน console ของหน้าที่เชื่อมเครื่องแล้ว) แล้วลบข้อมูลทดสอบทิ้ง
 
 ## กฎความปลอดภัย (สำคัญ)
 - repo นี้ **เปิดสาธารณะ** — ห้ามใส่ token, API key, เลขบัตรประชาชน, รหัสผ่าน หรือข้อมูลส่วนตัวลงไฟล์ใดๆ

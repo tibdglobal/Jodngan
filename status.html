@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>สถานะระบบ · จดครบ</title>
+  <meta name="theme-color" content="#eff2ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101412" media="(prefers-color-scheme: dark)">
+  <meta name="robots" content="noindex">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=82">
+</head>
+<body class="status">
+  <header class="top">
+    <div>
+      <a href="./" class="back">‹ จดครบ</a>
+      <h1>สถานะระบบ</h1>
+      <p class="sub">เช็กว่าทุกส่วนทำงานปกติ</p>
+    </div>
+    <div class="top-actions">
+      <button id="btnSync" class="icon-btn" title="รีเฟรช" aria-label="รีเฟรช">⟳</button>
+    </div>
+  </header>
+  <p id="status" class="status" hidden></p>
+  <main id="st" class="ov" aria-live="polite"></main>
+
+  <nav class="tabbar" aria-label="ส่วนของแอป">
+    <a href="./"><span aria-hidden="true">✓</span>งาน</a>
+    <a href="inbox.html"><span aria-hidden="true">📌</span>ฝาก</a>
+    <a href="money.html"><span aria-hidden="true">💰</span>เงิน</a>
+    <a href="bills.html"><span aria-hidden="true">🧾</span>เบิก</a>
+    <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
+  </nav>
+
+  <script src="hub.js?v=82"></script>
+  <script src="mcore.js?v=82"></script>
+  <script src="status.js?v=82"></script>
+</body>
+</html>
