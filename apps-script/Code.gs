@@ -64,6 +64,9 @@ const HELP = [
   '• ต้นคืน 200 / คืนต้น 200',
   '• หาร 1200 เอ็ม เจ (หรือ หาร ชาบู 1200 เอ็ม เจ) = เราจ่ายไปก่อน หารเท่ากัน',
   '• ส่งสลิปโอน → ปุ่ม 💵 คืนจาก… ได้',
+  '',
+  '🎙 ส่งข้อความเสียงได้เลย เช่น "พรุ่งนี้สิบโมงส่งรายงาน" "จ่ายค่าข้าวหกสิบ" "ต้นยืมห้าร้อย" ระบบฟังแล้วจดให้',
+  '• สรุปเดือน = ภาพรวมเดือนนี้ (งาน เงิน เบิก ค้างกัน)',
 ].join('\n');
 
 const APP_MSG = '📲 จดครบ\n' + APP_URL + '\n\nเปิดแล้วกด "เพิ่มไปยังหน้าจอโฮม" เพื่อใช้เหมือนแอป\nจดงานและบิลในแชทนี้ได้ด้วย พิมพ์ "ช่วย" ดูวิธีใช้';
@@ -236,6 +239,7 @@ function doPost(e) {
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
       case 'backup_now':   return json_({ ok: true, id: weeklyBackup_(true) });
+      case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || '')) });
       case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '' }); }
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
@@ -296,6 +300,12 @@ function handleLine_(events) {
       catch (err) { reply_(ev.replyToken, 'รับรูปไม่สำเร็จ: ' + (err.message || err) + '\nลองส่งรูปนี้ใหม่อีกครั้ง'); }
       return;
     }
+    // 🎙 ข้อความเสียง → AI ฟัง (นอกล็อก) แล้วทำเหมือนพิมพ์
+    if (ev.type !== 'postback' && ev.message.type === 'audio') {
+      try { lineVoice_(ev); }
+      catch (err) { reply_(ev.replyToken, '🎙 ฟังเสียงไม่สำเร็จ: ' + (err.message || err) + '\nลองพิมพ์แทน หรือส่งเสียงใหม่อีกครั้ง'); }
+      return;
+    }
     if (ev.type === 'postback' && /^icard\|/.test(String(ev.postback && ev.postback.data))) {
       // 📇 อ่านรูปด้วย AI นอกล็อก (ล็อกเฉพาะตอนบันทึก)
       try { lineCardPhoto_(ev, String(ev.postback.data).split('|')[1]); }
@@ -322,6 +332,7 @@ function handleLine_(events) {
     if (/^(ลิงก์|ลิ้งค์|ลิงค์|link|แอป|app)$/i.test(text)) return reply_(ev.replyToken, magicMsg_());
     if (/^(โควตา|โควต้า|quota)$/i.test(text)) return reply_(ev.replyToken, quotaText_(quota_()));
     if (/^(บิล|เบิก|เบิกเงิน)$/.test(text)) return reply_(ev.replyToken, billSummaryText_());
+    if (/^(สรุปเดือน|ภาพรวม|สรุปเดือนนี้|📊)$/.test(text)) return reply_(ev.replyToken, monthOverviewText_());
     if (/^(เงิน|สรุปเงิน|รายรับรายจ่าย|รายรับ-รายจ่าย)$/.test(text)) return reply_(ev.replyToken, moneySummaryText_());
     // จดเงิน: ต้องมีตัวเลขต่อจากคำสั่ง หรือจบด้วยจำนวนเงิน (กัน "รับลูก 5 โมง" กลายเป็นรายรับ)
     if (/^(จ่าย|รับ|รายจ่าย|รายรับ)\s*[\d,]+(\.\d+)?(\s|บ|$)/.test(text) || /^(จ่าย|รายจ่าย|รายรับ)\s+\S.*\s[\d,]+(\.\d+)?\s*(บาท|บ\.?)?$/.test(text) || /^รับ\s+\S.*\s[\d,]+(\.\d+)?\s*(บาท|บ\.?)$/.test(text) || /^[+-]\s*\d/.test(text)) {
@@ -929,7 +940,12 @@ function deleteTask_(id) {
 
 /* ===================== LINE API ===================== */
 
+let REPLY_PREFIX = '';   // 🎙 เสียง: ต่อหน้าข้อความตอบแรก
 function line_(path, payload) {
+  if (path === 'reply' && REPLY_PREFIX && payload && payload.messages && payload.messages[0] && payload.messages[0].type === 'text') {
+    payload.messages[0].text = (REPLY_PREFIX + payload.messages[0].text).slice(0, 4900);
+    REPLY_PREFIX = '';
+  }
   const token = props.getProperty('LINE_TOKEN');
   if (!token || token.indexOf('ใส่') === 0) {
     console.warn('ยังไม่ได้ตั้ง LINE_TOKEN');

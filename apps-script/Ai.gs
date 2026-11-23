@@ -446,3 +446,39 @@ function aiMeetSummary_(p) {
   ].join('\n'), S('OBJECT', { properties: { summary: S('STRING') }, required: ['summary'] }));
   return { summary: String(j.summary || '').replace(/\*\*/g, '').trim() };
 }
+
+/* ===================== 🎙 ข้อความเสียงใน LINE → งาน / รายจ่าย / ค้างกัน / ฝาก ===================== */
+/* AI ฟังเสียง (นอกล็อก) → แปลงเป็นคำสั่งรูปแบบเดียวกับที่พิมพ์ แล้วส่งต่อเข้า handleLine_ เหมือนพิมพ์เอง
+ * คำตอบขึ้นต้นด้วย "🎙 ได้ยินว่า …" (REPLY_PREFIX) ถ้าเดาผิด แตะ ↔ เปลี่ยนประเภทได้เหมือนข้อความปกติ */
+function lineVoice_(ev) {
+  const msg = ev.message;
+  if (Number(msg.duration || 0) > 120000) { reply_(ev.replyToken, '🎙 เสียงยาวเกิน 2 นาที ลองพูดสั้นๆ ทีละเรื่องนะครับ'); return; }
+  const res = UrlFetchApp.fetch('https://api-data.line.me/v2/bot/message/' + msg.id + '/content', {
+    headers: { Authorization: 'Bearer ' + props.getProperty('LINE_TOKEN') }, muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() !== 200) throw new Error('ดาวน์โหลดเสียงจาก LINE ไม่ได้');
+  const blob = res.getBlob();
+  let mime = String(blob.getContentType() || 'audio/mp4');
+  if (/m4a|x-m4a|mp4/.test(mime)) mime = 'audio/mp4';
+  const today = todayStr_();
+  const S = (type, extra) => Object.assign({ type: type }, extra || {});
+  const j = aiJson_(blob.getBytes(), mime, [
+    'นี่คือข้อความเสียงภาษาไทย (อาจมีอังกฤษปน) ที่เจ้าของพูดสั่งแอปจดงาน/จดเงิน วันนี้คือ ' + today,
+    '1) text = ถอดคำพูดตามที่ได้ยิน ไม่แต่งเพิ่ม ถ้าไม่ได้ยินคำพูดเลยให้เว้นว่าง',
+    '2) kind = task (งาน/นัด/สิ่งที่ต้องทำ) | expense (จ่ายเงิน) | income (ได้เงิน) | owe (ยืม/คืน/หารกับเพื่อน หรือถามว่าใครค้าง) | note (ไอเดีย/ข้อมูลเก็บไว้)',
+    '3) cmd = แปลงเป็นข้อความสั้นตามรูปแบบนี้เท่านั้น ใช้ตัวเลขอารบิก เวลาแบบ 24 ชม. HH:MM',
+    '   task: "[วัน] [เวลา] ชื่องาน" วันใช้ วันนี้/พรุ่งนี้/มะรืน/จันทร์หน้า หรือ d/m เช่น "พรุ่งนี้ 10:00 ส่งรายงาน" ไม่มีวันก็ไม่ต้องใส่',
+    '   expense: "จ่าย 120 ข้าวมันไก่"   income: "รับ 25000 เงินเดือน"',
+    '   owe: "ต้นยืม 500" (เขายืมเรา) | "ยืมต้น 500" (เรายืมเขา) | "ต้นคืน 200" (เขาคืนเรา) | "คืนต้น 200" (เราคืนเขา) | "หาร ชาบู 1200 เอ็ม เจ" (เราจ่ายก่อน หารกับเพื่อน) | "ใครค้าง"',
+    '   note: "ฝาก ข้อความ"',
+  ].join('\n'), S('OBJECT', {
+    properties: { text: S('STRING'), kind: S('STRING', { enum: ['task', 'expense', 'income', 'owe', 'note'] }), cmd: S('STRING') },
+    required: ['text', 'kind', 'cmd'],
+  }));
+  const heard = String(j.text || '').trim(), cmd = String(j.cmd || '').replace(/\s+/g, ' ').trim();
+  if (!heard || !cmd) { reply_(ev.replyToken, '🎙 ไม่ได้ยินคำพูดชัดๆ ลองอัดใหม่ใกล้ไมค์อีกนิดครับ'); return; }
+  REPLY_PREFIX = '🎙 ได้ยินว่า "' + heard.slice(0, 200) + '"\n\n';
+  try {
+    handleLine_([{ type: 'message', replyToken: ev.replyToken, source: ev.source, message: { type: 'text', id: msg.id, text: cmd.slice(0, 500) } }]);
+  } finally { REPLY_PREFIX = ''; }
+}

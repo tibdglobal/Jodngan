@@ -1884,3 +1884,47 @@ i.neg { font-style: normal; color: var(--save); font-weight: 600; }
 #bakDlg .wide { width: 100%; margin: 6px 0; }
 .bak-pw { display: flex; gap: 6px; align-items: flex-end; margin-top: 8px; }
 .bak-pw label { flex: 1; font-size: 13px; }
+
+/* 📊 ภาพรวมเดือน */
+.ov { padding-bottom: 90px; }
+.ov-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.ov-tile { display: flex; flex-direction: column; gap: 1px; padding: 12px 10px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; }
+.ov-tile b { font-size: 19px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-tile span { font-size: 13px; font-weight: 600; }
+.ov-tile small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-tile.t-task b { color: var(--accent); }
+.ov-tile.t-out b, .ov-tile.t-neg b { color: var(--out); }
+.ov-tile.t-in b { color: var(--in); }
+.ov-card h4.ov-sub { margin: 12px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.ov-card h4.ov-sub.warn { color: #c2410c; }
+.ov-list { list-style: none; margin: 0; padding: 0; }
+.ov-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ov-list li:last-child { border-bottom: 0; }
+.ov-list li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-list li small { color: var(--muted); flex: none; }
+.ov-list.done li span::before { content: '✓ '; color: var(--in); }
+.ov-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-chips span { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.ov-bars { display: flex; flex-direction: column; gap: 8px; }
+.ov-bar { display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; font-size: 13px; }
+.ov-bar b small { font-weight: 400; color: var(--muted); }
+.ov-bar i { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: rgba(127,127,127,.14); overflow: hidden; }
+.ov-bar i em { display: block; height: 100%; border-radius: 3px; background: var(--out); opacity: .75; }
+.ov-bar.ok i em { background: var(--save, #15803d); opacity: 1; }
+.ov-bar.near i em { background: #d97706; opacity: 1; }
+.ov-bar.over i em { background: #dc2626; opacity: 1; }
+.ov-bar.over b { color: #dc2626; }
+.ov-rows { list-style: none; margin: 0; padding: 0; }
+.ov-rows li { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ov-rows li:last-child { border-bottom: 0; }
+.ov-rows li small { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.ov-rows li.warn b { color: #c2410c; }
+.ov-rows li.good b { color: var(--in); }
+.ov-owe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px; }
+.ov-owe div { padding: 10px 12px; border-radius: 12px; background: rgba(127,127,127,.06); display: flex; flex-direction: column; }
+.ov-owe small { font-size: 12px; color: var(--muted); }
+.ov-owe b { font-size: 18px; }
+.ov-owe .in b { color: var(--in); }
+.ov-owe .out b { color: var(--out); }
+.ov-more { display: block; text-align: right; margin-top: 10px; font-size: 13px; color: var(--accent); text-decoration: none; }
+a.icon-btn.lab { text-decoration: none; color: inherit; }
