@@ -734,7 +734,7 @@ function renderBalances() {
   const box = $('#spBal');
   if (!box) return;
   const { me, pairs } = balances();
-  if (!me.length && !pairs.length) { box.innerHTML = ''; return; }
+  if (!me.length) { box.innerHTML = ''; return; }
   const W = who(ME);
   const card = (key, name, cls, amtTxt, sub, rows, btn) => `<details class="bal ${cls}" data-key="${esc(key)}"${balOpen[key] ? ' open' : ''}>
       <summary><span class="av">${esc(initial(name))}</span><div class="bal-mid"><b>${esc(name)}</b><small>${sub}</small></div><b class="bal-amt">${amtTxt}</b></summary>
@@ -764,8 +764,7 @@ function renderBalances() {
   };
   box.innerHTML = (theyOwe.length ? `<h3>💰 ใครค้าง${esc(W)} <small>${bahtS(theyOwe.reduce((s, p) => s + p.they - p.me, 0))}</small></h3>${theyOwe.map(meCard).join('')}` : '')
     + (iOwe.length ? `<h3>🙏 ${esc(W)}ค้างใคร <small>${bahtS(iOwe.reduce((s, p) => s + p.me - p.they, 0))}</small></h3>${iOwe.map(meCard).join('')}` : '')
-    + (even.length ? even.map(meCard).join('') : '')
-    + (pairs.length ? `<h3>👥 เพื่อนค้างกันเอง</h3>${pairs.map(pairCard).join('')}` : '');
+    + (even.length ? even.map(meCard).join('') : '');   // เพื่อนค้างกันเอง: ไม่แสดง (เจ้าของขอเฉพาะยอดของเรา)
   box.__pairs = pairs;
 }
 if ($('#spBal')) {
