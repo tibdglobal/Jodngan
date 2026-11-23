@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=88">
+  <link rel="stylesheet" href="style.css?v=90">
 </head>
 <body class="tasks">
   <header class="top">
@@ -27,17 +27,8 @@
     <div class="top-actions">
       <button id="btnMeet" class="icon-btn lab" title="ประชุมจาก Calendar และงานจากคลังรายงานการประชุม" aria-label="ประชุม"><b data-ico="users"></b><small>ประชุม</small></button>
       <button id="btnView" class="icon-btn lab" title="ดูแบบปฏิทิน" aria-label="สลับมุมมอง"><b data-ico="cal"></b><small>ปฏิทิน</small></button>
-      <div class="more-wrap">
-        <button id="btnMore" class="icon-btn lab" aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu" title="เมนูเพิ่มเติม"><b data-ico="more"></b><small>เพิ่มเติม</small></button>
-        <div id="moreMenu" class="more-menu" role="menu" hidden>
-          <a href="month.html" role="menuitem"><i data-ico="chart"></i><span>ภาพรวมเดือน<small>งาน เงิน เบิก ค้างกัน</small></span></a>
-          <button type="button" id="btnSettings" role="menuitem"><i data-ico="gear"></i><span>ตั้งค่าและเชื่อมเครื่อง<small>ลิงก์จาก LINE · ดึงข้อมูลใหม่</small></span></button>
-          <button type="button" id="btnTheme" role="menuitem"><i data-ico="moon"></i><span>โหมดสี: <b id="themeName">อัตโนมัติ</b><small>แตะเพื่อสลับ อัตโนมัติ → กลางวัน → กลางคืน</small></span></button>
-          <button type="button" id="btnBg" role="menuitem"><i data-ico="grid"></i><span>พื้นหลัง: <b id="bgName">ลายจุด</b><small>แตะเพื่อสลับ ลายจุด → เส้นบรรทัด → เรียบ</small></span></button>
-          <button type="button" id="btnScale" role="menuitem"><i data-ico="text"></i><span>ขนาดตัวอักษร: <b id="scaleName">ปกติ</b><small>แตะเพื่อสลับ ปกติ → ใหญ่ → ใหญ่มาก</small></span></button>
-          <a href="status.html" role="menuitem"><i data-ico="pulse"></i><span>สถานะระบบ<small>เช็กว่าทุกส่วนทำงานปกติ</small></span></a>
-        </div>
-      </div>
+      <a href="month.html" class="icon-btn lab" title="ภาพรวมเดือน: งาน เงิน เบิก ค้างกัน" aria-label="ภาพรวมเดือน"><b data-ico="chart"></b><small>ภาพรวม</small></a>
+      <button type="button" id="btnSettings" hidden>เชื่อมเครื่อง</button>
     </div>
   </header>
 
@@ -188,8 +179,8 @@
     <a href="vault.html"><span aria-hidden="true">🔐</span>รหัส</a>
   </nav>
 
-  <script src="hub.js?v=88"></script>
-  <script src="app.js?v=88"></script>
-  <script src="meet.js?v=88"></script>
+  <script src="hub.js?v=90"></script>
+  <script src="app.js?v=90"></script>
+  <script src="meet.js?v=90"></script>
 </body>
 </html>

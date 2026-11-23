@@ -869,36 +869,6 @@ $('#btnDelete').onclick = () => {
 
 /* ---------- ตั้งค่า ---------- */
 const setDlg = $('#setDlg'), setForm = $('#setForm');
-/* 🌗 โหมดสี */
-(() => {
-  const NAME = { auto: 'อัตโนมัติ (ตามเครื่อง)', light: 'กลางวัน', dark: 'กลางคืน' }, NEXT = { auto: 'light', light: 'dark', dark: 'auto' };
-  const paint = () => { const el = $('#themeName'); if (el && window.hubTheme) el.textContent = NAME[hubTheme.get()]; };
-  paint();
-  $('#btnTheme').onclick = e => { e.stopPropagation(); if (!window.hubTheme) return; hubTheme.set(NEXT[hubTheme.get()]); paint(); };
-})();
-/* 🗒 ลายพื้นหลัง */
-(() => {
-  const N = { dots: 'ลายจุด', lines: 'เส้นบรรทัด', plain: 'เรียบ' }, NX = { dots: 'lines', lines: 'plain', plain: 'dots' };
-  const paint = () => { if (window.hubBg) $('#bgName').textContent = N[hubBg.get()] || N.dots; };
-  paint();
-  $('#btnBg').onclick = e => { e.stopPropagation(); if (!window.hubBg) return; hubBg.set(NX[hubBg.get()] || 'dots'); paint(); };
-})();
-/* 🔠 ขนาดตัวอักษร */
-(() => {
-  const L = [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']];
-  const paint = () => { const v = window.hubScale ? hubScale.get() : 1; $('#scaleName').textContent = (L.find(x => x[0] === v) || L[0])[1]; };
-  paint();
-  $('#btnScale').onclick = e => { e.stopPropagation(); if (!window.hubScale) return; const i = L.findIndex(x => x[0] === hubScale.get()); hubScale.set(L[(i + 1) % L.length][0]); paint(); };
-})();
-/* ⋯ เมนูเพิ่มเติม */
-(() => {
-  const btn = $('#btnMore'), menu = $('#moreMenu');
-  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-  btn.onclick = e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) menu.querySelector('a,button').focus(); };
-  document.addEventListener('click', e => { if (!menu.hidden && !menu.contains(e.target)) close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { close(); btn.focus(); } });
-  menu.addEventListener('click', e => { if (e.target.closest('a,button')) close(); });
-})();
 $('#btnSettings').onclick = () => {
   setForm.elements.url.value = cfg.url;
   setForm.elements.key.value = '';

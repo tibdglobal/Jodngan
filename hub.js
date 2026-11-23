@@ -46,21 +46,86 @@
     moon: sv('<path d="M19.5 14.2A7.8 7.8 0 1 1 9.8 4.5a6.2 6.2 0 0 0 9.7 9.7Z"/>'),
     text: sv('<path d="M4 18 8.5 6h1L14 18M5.6 14h6.8"/><path d="M15 18l2.8-7.5h.4L21 18M15.9 15.6h4.2"/>'),
     grid: sv('<path d="M6 6h.01M12 6h.01M18 6h.01M6 12h.01M12 12h.01M18 12h.01M6 18h.01M12 18h.01M18 18h.01" stroke-width="2.6"/>'),
+    cog: sv('<path d="M12.2 2.5h-.4a1.9 1.9 0 0 0-1.9 1.9v.2a1.9 1.9 0 0 1-.95 1.6l-.4.25a1.9 1.9 0 0 1-1.9 0l-.2-.1a1.9 1.9 0 0 0-2.6.7l-.2.35a1.9 1.9 0 0 0 .7 2.6l.2.1a1.9 1.9 0 0 1 .95 1.65v.5a1.9 1.9 0 0 1-.95 1.65l-.2.1a1.9 1.9 0 0 0-.7 2.6l.2.35a1.9 1.9 0 0 0 2.6.7l.2-.1a1.9 1.9 0 0 1 1.9 0l.4.25a1.9 1.9 0 0 1 .95 1.6v.2a1.9 1.9 0 0 0 1.9 1.9h.4a1.9 1.9 0 0 0 1.9-1.9v-.2a1.9 1.9 0 0 1 .95-1.6l.4-.25a1.9 1.9 0 0 1 1.9 0l.2.1a1.9 1.9 0 0 0 2.6-.7l.2-.35a1.9 1.9 0 0 0-.7-2.6l-.2-.1a1.9 1.9 0 0 1-.95-1.65v-.5a1.9 1.9 0 0 1 .95-1.65l.2-.1a1.9 1.9 0 0 0 .7-2.6l-.2-.35a1.9 1.9 0 0 0-2.6-.7l-.2.1a1.9 1.9 0 0 1-1.9 0l-.4-.25a1.9 1.9 0 0 1-.95-1.6v-.2a1.9 1.9 0 0 0-1.9-1.9z"/><circle cx="12" cy="12" r="3"/>'),
+    refresh: sv('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/>'),
+    link: sv('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
 
-  /* ---------- 🗒 ลายพื้นหลัง (LS bgStyle: dots | lines | plain) ---------- */
-  const applyBg = v => { document.body.dataset.bg = v || 'dots'; };
-  window.hubBg = { get: () => get('bgStyle', 'dots'), set: v => { put('bgStyle', v); applyBg(v); } };
-  applyBg(get('bgStyle', 'dots'));
+  /* ---------- 🗒 ลายพื้นหลัง (LS bgStyle) + สีพื้น (LS bgTint) ---------- */
+  const BGS = [['plain', 'เรียบ'], ['dots', 'ลายจุด'], ['stagger', 'จุดสลับ'], ['lines', 'เส้นบรรทัด'], ['grid', 'ตาราง'], ['diag', 'เส้นเฉียง'], ['waves', 'คลื่น'], ['noise', 'กระดาษสา']];
+  const TINTS = [['auto', 'ตามหมวด'], ['mono', 'เทา'], ['sky', 'ฟ้า'], ['mint', 'มินต์'], ['peach', 'พีช'], ['lavender', 'ลาเวนเดอร์'], ['sand', 'ทราย'],
+    ['g-dawn', 'รุ่งเช้า'], ['g-sea', 'ทะเล'], ['g-leaf', 'ใบไม้'], ['g-dusk', 'พลบค่ำ'], ['g-sunset', 'ตะวันตก']];
+  const applyBg = () => { document.body.dataset.bg = get('bgStyle', 'dots'); document.body.dataset.tint = get('bgTint', 'auto'); };
+  window.hubBg = { get: () => get('bgStyle', 'dots'), set: v => { put('bgStyle', v); applyBg(); }, tint: () => get('bgTint', 'auto'), setTint: v => { put('bgTint', v); applyBg(); } };
+  applyBg();
 
   /* ---------- 🔠 ขนาดตัวอักษร (LS fontScale 1 | 1.1 | 1.2) ---------- */
   const applyScale = v => { document.body.style.zoom = v && v !== 1 ? String(v) : ''; };
   window.hubScale = { get: () => get('fontScale', 1), set: v => { put('fontScale', v); applyScale(v); } };
   applyScale(get('fontScale', 1));
+
+  /* ---------- ⚙ ตั้งค่า (ทุกหน้า): โหมดสี · ขนาดตัวอักษร · ลายพื้นหลัง · สีพื้น · ลิงก์ ---------- */
+  function seg(name, opts, cur) {
+    return `<div class="ui-seg" role="radiogroup" data-k="${name}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(cur)}" data-v="${v}">${l}</button>`).join('')}</div>`;
+  }
+  function uiPaint(dlg) {
+    dlg.querySelector('#uiBody').innerHTML = `
+      <h3>โหมดสี</h3>${seg('theme', [['auto', 'อัตโนมัติ'], ['light', 'กลางวัน'], ['dark', 'กลางคืน']], window.hubTheme ? hubTheme.get() : 'auto')}
+      <h3>ขนาดตัวอักษร</h3>${seg('scale', [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']], get('fontScale', 1))}
+      <h3>ลายพื้นหลัง</h3>
+      <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}</div>
+      <h3>สีพื้นหลัง</h3>
+      <div class="ui-sw tint" data-k="tint">${TINTS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.tint()}" data-v="${v}"><i class="pv" data-bg="${hubBg.get()}" data-tint="${v}"></i><span>${l}</span></button>`).join('')}</div>
+      <h3>อื่นๆ</h3>
+      <div class="ui-links">
+        ${document.getElementById('btnSettings') ? `<button type="button" data-go="conn">${ICO.link}<span>เชื่อมเครื่อง / ดึงข้อมูลใหม่</span></button>` : ''}
+        <a href="month.html">${ICO.chart}<span>ภาพรวมเดือน</span></a>
+        <a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>
+      </div>`;
+  }
+  function uiOpen() {
+    let dlg = document.getElementById('uiDlg');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'uiDlg'; dlg.className = 'ui-dlg';
+      dlg.innerHTML = `<div class="ui-head"><h2 tabindex="-1" autofocus>ตั้งค่า</h2><button type="button" class="icon-btn ui-x" aria-label="ปิด">✕</button></div><div id="uiBody"></div>`;
+      document.body.appendChild(dlg);
+      dlg.querySelector('.ui-x').onclick = () => dlg.close();
+      dlg.addEventListener('click', e => {
+        if (e.target === dlg) return dlg.close();
+        const b = e.target.closest('[data-v]'), box = b && b.parentElement;
+        if (b && box && box.dataset.k) {
+          const v = b.dataset.v, k = box.dataset.k;
+          if (k === 'theme' && window.hubTheme) hubTheme.set(v);
+          if (k === 'scale') hubScale.set(Number(v));
+          if (k === 'bg') hubBg.set(v);
+          if (k === 'tint') hubBg.setTint(v);
+          const y = dlg.querySelector('#uiBody').scrollTop; uiPaint(dlg); dlg.querySelector('#uiBody').scrollTop = y;
+          return;
+        }
+        if (e.target.closest('[data-go="conn"]')) { dlg.close(); document.getElementById('btnSettings').click(); }
+      });
+    }
+    uiPaint(dlg); dlg.showModal();
+  }
+  window.hubSettings = uiOpen;
+  (() => {
+    const top = document.querySelector('header.top');
+    if (!top) return;
+    let act = top.querySelector('.top-actions');
+    if (!act) { act = document.createElement('div'); act.className = 'top-actions'; top.appendChild(act); }
+    const g = document.createElement('button');
+    g.type = 'button'; g.className = 'icon-btn ui-gear'; g.title = 'ตั้งค่า'; g.setAttribute('aria-label', 'ตั้งค่า');
+    g.innerHTML = ICO.cog; g.onclick = uiOpen;
+    act.appendChild(g);
+    // ⟳ / 🔒 เป็นไอคอนเส้นชุดเดียวกัน
+    act.querySelectorAll('#btnSync').forEach(b => { if (b.textContent.trim() === '⟳') b.innerHTML = ICO.refresh; });
+    const lk = document.getElementById('btnLock'); if (lk) lk.innerHTML = ICO.vault;
+  })();
 
   /* ---------- 🗒 หน้าว่าง: ไอคอนของหมวด + ปุ่มเริ่มใช้ (ไม่ใส่ปุ่มในผลค้นหาที่ไม่เจอ) ---------- */
   const PAGE = ['tasks', 'money', 'bills', 'inbox', 'vault', 'split'].find(c => document.body.classList.contains(c));
