@@ -18,7 +18,8 @@ const BANKS = [['kbank', 'กสิกรไทย', 'KB', '#1b8a3a'], ['scb', '
   ['ghb', 'อาคารสงเคราะห์', 'GHB', '#f07c00'], ['uob', 'ยูโอบี', 'UOB', '#0b3979'], ['cimb', 'ซีไอเอ็มบี', 'CIMB', '#7b1f2b'], ['kkp', 'เกียรตินาคินภัทร', 'KKP', '#5b4f96'],
   ['lhb', 'แลนด์ แอนด์ เฮ้าส์', 'LH', '#5f6368'], ['tisco', 'ทิสโก้', 'TISCO', '#12549f'], ['icbc', 'ไอซีบีซี', 'ICBC', '#c40d1e'], ['other', 'อื่นๆ', '฿', '#5f645e']];
 const bankOf = c => BANKS.find(b => b[0] === c) || BANKS[BANKS.length - 1];
-const bankBadge = (c, size) => { const b = bankOf(c), z = size || 36; return `<span aria-hidden="true" style="width:${z}px;height:${z}px;border-radius:50%;background:${b[3]};color:${b[4] || '#fff'};display:inline-grid;place-items:center;flex:none;font:700 ${Math.round(z * (b[2].length > 3 ? 0.26 : 0.32))}px Anuphan,sans-serif;letter-spacing:-.2px">${b[2]}</span>`; };
+/** ป้ายธนาคาร: ถ้ามีไฟล์ banks/<รหัส>.png (เจ้าของใส่เอง) จะโชว์รูปนั้นทับ ไม่มี = วงกลมสี+ตัวย่อ */
+const bankBadge = (c, size) => { const b = bankOf(c), z = size || 36; return `<span aria-hidden="true" style="position:relative;width:${z}px;height:${z}px;border-radius:50%;background:${b[3]};color:${b[4] || '#fff'};display:inline-grid;place-items:center;flex:none;overflow:hidden;font:700 ${Math.round(z * (b[2].length > 3 ? 0.26 : 0.32))}px Anuphan,sans-serif;letter-spacing:-.2px">${b[2]}<img src="banks/${b[0]}.png" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff"></span>`; };
 const fmtAcct = a => String(a).length === 10 ? a.replace(/^(\d{3})(\d)(\d{5})(\d)$/, '$1-$2-$3-$4') : a;
 async function copyText(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg || 'คัดลอกแล้ว'); } catch (e) { prompt('คัดลอกจากช่องนี้', t); } }
 
