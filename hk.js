@@ -12,6 +12,16 @@ const plain = s => (s / 100).toFixed(2).replace(/\.00$/, '');
 const thDate = d => { try { return new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }); } catch (e) { return d; } };
 const CHECK = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 7.3l2.6 2.6L11 4.2" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
 
+/** ธนาคาร: ป้ายวงกลมสีประจำธนาคาร + ตัวย่อ (ไม่ใช่โลโก้จริง) · รหัสตรงกับ HK_BANKS ใน Group.gs */
+const BANKS = [['kbank', 'กสิกรไทย', 'KB', '#1b8a3a'], ['scb', 'ไทยพาณิชย์', 'SCB', '#4e2a84'], ['bbl', 'กรุงเทพ', 'BBL', '#1e4598'], ['ktb', 'กรุงไทย', 'KTB', '#0e9bd8'],
+  ['bay', 'กรุงศรีอยุธยา', 'BAY', '#f2b705', '#3b2a00'], ['ttb', 'ทหารไทยธนชาต', 'ttb', '#1450e0'], ['gsb', 'ออมสิน', 'GSB', '#e0157f'], ['baac', 'ธ.ก.ส.', 'ธกส', '#3f8f3a'],
+  ['ghb', 'อาคารสงเคราะห์', 'GHB', '#f07c00'], ['uob', 'ยูโอบี', 'UOB', '#0b3979'], ['cimb', 'ซีไอเอ็มบี', 'CIMB', '#7b1f2b'], ['kkp', 'เกียรตินาคินภัทร', 'KKP', '#5b4f96'],
+  ['lhb', 'แลนด์ แอนด์ เฮ้าส์', 'LH', '#5f6368'], ['tisco', 'ทิสโก้', 'TISCO', '#12549f'], ['icbc', 'ไอซีบีซี', 'ICBC', '#c40d1e'], ['other', 'อื่นๆ', '฿', '#5f645e']];
+const bankOf = c => BANKS.find(b => b[0] === c) || BANKS[BANKS.length - 1];
+const bankBadge = (c, size) => { const b = bankOf(c), z = size || 36; return `<span aria-hidden="true" style="width:${z}px;height:${z}px;border-radius:50%;background:${b[3]};color:${b[4] || '#fff'};display:inline-grid;place-items:center;flex:none;font:700 ${Math.round(z * (b[2].length > 3 ? 0.26 : 0.32))}px Anuphan,sans-serif;letter-spacing:-.2px">${b[2]}</span>`; };
+const fmtAcct = a => String(a).length === 10 ? a.replace(/^(\d{3})(\d)(\d{5})(\d)$/, '$1-$2-$3-$4') : a;
+async function copyText(t, msg) { try { await navigator.clipboard.writeText(t); toast(msg || 'คัดลอกแล้ว'); } catch (e) { prompt('คัดลอกจากช่องนี้', t); } }
+
 let Q = new URLSearchParams(location.search);
 let IDT = '', LIFF = false, G = '';
 let home = null, view = null, stack = [];
@@ -92,7 +102,7 @@ function drawHome() {
     </div>
     <div class="sec list"><div class="sec-h">ต้องจ่าย</div>${oweRows || '<div class="empty">ไม่มียอดที่ต้องจ่าย</div>'}</div>
     <div class="sec list"><div class="sec-h">รอรับคืน (ฉันจ่ายก่อน)</div>${getRows || '<div class="empty">ยังไม่มีบิลที่คุณจ่ายก่อน</div>'}</div>
-    ${home.me.ppSet || home.me.qr || home.me.qrImg ? '' : `<button class="row-btn sec item" type="button" id="setPay"><div class="mid"><div class="nm">ตั้งช่องทางรับเงิน</div><div class="lbl">อัปรูป QR รับเงิน หรือใส่พร้อมเพย์ เพื่อนจะได้สแกนจ่ายพร้อมยอด</div></div><span class="lnk">ตั้งเลย</span></button>`}`;
+    ${home.me.ppSet || home.me.qr || home.me.qrImg || home.me.bank ? '' : `<button class="row-btn sec item" type="button" id="setPay"><div class="mid"><div class="nm">ตั้งช่องทางรับเงิน</div><div class="lbl">อัปรูป QR ใส่พร้อมเพย์ หรือเลขบัญชีธนาคาร เพื่อนจะได้จ่ายง่าย</div></div><span class="lnk">ตั้งเลย</span></button>`}`;
   $('#app').querySelectorAll('[data-bill]').forEach(b => b.onclick = () => openBill(b.dataset.bill));
   const sp = $('#setPay'); if (sp) sp.onclick = () => openMe();
   foot(home.group ? '<button class="btn ink" type="button" id="newBill">สร้างบิลใหม่ (ฉันจ่ายก่อน)</button>' : '<div class="lbl" style="text-align:center">สร้างบิลได้จากในกลุ่ม: พิมพ์ หาร แล้วกดสร้างบิลใหม่</div>');
@@ -223,9 +233,10 @@ function itemsBlock() {
   </div>`;
 }
 function payBlock() {
-  const m = home.me;
-  const t = m.qr ? 'QR รับเงินที่อัปไว้ · ใส่ยอดให้แต่ละคนเอง' : m.qrImg ? 'รูป QR ที่อัปไว้ · เพื่อนต้องพิมพ์ยอดเอง' : m.ppSet ? 'พร้อมเพย์ ' + m.pp + ' · ใส่ยอดให้แต่ละคนเอง' : 'ยังไม่ได้ตั้ง เพื่อนจะไม่มี QR สแกนจ่าย';
-  return `<div class="sec item"><div class="mid"><div class="nm">รับเงินด้วย</div><div class="lbl">${esc(t)}</div></div><button type="button" class="lnk" id="chgPay">${m.qr || m.qrImg || m.ppSet ? 'เปลี่ยน' : 'ตั้งเลย'}</button></div>`;
+  const m = home.me, parts = [];
+  if (m.qr) parts.push('QR รับเงิน (ใส่ยอดให้เอง)'); else if (m.qrImg) parts.push('รูป QR'); else if (m.ppSet) parts.push('พร้อมเพย์ ' + m.pp);
+  if (m.bank) parts.push(m.bank.name + ' ' + fmtAcct(m.bank.acct));
+  return `<div class="sec item">${m.bank ? bankBadge(m.bank.code, 34) : ''}<div class="mid"><div class="nm">รับเงินด้วย</div><div class="lbl">${esc(parts.join(' · ') || 'ยังไม่ได้ตั้ง เพื่อนจะไม่มี QR หรือเลขบัญชีให้โอน')}</div></div><button type="button" class="lnk" id="chgPay">${parts.length ? 'เปลี่ยน' : 'ตั้งเลย'}</button></div>`;
 }
 function bindCreate() {
   const A = $('#app');
@@ -466,8 +477,14 @@ function drawPay() {
     if (text) {
       try { payCanvas = qrCanvas(text, 'จ่าย ' + baht(due), b.title); qr = `<img alt="QR จ่าย ${baht(due)} ให้ ${esc(b.payer)}" src="${payCanvas.toDataURL('image/png')}">`; qrNote = (pay.qr ? 'QR ของ ' : 'พร้อมเพย์ของ ') + esc(b.payer) + ' · ใส่ยอด ' + baht(due) + ' ให้แล้ว'; } catch (e) {}
     } else if (pay.qrImg) { qr = '<div id="qrImg"><div class="spin" role="status" aria-label="กำลังโหลด QR"></div></div>'; qrNote = 'QR ของ ' + esc(b.payer) + ' · ตอนโอนพิมพ์ยอด ' + baht(due) + ' เอง'; }
-    else qrNote = esc(b.payer) + ' ยังไม่ได้ตั้ง QR หรือพร้อมเพย์ ถามช่องทางโอนจากเจ้าตัวได้เลย';
+    else if (!pay.bank) qrNote = esc(b.payer) + ' ยังไม่ได้ตั้ง QR พร้อมเพย์ หรือเลขบัญชี ถามช่องทางโอนจากเจ้าตัวได้เลย';
   }
+  const bankCard = st === 'wait' && !cash && pay.bank ? `<div class="sec" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div class="lbl">${qr ? 'หรือโอนเข้าบัญชี' : 'โอนเข้าบัญชี'}</div>
+      <div style="display:flex;align-items:center;gap:12px">${bankBadge(pay.bank.code, 44)}<div style="flex:1;min-width:0"><div class="nm" style="font-weight:600">${esc(pay.bank.name)}</div>
+        <div class="h num" style="font-size:20px;font-weight:700;letter-spacing:.5px">${esc(fmtAcct(pay.bank.acct))}</div>${pay.bank.holder ? `<div class="lbl">${esc(pay.bank.holder)}</div>` : ''}</div></div>
+      <div class="row2"><button class="btn sm" type="button" id="cpAcct">คัดลอกเลขบัญชี</button><button class="btn sm" type="button" id="cpAmt">คัดลอกยอด ${baht(due)}</button></div>
+    </div>` : '';
   const others = (b.others || []).map(o => `<div class="item" style="padding:8px 14px"><div class="mid">${esc(o.name)}</div><span class="pill ${o.st === 'wait' ? 'warn' : 'ok'}">${o.st === 'wait' ? 'ยังไม่จ่าย' : o.st === 'ok' ? 'ได้รับแล้ว' : 'จ่ายแล้ว'}</span></div>`).join('');
   $('#app').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="lbl">${esc([b.title, b.group].filter(Boolean).join(' · '))} · เห็นเฉพาะยอดของคุณ</div><span class="pill soft">คนที่ต้องจ่าย</span></div>
@@ -480,6 +497,7 @@ function drawPay() {
       ${qr ? `<div style="margin-top:10px">${qr}</div>` : ''}
       ${qrNote ? `<div class="lbl" style="text-align:center">${qrNote}</div>` : ''}
     </div>
+    ${bankCard}
     ${st === 'wait' && !cash ? `<div class="row2">${payCanvas ? '<button class="btn" type="button" id="saveQr">บันทึกรูป QR</button>' : ''}<button class="btn" type="button" id="slip">แนบสลิป</button></div>
       <div class="lbl" id="slipOk" style="text-align:center">แนบสลิปแล้วแมวกวักตรวจให้ ยอดตรงติ๊กจ่ายให้เลย ไม่ต้องรอ ${esc(b.payer)} ยืนยัน</div>` : ''}
     ${st === 'told' && !b.mine.some(m => m.via === 'cash') ? `<button class="btn" type="button" id="slip2">ส่งสลิปให้แมวกวักตรวจ</button>` : ''}
@@ -490,6 +508,8 @@ function drawPay() {
     $('#app').querySelectorAll('[data-m]').forEach(t => t.onclick = () => { view.method = t.dataset.m; drawPay(); });
     const sl = $('#slip'); if (sl) sl.onclick = attachSlip;
     const sq = $('#saveQr'); if (sq) sq.onclick = saveQr;
+    const ca = $('#cpAcct'); if (ca) ca.onclick = () => copyText(pay.bank.acct, 'คัดลอกเลขบัญชีแล้ว');
+    const cm = $('#cpAmt'); if (cm) cm.onclick = () => copyText(plain(due), 'คัดลอกยอดแล้ว');
     if (!cash && pay.qrImg && !pay.qr && !pay.pp) loadQrImg();
   }
   const s2 = $('#slip2');
@@ -533,14 +553,22 @@ async function markPaid(b2) {
 function openMe() {
   const m = home.me;
   const cur = m.qr ? 'QR รับเงิน (ใส่ยอดให้เพื่อนได้)' : m.qrImg ? 'รูป QR (เพื่อนต้องพิมพ์ยอดเอง)' : m.ppSet ? 'พร้อมเพย์ ' + m.pp : 'ยังไม่ได้ตั้ง';
+  let pick = m.bank ? m.bank.code : '';
   dlg(`<h1 style="font-size:18px">ชื่อและช่องทางรับเงิน</h1>
     <label class="field"><span class="lbl">ชื่อที่เพื่อนเห็น (ชื่อ LINE: ${esc(m.name || '-')})</span><input id="mNick" type="text" maxlength="30" value="${esc(m.nick)}" placeholder="${esc(m.name || 'ชื่อเล่น')}"></label>
     <div class="lbl">ถ้าเพื่อนเคยใส่ชื่อนี้เป็น "คนนอกกลุ่ม" ไว้ ยอดนั้นจะย้ายมาเป็นของบัญชีนี้</div>
-    <div class="sec item" style="padding:10px 12px"><div class="mid"><div class="nm">รับเงินด้วย</div><div class="lbl">${esc(cur)}</div></div></div>
+    <div class="sec-h" style="padding:6px 0 0;font-weight:600;color:var(--ink)">1. QR หรือพร้อมเพย์ <span class="lbl" style="font-weight:400">ตอนนี้: ${esc(cur)}</span></div>
     <button class="btn" type="button" id="mQr">อัปรูป QR รับเงิน (จากแอปธนาคาร)</button>
     <label class="field"><span class="lbl">หรือใส่พร้อมเพย์ (เบอร์ 10 หลัก / เลข 13 หลัก)</span><input id="mPp" type="text" inputmode="numeric" placeholder="08xxxxxxxx"></label>
+    <div class="sec-h" style="padding:6px 0 0;font-weight:600;color:var(--ink)">2. บัญชีธนาคาร <span class="lbl" style="font-weight:400">(มีพร้อมกับ QR ได้)</span></div>
+    <div role="group" aria-label="เลือกธนาคาร" id="mBanks" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px">${BANKS.map(b => `<button type="button" class="chip" data-bank="${b[0]}" aria-pressed="${pick === b[0]}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:12px;text-align:center">${bankBadge(b[0], 30)}<span style="font-size:11px;line-height:1.2">${esc(b[1])}</span></button>`).join('')}</div>
+    <label class="field"><span class="lbl">เลขบัญชี</span><input id="mAcct" class="num" type="text" inputmode="numeric" placeholder="xxx-x-xxxxx-x" value="${esc(m.bank ? fmtAcct(m.bank.acct) : '')}"></label>
+    <label class="field"><span class="lbl">ชื่อบัญชี (ให้เพื่อนเช็กก่อนโอน)</span><input id="mHolder" type="text" maxlength="60" placeholder="เช่น นาย ก. ใจดี" value="${esc(m.bank ? m.bank.holder : '')}"></label>
+    ${m.bank ? '<button class="lnk" type="button" id="mNoBank" style="align-self:flex-start">ลบบัญชีธนาคาร</button>' : ''}
     <div class="row2"><button class="btn" type="button" id="mX">ปิด</button><button class="btn ink" type="button" id="mOk">บันทึก</button></div>`, d => {
     $('#mX').onclick = () => d.close();
+    document.querySelectorAll('#mBanks [data-bank]').forEach(b => b.onclick = () => { pick = b.dataset.bank; document.querySelectorAll('#mBanks [data-bank]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+    const nb = $('#mNoBank'); if (nb) nb.onclick = async () => { try { const res = await call('hk_me_set', { acct: '' }); home.me = res.me; d.close(); toast('ลบบัญชีธนาคารแล้ว'); draw(); } catch (e) { toast(e.message); } };
     $('#mQr').onclick = async () => {
       const f = await pickFile(); if (!f) return;
       $('#mQr').textContent = 'กำลังอ่าน QR…';
@@ -555,8 +583,13 @@ function openMe() {
     };
     $('#mOk').onclick = async () => {
       const p = {}, nick = $('#mNick').value.trim(), pp = $('#mPp').value.trim();
+      const acct = $('#mAcct').value.replace(/\D/g, ''), holder = $('#mHolder').value.trim();
       if (nick !== m.nick) p.nick = nick;
       if (pp) p.pp = pp;
+      if (acct && (!m.bank || acct !== m.bank.acct || pick !== m.bank.code || holder !== m.bank.holder)) {
+        if (!pick) { toast('เลือกธนาคารก่อนครับ'); return; }
+        Object.assign(p, { acct: acct, bank: pick, acctName: holder });
+      }
       if (!Object.keys(p).length) return d.close();
       try { const res = await call('hk_me_set', p); home.me = res.me; d.close(); toast(res.me.claimed || 'บันทึกแล้ว'); await loadHome(); draw(); }
       catch (e) { toast(e.message); }

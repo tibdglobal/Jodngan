@@ -22,7 +22,9 @@
 const GRP_SHEET = 'Group';
 const GRP_HEADERS = ['id', 'gid', 'token', 'data', 'updated'];
 const HKU_SHEET = 'HkUsers';
-const HKU_HEADERS = ['uid', 'name', 'nick', 'pp', 'qr', 'qrFile', 'updated'];
+const HKU_HEADERS = ['uid', 'name', 'nick', 'pp', 'qr', 'qrFile', 'updated', 'bank', 'acct', 'acctName'];
+/** ธนาคารที่เลือกได้ (รหัสสั้น → ชื่อ) ต้องตรงกับ BANKS ใน hk.js */
+const HK_BANKS = { kbank: 'กสิกรไทย', scb: 'ไทยพาณิชย์', bbl: 'กรุงเทพ', ktb: 'กรุงไทย', bay: 'กรุงศรีอยุธยา', ttb: 'ทหารไทยธนชาต', gsb: 'ออมสิน', baac: 'ธ.ก.ส.', ghb: 'อาคารสงเคราะห์', uob: 'ยูโอบี', cimb: 'ซีไอเอ็มบี', kkp: 'เกียรตินาคินภัทร', lhb: 'แลนด์ แอนด์ เฮ้าส์', tisco: 'ทิสโก้', icbc: 'ไอซีบีซี', other: 'อื่นๆ' };
 const HK_WEB = 'https://tibdglobal.github.io/Jodngan/';
 const HK_FOLDER = 'จดครบ - หารกลุ่ม';
 const GRP_CMD = /^(แมวกวัก|น้องแมว|หาร|หารกัน|ค้าง|ใครค้าง|ใครยังไม่จ่าย|ยังไม่จ่าย|ทวง|#ทวง|ทวงหน่อย|จ่ายแล้ว|โอนแล้ว|ลบบิล|ยกเลิกบิล|พร้อมเพย์|พร้อมเพ|ชื่อ|วิธีใช้|ช่วย|help|เตือนทุกวัน|เปิดหาร|ปิดหาร)/i;
@@ -96,20 +98,24 @@ function grpCfgSave_(c) {
 }
 
 /* ---------- ผู้ใช้ (ชื่อเล่น, พร้อมเพย์, QR) ---------- */
-function hkuSheet_() { return grpTab_(HKU_SHEET, HKU_HEADERS); }
+function hkuSheet_() {
+  const sh = grpTab_(HKU_SHEET, HKU_HEADERS);
+  if (sh.getLastColumn() < HKU_HEADERS.length) sh.getRange(1, 1, 1, HKU_HEADERS.length).setValues([HKU_HEADERS]).setFontWeight('bold');   // เพิ่มคอลัมน์บัญชีธนาคาร
+  return sh;
+}
 function hkUsers_() {
   const sh = hkuSheet_(), last = sh.getLastRow(), out = {};
   if (last < 2) return out;
   sh.getRange(2, 1, last - 1, HKU_HEADERS.length).getDisplayValues().forEach((r, i) => {
-    if (r[0]) out[r[0]] = { uid: r[0], name: r[1], nick: r[2], pp: r[3], qr: r[4], qrFile: r[5], _row: i + 2 };
+    if (r[0]) out[r[0]] = { uid: r[0], name: r[1], nick: r[2], pp: r[3], qr: r[4], qrFile: r[5], bank: r[7] || '', acct: r[8] || '', acctName: r[9] || '', _row: i + 2 };
   });
   return out;
 }
-function hkUser_(uid) { return hkUsers_()[uid] || { uid: uid, name: '', nick: '', pp: '', qr: '', qrFile: '' }; }
+function hkUser_(uid) { return hkUsers_()[uid] || { uid: uid, name: '', nick: '', pp: '', qr: '', qrFile: '', bank: '', acct: '', acctName: '' }; }
 function hkUserSave_(uid, patch) {
-  const sh = hkuSheet_(), all = hkUsers_(), cur = Object.assign({ uid: uid, name: '', nick: '', pp: '', qr: '', qrFile: '' }, all[uid] || {}, patch);
+  const sh = hkuSheet_(), all = hkUsers_(), cur = Object.assign({ uid: uid, name: '', nick: '', pp: '', qr: '', qrFile: '', bank: '', acct: '', acctName: '' }, all[uid] || {}, patch);
   const row = (all[uid] && all[uid]._row) || sh.getLastRow() + 1;
-  sh.getRange(row, 1, 1, HKU_HEADERS.length).setNumberFormat('@').setValues([[uid, cur.name, cur.nick, cur.pp, cur.qr, cur.qrFile, stamp_()]]);
+  sh.getRange(row, 1, 1, HKU_HEADERS.length).setNumberFormat('@').setValues([[uid, cur.name, cur.nick, cur.pp, cur.qr, cur.qrFile, stamp_(), cur.bank, cur.acct, cur.acctName]]);
   CacheService.getScriptCache().remove('gn:' + uid);
   return cur;
 }
@@ -162,10 +168,9 @@ function grpPP_(uid) {
 function hkPayInfo_(uid) {
   const u = hkUsers_()[uid] || {};
   let pp = u.pp || '';
-  if (!pp && !u.qr && !u.qrFile && uid === props.getProperty('LINE_USER_ID')) { try { pp = moneyCfg_().pp || ''; } catch (e) {} }
-  return { qr: u.qr || '', pp: pp, qrImg: !!u.qrFile };
+  if (!pp && !u.qr && !u.qrFile && !u.acct && uid === props.getProperty('LINE_USER_ID')) { try { pp = moneyCfg_().pp || ''; } catch (e) {} }
+  return { qr: u.qr || '', pp: pp, qrImg: !!u.qrFile, bank: u.acct ? { code: u.bank || 'other', name: HK_BANKS[u.bank] || 'ธนาคาร', acct: u.acct, holder: u.acctName || '' } : null };
 }
-
 function hkUrl_(gtok, bid, extra) {
   const id = props.getProperty('LIFF_ID');
   const q = [gtok ? 'g=' + gtok : '', bid ? 'b=' + bid : '', extra || ''].filter(Boolean).join('&');
@@ -774,8 +779,9 @@ function hkHome_(me, grp) {
 function hkMeView_(me) {
   const u = hkUser_(me.uid), owner = me.uid === props.getProperty('LINE_USER_ID');
   let pp = u.pp;
-  if (!pp && owner && !u.qr && !u.qrFile) { try { pp = moneyCfg_().pp || ''; } catch (e) {} }
-  return { name: me.name, nick: u.nick || '', disp: u.nick || me.name || me.disp, pp: pp ? grpMask_(pp) : '', ppSet: !!pp, qr: !!u.qr, qrImg: !!u.qrFile };
+  if (!pp && owner && !u.qr && !u.qrFile && !u.acct) { try { pp = moneyCfg_().pp || ''; } catch (e) {} }
+  return { name: me.name, nick: u.nick || '', disp: u.nick || me.name || me.disp, pp: pp ? grpMask_(pp) : '', ppSet: !!pp, qr: !!u.qr, qrImg: !!u.qrFile,
+    bank: u.acct ? { code: u.bank || 'other', name: HK_BANKS[u.bank] || 'ธนาคาร', acct: u.acct, holder: u.acctName || '' } : null };
 }
 
 function hkMeSet_(me, p, grp) {
@@ -802,6 +808,12 @@ function hkMeSet_(me, p, grp) {
     const f = hkFolder_('QR รับเงิน').createFile(Utilities.newBlob(bytes, 'image/jpeg', 'qr_' + me.uid.slice(-8) + '.jpg'));
     if (old) { try { DriveApp.getFileById(old).setTrashed(true); } catch (e) {} }
     patch.qrFile = f.getId(); patch.qr = ''; patch.pp = '';
+  }
+  if (p.acct != null) {   // 🏦 บัญชีธนาคาร (แยกจาก QR/พร้อมเพย์ มีพร้อมกันได้)
+    const a = String(p.acct).replace(/\D/g, '');
+    if (a && !/^\d{10,15}$/.test(a)) throw new Error('เลขบัญชีต้องเป็นตัวเลข 10–15 หลัก');
+    if (a && !HK_BANKS[String(p.bank || '')]) throw new Error('เลือกธนาคารด้วยครับ');
+    patch.acct = a; patch.bank = a ? String(p.bank) : ''; patch.acctName = a ? String(p.acctName || '').trim().slice(0, 60) : '';
   }
   if (p.clearPay) { patch.pp = ''; patch.qr = ''; patch.qrFile = ''; }
   hkUserSave_(me.uid, patch);
