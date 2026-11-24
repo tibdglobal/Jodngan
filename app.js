@@ -110,7 +110,7 @@ function dueText(t) {
   if (t.due === 'before') {
     return 'ก่อน' + (depName(t) ? ': ' + depName(t) : 'งาน') + (d ? ` (${dayName(d)} ${short(d)})` : '');
   }
-  if (t.due === 'week' || t.due === 'month') return `ภายใน ${dayName(d)} ${short(d)}`;
+  if (t.due === 'week' || t.due === 'month') return d ? `ภายใน ${dayName(d)} ${short(d)}` : (t.due === 'week' ? 'ภายในสัปดาห์นี้' : 'ภายในเดือนนี้');
   return '';
 }
 

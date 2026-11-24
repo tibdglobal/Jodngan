@@ -2220,3 +2220,42 @@ body[data-bg]::before { content: ""; display: block; position: fixed; inset: 0; 
 .mic-tip a { color: var(--accent); font-weight: 600; }
 .mo-quick .mic-btn { height: auto; min-height: var(--tap); }
 .ui-note { margin: 6px 2px 0; font-size: 12px; color: var(--muted); }
+
+/* ======================================================================
+   🎨 รอบเก็บงานสวย (v93)
+   ====================================================================== */
+/* ช่องจด: ไมค์อยู่ในช่องเดียวกัน ไม่แยกกล่อง */
+.in-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+.in-wrap > input { flex: 1; min-width: 0; padding-right: 50px !important; }
+.in-wrap .mic-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; min-height: 0; border: 0; background: transparent; border-radius: 12px; color: var(--muted); }
+.in-wrap .mic-btn:hover { background: var(--sunken); color: var(--text); }
+.in-wrap .mic-btn.rec { background: var(--danger); color: #fff; }
+.mo-quick .in-wrap .mic-btn { height: 40px; }
+
+/* ช่องค้นหา: ไอคอนเส้น */
+.srch { position: relative; display: block; flex: 1; width: 100%; }
+.srch > i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); display: grid; pointer-events: none; }
+.srch > i svg { width: 19px; height: 19px; }
+.srch > input { padding-left: 42px !important; width: 100%; }
+
+/* แถบวันนี้: หัวเรียบ */
+.td-h b { font-family: var(--display); font-size: 17px; }
+
+/* แถบ รายรับ-จ่าย / หารกัน / ค้างกัน */
+.mo-sec a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.mo-sec .sec-ico { display: grid; }
+.mo-sec .sec-ico svg { width: 18px; height: 18px; }
+
+/* ปุ่มจด + สลิป: หมึกเดียวกันทั้งแอป */
+.mo-add { background: var(--ink); color: var(--on-ink); }
+.mo-snap { color: var(--text); }
+.mo-snap svg { width: 22px; height: 22px; }
+
+/* การ์ดยอดคงเหลือ: แบบบัตรหมึกดำ (กลางคืนเป็นเทาเข้มยกขึ้น) */
+:root, body.money { --hero-bg: #1b1d21; --hero-deep: #1b1d21; --hero-text: #f6f7f8; --hero-muted: rgba(246, 247, 248, .62); --hero-in: #7fdca6; --hero-out: #ffad7f; }
+@media (prefers-color-scheme: dark) { body.money { --hero-bg: #24262b; --hero-deep: #24262b; } }
+.mo-hero { background: var(--hero-bg); box-shadow: none; }
+@media (prefers-color-scheme: dark) { .mo-hero { border: 1px solid var(--line-strong); } }
+
+/* หัวกลุ่มงาน: ตัวเลขจางลง อ่านชื่อกลุ่มก่อน */
+.group h3 .n, .group h3 small { color: var(--faint); font-weight: 500; }

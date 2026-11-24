@@ -50,6 +50,8 @@
     refresh: sv('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4.2h-4.2"/>'),
     link: sv('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
     mic: sv('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'),
+    split: sv('<path d="M5 12h14"/><circle cx="12" cy="6.3" r="1.5"/><circle cx="12" cy="17.7" r="1.5"/>'),
+    cam: sv('<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
   const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
@@ -109,7 +111,6 @@
       <h3>อื่นๆ</h3>
       <div class="ui-links">
         ${document.getElementById('btnSettings') ? `<button type="button" data-go="conn">${ICO.link}<span>เชื่อมเครื่อง / ดึงข้อมูลใหม่</span></button>` : ''}
-        <a href="month.html">${ICO.chart}<span>ภาพรวมเดือน</span></a>
         <a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>
       </div>`;
   }
@@ -166,7 +167,8 @@
     const mic = document.createElement('button');
     mic.type = 'button'; mic.className = 'icon-btn mic-btn'; mic.title = 'พูดแทนพิมพ์'; mic.setAttribute('aria-label', 'พูดแทนพิมพ์');
     mic.innerHTML = ICO.mic;
-    input.insertAdjacentElement('afterend', mic);
+    const wrap = document.createElement('span'); wrap.className = 'in-wrap';
+    input.parentElement.insertBefore(wrap, input); wrap.appendChild(input); wrap.appendChild(mic);
     const tip = document.createElement('p'); tip.className = 'mic-tip'; tip.hidden = true;
     input.form.insertAdjacentElement('afterend', tip);
     const say = (h, ms) => { tip.innerHTML = h; tip.hidden = false; clearTimeout(say.t); if (ms) say.t = setTimeout(() => { tip.hidden = true; }, ms); };
@@ -219,6 +221,20 @@
       say('🔴 กำลังอัด… พูดได้เลย แล้วแตะไมค์อีกครั้ง (สูงสุด 30 วินาที)');
       timer = setTimeout(stop, 30000);
     };
+  })();
+
+  /* ---------- แถบ รายรับ-จ่าย / หารกัน / ค้างกัน + ปุ่มสลิป: ไอคอนเส้น ---------- */
+  document.querySelectorAll('#mSec a').forEach(a => { const k = { money: 'money', split: 'split', owe: 'users' }[a.dataset.s]; if (k) a.insertAdjacentHTML('afterbegin', `<i class="sec-ico" aria-hidden="true">${ICO[k]}</i>`); });
+  const snap = document.getElementById('btnSnap');
+  if (snap && /📷/.test(snap.textContent) && snap.closest('.mo-quick')) snap.innerHTML = ICO.cam + '<small>สลิป</small>';
+
+  /* ---------- ช่องค้นหา: ไอคอนแว่นขยายแบบเส้น ---------- */
+  (() => {
+    const si = document.getElementById('searchInput');
+    if (!si || si.parentElement.classList.contains('srch')) return;
+    const w = document.createElement('label'); w.className = 'srch';
+    si.parentElement.insertBefore(w, si); w.appendChild(si);
+    w.insertAdjacentHTML('afterbegin', `<i aria-hidden="true">${sv('<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>')}</i>`);
   })();
 
   /* ---------- 🗒 หน้าว่าง: ไอคอนของหมวด + ปุ่มเริ่มใช้ (ไม่ใส่ปุ่มในผลค้นหาที่ไม่เจอ) ---------- */
@@ -434,7 +450,7 @@
         : `<p class="td-empty">${c.empty}</p>`}
         <a class="td-go" ${c.go[1].startsWith('#') ? `href="${c.go[1]}" data-go="${c.go[1]}"` : `href="${c.go[1]}"`}>${c.go[0]} ›</a></div>`;
     }
-    box.innerHTML = `<div class="td-h"><b>☀️ วันนี้</b><small>${new Date().toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' })}</small></div>`
+    box.innerHTML = `<div class="td-h"><b>วันนี้</b></div>`
       + `<div class="td-row">${Object.keys(K).map(chip).join('')}</div>` + panel;
   }
   box.addEventListener('click', e => {
