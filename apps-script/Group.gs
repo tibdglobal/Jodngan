@@ -25,11 +25,11 @@ const HKU_SHEET = 'HkUsers';
 const HKU_HEADERS = ['uid', 'name', 'nick', 'pp', 'qr', 'qrFile', 'updated'];
 const HK_WEB = 'https://tibdglobal.github.io/Jodngan/';
 const HK_FOLDER = 'จดครบ - หารกลุ่ม';
-const GRP_CMD = /^(หาร|หารกัน|ค้าง|ใครค้าง|ใครยังไม่จ่าย|ยังไม่จ่าย|ทวง|#ทวง|ทวงหน่อย|จ่ายแล้ว|โอนแล้ว|ลบบิล|ยกเลิกบิล|พร้อมเพย์|พร้อมเพ|ชื่อ|วิธีใช้|ช่วย|help|เตือนทุกวัน|เปิดหาร|ปิดหาร)/i;
+const GRP_CMD = /^(แมวกวัก|น้องแมว|หาร|หารกัน|ค้าง|ใครค้าง|ใครยังไม่จ่าย|ยังไม่จ่าย|ทวง|#ทวง|ทวงหน่อย|จ่ายแล้ว|โอนแล้ว|ลบบิล|ยกเลิกบิล|พร้อมเพย์|พร้อมเพ|ชื่อ|วิธีใช้|ช่วย|help|เตือนทุกวัน|เปิดหาร|ปิดหาร)/i;
 
 const GRP_HELP = [
   '👥 หารกันในกลุ่ม',
-  'พิมพ์ หาร (หรือแท็กบอท) แล้วกดปุ่มในการ์ด',
+  'พิมพ์ แมวกวัก หรือ หาร (หรือแท็กบอท) แล้วกดปุ่มในการ์ด',
   '• สร้างบิลใหม่ = เราจ่ายก่อน ตั้งยอดให้ทุกคน',
   '• ยอดของฉัน = ดูว่าต้องจ่ายใคร / รอรับคืนจากใคร',
   '',
@@ -261,7 +261,8 @@ function grpHandle_(ev) {
   const text = ev.message.type === 'text' ? String(ev.message.text || '').trim() : '';
   const tagBot = ((ev.message.mention || {}).mentionees || []).some(m => m.isSelf);
 
-  if (/^เปิดหาร$/.test(text)) {
+  // เปิดใช้ในกลุ่ม: เจ้าของพิมพ์ เปิดหาร (หรือ แมวกวัก ในกลุ่มที่ยังไม่เปิด)
+  if (/^เปิดหาร$/.test(text) || (/^แมวกวัก$/.test(text) && uid === owner && !(g && g.on))) {
     if (uid !== owner) return reply_(ev.replyToken, 'เฉพาะเจ้าของบอทเปิดใช้ในกลุ่มได้ครับ');
     const nm = src.groupId ? grpSummary_(gid) : '';
     cfg[gid] = Object.assign({ seen: {}, daily: false, tok: grpTok_() }, g || {}, { on: true, type: src.type, name: nm || (g && g.name) || '' });
@@ -283,7 +284,7 @@ function grpHandle_(ev) {
     return reply_(ev.replyToken, 'ปิดหารกันในกลุ่มนี้แล้ว บิลเดิมยังเก็บไว้ เปิดใหม่พิมพ์ เปิดหาร');
   }
   if (/^(วิธีใช้|ช่วย|help)$/i.test(text)) return grpReplyMsgs_(ev.replyToken, [grpText_(GRP_HELP), hkSummonFlex_(gid)]);
-  if (/^(หาร|หารกัน)$/.test(text) || (tagBot && !GRP_CMD.test(text))) return grpReplyMsgs_(ev.replyToken, hkSummonFlex_(gid));
+  if (/^(หาร|หารกัน|แมวกวัก|น้องแมว)$/.test(text) || (tagBot && !GRP_CMD.test(text))) return grpReplyMsgs_(ev.replyToken, hkSummonFlex_(gid));
 
   const name = grpName_(src, uid);   // เรียก LINE นอกล็อก
   const ment = ((ev.message.mention || {}).mentionees || []).filter(m => m.type !== 'all' && !m.isSelf);
