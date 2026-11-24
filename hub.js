@@ -59,15 +59,40 @@
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
 
   /* ---------- 🗒 ลายพื้นหลัง (LS bgStyle) + สีพื้น (LS bgTint) ---------- */
-  const BGS = [['plain', 'เรียบ'], ['dots', 'ลายจุด'], ['stagger', 'จุดสลับ'], ['lines', 'เส้นบรรทัด'], ['grid', 'ตาราง'], ['diag', 'เส้นเฉียง'], ['waves', 'คลื่น'], ['noise', 'กระดาษสา']];
+  const BGS = [['plain', 'เรียบ'], ['dots', 'ลายจุด'], ['stagger', 'จุดสลับ'], ['lines', 'เส้นบรรทัด'], ['grid', 'ตาราง'], ['diag', 'เส้นเฉียง'], ['waves', 'คลื่น'], ['noise', 'กระดาษสา'],
+    ['circles', 'วงกลมซ้อน'], ['hex', 'รังผึ้ง'], ['topo', 'เส้นแผนที่'], ['leaves', 'ใบไม้'], ['sparkle', 'ประกาย'], ['terrazzo', 'หินขัด'], ['memphis', 'รูปทรงสนุก'], ['plaid', 'ผ้าขาวม้า']];
   const TINTS = [['auto', 'ตามหมวด'], ['mono', 'เทา'], ['sky', 'ฟ้า'], ['mint', 'มินต์'], ['peach', 'พีช'], ['lavender', 'ลาเวนเดอร์'], ['sand', 'ทราย'],
     ['g-dawn', 'รุ่งเช้า'], ['g-sea', 'ทะเล'], ['g-leaf', 'ใบไม้'], ['g-dusk', 'พลบค่ำ'], ['g-sunset', 'ตะวันตก']];
-  const applyBg = () => { document.body.dataset.bg = get('bgStyle', 'dots'); document.body.dataset.tint = get('bgTint', 'auto'); };
+  const applyBg = () => {
+    const ph = get('bgPhoto', '');
+    let bg = get('bgStyle', 'dots'); if (bg === 'photo' && !ph) bg = 'dots';
+    document.body.dataset.bg = bg; document.body.dataset.tint = get('bgTint', 'auto'); document.body.dataset.soft = get('bgSoft', true) ? '1' : '';
+    if (ph) document.documentElement.style.setProperty('--photo', `url("${ph}")`); else document.documentElement.style.removeProperty('--photo');
+  };
+  /* 🖼 รูปของฉัน: ย่อเหลือด้านยาว 1400px JPEG แล้วเก็บในเครื่อง (LS bgPhoto) */
+  async function pickPhoto() {
+    const f = await new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.onchange = () => res(i.files[0]); i.click(); });
+    if (!f) return false;
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(f); });
+    const k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
+    let q = .75, d = c.toDataURL('image/jpeg', q);
+    while (d.length > 900000 && q > .4) { q -= .1; d = c.toDataURL('image/jpeg', q); }
+    try { localStorage.setItem('bgPhoto', JSON.stringify(d)); } catch (e) { alert('รูปใหญ่เกินที่เครื่องเก็บได้ ลองรูปอื่นครับ'); return false; }
+    put('bgStyle', 'photo'); applyBg(); return true;
+  }
   window.hubBg = { get: () => get('bgStyle', 'dots'), set: v => { put('bgStyle', v); applyBg(); }, tint: () => get('bgTint', 'auto'), setTint: v => { put('bgTint', v); applyBg(); } };
   applyBg();
 
   /* ---------- 🔠 ขนาดตัวอักษร (LS fontScale 1 | 1.1 | 1.2) ---------- */
-  const applyScale = v => { document.body.style.zoom = v && v !== 1 ? String(v) : ''; };
+  // ขยายเฉพาะตัวอักษร (ทุก font-size ใน style.css คูณ var(--fs)) ไม่ขยายทั้งหน้า → ช่อง ปุ่ม หน้าต่าง ไม่ล้นจอ
+  const applyScale = v => {
+    v = Number(v) || 1;
+    document.body.style.zoom = '';
+    document.documentElement.style.setProperty('--fs', String(v));
+    document.documentElement.classList.toggle('fs-lg', v > 1);
+  };
   window.hubScale = { get: () => get('fontScale', 1), set: v => { put('fontScale', v); applyScale(v); } };
   applyScale(get('fontScale', 1));
 
@@ -105,7 +130,9 @@
       <h3>ขนาดตัวอักษร</h3>${seg('scale', [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']], get('fontScale', 1))}
       <h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}
       <h3>ลายพื้นหลัง</h3>
-      <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}</div>
+      <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}
+        <button type="button" aria-pressed="${hubBg.get() === 'photo'}" data-v="photo"><i class="pv pv-photo" data-bg="${get('bgPhoto', '') ? 'photo' : 'plain'}" data-tint="${hubBg.tint()}">${get('bgPhoto', '') ? '' : ICO.cam}</i><span>รูปของฉัน</span></button></div>
+      ${hubBg.get() === 'photo' ? `<div class="ui-photo">${seg('soft', [['1', 'จางนุ่ม (อ่านง่าย)'], ['0', 'ชัด']], get('bgSoft', true) ? '1' : '0')}<button type="button" class="ui-mini" data-go="photo">🖼 เปลี่ยนรูป</button></div>` : ''}
       <h3>สีพื้นหลัง</h3>
       <div class="ui-sw tint" data-k="tint">${TINTS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.tint()}" data-v="${v}"><i class="pv" data-bg="${hubBg.get()}" data-tint="${v}"></i><span>${l}</span></button>`).join('')}</div>
       <h3>อื่นๆ</h3>
@@ -129,12 +156,15 @@
           const v = b.dataset.v, k = box.dataset.k;
           if (k === 'theme' && window.hubTheme) hubTheme.set(v);
           if (k === 'scale') hubScale.set(Number(v));
+          if (k === 'bg' && v === 'photo' && !get('bgPhoto', '')) { pickPhoto().then(() => uiPaint(dlg)); return; }
           if (k === 'bg') hubBg.set(v);
+          if (k === 'soft') { put('bgSoft', v === '1'); applyBg(); }
           if (k === 'tint') hubBg.setTint(v);
           if (k === 'badge') { hubBadge.set(v === '1').then(ok => { if (!ok) alert('เครื่องนี้ปิดการแจ้งเตือนของแอปไว้ เลขบนไอคอนจึงไม่ขึ้น เปิดได้ในตั้งค่าของเครื่อง'); const y = dlg.querySelector('#uiBody').scrollTop; uiPaint(dlg); dlg.querySelector('#uiBody').scrollTop = y; }); }
           const y = dlg.querySelector('#uiBody').scrollTop; uiPaint(dlg); dlg.querySelector('#uiBody').scrollTop = y;
           return;
         }
+        if (e.target.closest('[data-go="photo"]')) { pickPhoto().then(() => uiPaint(dlg)); return; }
         if (e.target.closest('[data-go="conn"]')) { dlg.close(); document.getElementById('btnSettings').click(); }
       });
     }
