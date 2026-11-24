@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>สแกนจ่าย · หารกัน</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#eef0ec">
+  <link rel="icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #eef0ec; --card: #fff; --line: #dcdfd8; --ink: #1c1f1c; --mute: #6c716b; --ok: #2f7a4a; --fs: 1; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #121412; --card: #1b1e1b; --line: #2c302c; --ink: #eceee9; --mute: #9aa096; --ok: #6fc28f; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.5 'IBM Plex Sans Thai Looped', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+    main { max-width: 440px; margin: 0 auto; padding: 20px 16px 40px; }
+    h1 { font: 700 24px/1.25 Anuphan, sans-serif; margin: 4px 0 2px; }
+    .sub { color: var(--mute); font-size: 14px; margin: 0 0 18px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .who { list-style: none; margin: 0; padding: 4px 0; }
+    .who li { margin: 0; }
+    .who button { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-top: 1px solid var(--line); }
+    .who li:first-child button { border-top: 0; }
+    .who button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: 10px; }
+    .who .nm { flex: 1; font-weight: 500; }
+    .who .am { font: 600 17px Anuphan, sans-serif; font-variant-numeric: tabular-nums; }
+    .who .dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: none; display: grid; place-items: center; font-size: 13px; }
+    .who [aria-pressed="true"] .dot { border-color: var(--ink); background: var(--ink); color: var(--card); }
+    .who [aria-pressed="true"] .dot::after { content: '✓'; }
+    .who .paid { color: var(--mute); }
+    .who .paid .am { text-decoration: line-through; }
+    .who .paid .tag { font-size: 12px; color: var(--ok); }
+    .hint { color: var(--mute); font-size: 14px; margin: 14px 4px; }
+    .qr { margin-top: 16px; padding: 18px 16px 16px; text-align: center; }
+    .qr[hidden] { display: none; }
+    .qr .amt { font: 700 34px/1.1 Anuphan, sans-serif; font-variant-numeric: tabular-nums; }
+    .qr .to { color: var(--mute); font-size: 14px; margin: 2px 0 12px; }
+    .qr img { width: min(260px, 74vw); height: auto; image-rendering: pixelated; border-radius: 8px; background: #fff; padding: 10px; }
+    .qr .pp { font-size: 13px; color: var(--mute); margin-top: 6px; }
+    .row { display: flex; gap: 8px; margin-top: 14px; }
+    .btn { flex: 1; font: 600 15px Anuphan, sans-serif; padding: 12px; border-radius: 12px; border: 1px solid var(--ink); background: var(--ink); color: var(--card); cursor: pointer; }
+    .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+    .after { margin: 14px 2px 0; font-size: 14px; color: var(--mute); text-align: left; }
+    .msg { padding: 28px 18px; text-align: center; color: var(--mute); }
+    .done { font: 700 20px Anuphan, sans-serif; color: var(--ink); }
+    footer { color: var(--mute); font-size: 12px; text-align: center; margin-top: 28px; }
+    @media (prefers-reduced-motion: no-preference) { .qr:not([hidden]) { animation: up .22s ease-out; } @keyframes up { from { opacity: 0; transform: translateY(6px); } } }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="app"><div class="card msg">กำลังเปิดบิล…</div></div>
+    <footer>QR พร้อมเพย์สร้างในเครื่องนี้ ยอดตรงกับบิล</footer>
+  </main>
+  <script src="qrcode.js?v=98"></script>
+  <script src="pay.js?v=98"></script>
+</body>
+</html>

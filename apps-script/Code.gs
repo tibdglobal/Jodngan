@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 54;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 55;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -175,6 +175,12 @@ function doPost(e) {
     return json_({ ok: true });
   }
 
+  // 💳 หน้า QR ของบิลกลุ่ม (สาธารณะ เห็นเฉพาะบิลของลิงก์นั้น ไม่มีสิทธิ์อื่น)
+  if (body.action === 'pub_bill') {
+    try { return json_({ ok: true, bill: grpPublic_(body.t) }); }
+    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
+  }
+
   // คำขอจากหน้าเว็บ
   if (!body.key || body.key !== props.getProperty('API_KEY')) {
     return json_({ ok: false, error: 'API key ไม่ถูกต้อง' });
@@ -286,6 +292,12 @@ function doPost(e) {
 
 function handleLine_(events) {
   events.forEach(ev => {
+    // 👥 กลุ่ม/ห้องแชท → หารกันในกลุ่ม (Group.gs) แยกจากแชทส่วนตัวของเจ้าของทั้งหมด
+    const st = ev.source && ev.source.type;
+    if (st === 'group' || st === 'room') {
+      try { grpHandle_(ev); } catch (err) { console.error('group: ' + (err.stack || err)); }
+      return;
+    }
     if (ev.type !== 'postback' && (ev.type !== 'message' || !ev.message)) return;
     const uid = ev.source && ev.source.userId;
     if (!uid) return;
@@ -410,6 +422,7 @@ function morningSummary() {
   try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
   let owe = '';
   try { owe = oweDueLine_(); } catch (e) {}
+  try { if (typeof grpDaily_ === 'function') grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }
   const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, owe, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
