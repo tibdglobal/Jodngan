@@ -186,7 +186,7 @@ function drawCreate() {
       ${cs.people.map(personRow).join('')}
       <button type="button" class="row-btn item" id="addOut"><span class="lnk" style="padding:0">+ เพิ่มคนนอกกลุ่ม</span></button>
     </div>
-    ${mem.length ? '' : '<div class="lbl" style="padding:0 4px">ยังไม่มีชื่อเพื่อนในกลุ่ม ให้เพื่อนแตะ "ยอดของฉัน" ในการ์ดของบอทสักครั้ง หรือพิมพ์อะไรก็ได้ในกลุ่ม แล้วกลับมาที่หน้านี้ใหม่</div>'}
+    ${mem.length ? '<div class="lbl" style="padding:0 4px">ไม่เห็นชื่อใคร ให้คนนั้นแตะ "✋ ฉันอยู่ในกลุ่มนี้" ในการ์ดของแมวกวัก หรือเพิ่มเป็นคนนอกกลุ่มไปก่อน</div>' : '<div class="lbl" style="padding:0 4px">ยังไม่มีชื่อเพื่อนในกลุ่ม ให้เพื่อนแตะ "✋ ฉันอยู่ในกลุ่มนี้" ในการ์ดของแมวกวัก (พิมพ์ แมวกวัก ในกลุ่มเพื่อเรียกการ์ด) แล้วกลับมาที่หน้านี้ใหม่</div>'}
     ${payBlock()}`;
   bindCreate();
   foot(`<div class="sum"><span class="lbl" id="fl"></span><span id="fr" style="font-weight:600"></span></div><button class="btn ink" type="button" id="send">${cs.edit ? 'บันทึกและส่งบิลเข้ากลุ่ม' : 'ส่งบิลเข้ากลุ่ม'}</button>`);
@@ -372,7 +372,7 @@ function drawTrack() {
   const total = gs.reduce((s, x) => s + x.sumS, 0), got = gs.filter(x => x.st === 'ok').reduce((s, x) => s + x.sumS, 0);
   const row = x => `<div class="item">
     <div class="mid"><div class="nm">${esc(x.name)} <span class="num h">${baht(x.sumS)}</span></div>
-      <div class="lbl">${x.extra.length ? 'รวมของ' + esc(x.extra.join(', ')) + ' · ' : ''}${x.st === 'ok' ? 'ยืนยันแล้ว' : x.st === 'told' ? 'แจ้งโอนแล้ว · เช็กยอดในแอปธนาคารก่อนกด' : 'ยังไม่จ่าย'}
+      <div class="lbl">${x.extra.length ? 'รวมของ' + esc(x.extra.join(', ')) + ' · ' : ''}${x.st === 'ok' ? (x.rows.some(r => r.auto) ? 'แมวกวักตรวจสลิปแล้ว' : 'ยืนยันแล้ว') : x.st === 'told' ? 'แจ้งโอนแล้ว · เช็กยอดในแอปธนาคารก่อนกด' : 'ยังไม่จ่าย'}
       ${x.slip ? ` · <button type="button" class="lnk" data-slip="${esc(x.k)}" style="padding:0;font-size:12.5px">ดูสลิป</button>` : ''}</div></div>
     ${x.st === 'ok' ? `<button type="button" class="pill ok" data-undo="${esc(x.k)}" style="border:0;cursor:pointer" aria-label="ยกเลิกการยืนยันของ ${esc(x.name)}">ได้เงินแล้ว</button>` : `<button type="button" class="btn sm ${x.st === 'told' ? 'ink' : ''}" data-ok="${esc(x.k)}">ได้เงินแล้ว</button>`}
   </div>`;
@@ -478,7 +478,8 @@ function drawPay() {
       ${qrNote ? `<div class="lbl" style="text-align:center">${qrNote}</div>` : ''}
     </div>
     ${st === 'wait' ? `<div class="row2">${payCanvas ? '<button class="btn" type="button" id="saveQr">บันทึกรูป QR</button>' : ''}<button class="btn" type="button" id="slip">แนบสลิป</button></div>
-      <div class="lbl hide" id="slipOk" style="text-align:center"></div>` : ''}
+      <div class="lbl" id="slipOk" style="text-align:center">แนบสลิปแล้วแมวกวักตรวจให้ ยอดตรงติ๊กจ่ายให้เลย ไม่ต้องรอ ${esc(b.payer)} ยืนยัน</div>` : ''}
+    ${st === 'told' ? `<button class="btn" type="button" id="slip2">ส่งสลิปให้แมวกวักตรวจ</button>` : ''}
     ${others ? `<div class="sec list"><div class="sec-h">คนอื่นในบิล</div>${others}</div>` : ''}`;
   if (st === 'wait') {
     foot('<button class="btn ink" type="button" id="paid">ฉันโอนแล้ว</button>');
@@ -487,6 +488,8 @@ function drawPay() {
     const sq = $('#saveQr'); if (sq) sq.onclick = saveQr;
     if (pay.qrImg && !pay.qr && !pay.pp) loadQrImg();
   }
+  const s2 = $('#slip2');
+  if (s2) s2.onclick = async () => { await attachSlip(); if (slipData) markPaid(s2); };
 }
 async function loadQrImg() {
   try { const d = await call('hk_qrimg', { b: view.bill.id }); const el = $('#qrImg'); if (el) el.innerHTML = `<img class="photo" alt="QR รับเงินของ ${esc(view.bill.payer)}" src="data:image/jpeg;base64,${d.data}">`; }
@@ -505,17 +508,17 @@ async function attachSlip() {
   const f = await pickFile();
   if (!f) return;
   slipData = await shrink(f, 1200, 0.8);
-  const el = $('#slipOk'); el.textContent = 'แนบสลิปแล้ว จะส่งให้ ' + view.bill.payer + ' ตอนกด ฉันโอนแล้ว'; el.classList.remove('hide');
-  $('#slip').textContent = 'เปลี่ยนสลิป';
+  const el = $('#slipOk'); if (el) el.textContent = 'แนบสลิปแล้ว กด ฉันโอนแล้ว ให้แมวกวักตรวจได้เลย';
+  const sb = $('#slip'); if (sb) sb.textContent = 'เปลี่ยนสลิป';
 }
-async function markPaid() {
-  const btn = $('#paid'); busy(btn, true);
+async function markPaid(b2) {
+  const btn = b2 && b2.nodeType ? b2 : $('#paid'); busy(btn, true);
   try {
     const d = await call('hk_paid', { b: view.bill.id, slip: slipData || '' });
     slipData = '';
     view.bill = d.bill;
     if (d.text) await postToChat({ type: 'text', text: d.text });
-    toast('แจ้ง ' + view.bill.payer + ' แล้ว');
+    toast(d.auto ? 'แมวกวักตรวจสลิปแล้ว ติ๊กจ่ายให้เรียบร้อย' : d.why ? d.why + ' · แจ้ง ' + view.bill.payer + ' ให้ยืนยันแทน' : 'แจ้ง ' + view.bill.payer + ' แล้ว');
     loadHome().catch(() => {});
     drawPay();
   } catch (e) { toast(e.message); busy(btn, false); }

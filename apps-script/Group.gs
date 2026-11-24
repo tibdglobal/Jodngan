@@ -208,7 +208,8 @@ function hkSummonFlex_(gid, mood) {
           { type: 'text', text: 'แตะเพื่อเปิด ไม่ต้องพิมพ์คำสั่ง', size: 'xs', color: HK_MUTE, wrap: true }] }] },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [
         { type: 'button', style: 'primary', color: HK_INK, height: 'sm', action: { type: 'uri', label: 'สร้างบิลใหม่ (ฉันจ่ายก่อน)', uri: hkUrl_(tok, '', 'v=new') } },
-        { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: 'ยอดของฉัน', uri: hkUrl_(tok) } }] } } };
+        { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: 'ยอดของฉัน', uri: hkUrl_(tok) } },
+        { type: 'button', style: 'link', height: 'sm', action: { type: 'postback', label: '✋ ฉันอยู่ในกลุ่มนี้ (ให้ชื่อขึ้นตอนหาร)', data: 'gjoin', displayText: '✋ ขอเข้าร่วมหาร' } }] } } };
 }
 
 /** การ์ดบิล: ชื่อ + สถานะ ไม่โชว์ยอดของใคร */
@@ -252,6 +253,22 @@ function grpHandle_(ev) {
   if (ev.type === 'join') { reply_(ev.replyToken, '👋 สวัสดีครับ ช่วยหารบิลในกลุ่มนี้ได้\nเจ้าของบอทพิมพ์ เปิดหาร เพื่อเริ่มใช้'); return; }
   if (ev.type === 'leave') { if (g) { delete cfg[gid]; grpCfgSave_(cfg); } return; }
 
+  if (ev.type === 'memberJoined' && g && g.on) {   // คนเข้ากลุ่มใหม่ = ชื่อขึ้นให้เลือกตอนหาร
+    const add = {};
+    ((ev.joined || {}).members || []).forEach(m => { if (m.userId) add[m.userId] = grpName_(src, m.userId); });
+    try { grpLocked_(null, () => { const c2 = grpCfg_(); if (c2[gid]) { c2[gid].seen = Object.assign(c2[gid].seen || {}, add); grpCfgSave_(c2); } }); } catch (e) {}
+    return;
+  }
+  if (ev.type === 'postback' && String(ev.postback && ev.postback.data) === 'gjoin') {   // ✋ ฉันอยู่ในกลุ่มนี้ (ไม่ตอบ ข้อความที่แตะขึ้นในกลุ่มเองแล้ว)
+    if (!g || !g.on || !uid) return;
+    const nm = grpName_(src, uid);
+    try { grpLocked_(null, () => { const c2 = grpCfg_(); if (c2[gid]) { c2[gid].seen = c2[gid].seen || {}; c2[gid].seen[uid] = nm; grpCfgSave_(c2); } }); } catch (e) {}
+    return;
+  }
+  if (ev.type === 'message' && ev.message && ev.message.type === 'image') {   // 🧾 สลิปในกลุ่ม: อ่านเฉพาะรูปของคนที่ยังค้างในกลุ่มนี้
+    if (g && g.on && uid) { try { grpSlipImage_(ev, gid, uid, src); } catch (e) { console.warn('grpSlip: ' + e); } }
+    return;
+  }
   if (ev.type === 'postback') {   // ปุ่มจากการ์ดรุ่นแรก
     if (!g || !g.on || !/^gp\|/.test(String(ev.postback && ev.postback.data))) return;
     const name = grpName_(src, uid);
@@ -266,8 +283,10 @@ function grpHandle_(ev) {
     if (uid !== owner) return reply_(ev.replyToken, 'เฉพาะเจ้าของบอทเปิดใช้ในกลุ่มได้ครับ');
     const nm = src.groupId ? grpSummary_(gid) : '';
     cfg[gid] = Object.assign({ seen: {}, daily: false, tok: grpTok_() }, g || {}, { on: true, type: src.type, name: nm || (g && g.name) || '' });
+    const all = grpMemberNames_(gid, src.type, cfg[gid].seen);   // ได้เฉพาะบัญชี OA ที่ผ่านการรับรอง
+    if (all) Object.assign(cfg[gid].seen, all);
     grpCfgSave_(cfg);
-    return grpReplyMsgs_(ev.replyToken, [grpText_('✅ เปิดหารกันในกลุ่มนี้แล้ว\nทุกคนแตะ "ยอดของฉัน" สักครั้ง ชื่อจะขึ้นให้เลือกตอนหาร\nบอทไม่เก็บข้อความแชท'), hkSummonFlex_(gid)]);
+    return grpReplyMsgs_(ev.replyToken, [grpText_('✅ เปิดหารกันในกลุ่มนี้แล้ว\nทุกคนแตะ "✋ ฉันอยู่ในกลุ่มนี้" ในการ์ดสักครั้ง ชื่อจะขึ้นให้เลือกตอนหาร\nส่งรูปสลิปในกลุ่มได้เลย แมวกวักตรวจแล้วติ๊กจ่ายให้เอง\nบอทไม่เก็บข้อความแชท'), hkSummonFlex_(gid)]);
   }
   if (!g || !g.on) return;   // กลุ่มที่ยังไม่เปิด เงียบ
 
@@ -660,6 +679,12 @@ function hkApi_(body) {
   const a = String(body.action);
   if (a === 'hk_read') return hkRead_(me, body);   // AI ช้า: นอกล็อก
   const grp = body.g ? hkGroup_(body.g, me.uid) : null;
+  if (a === 'hk_paid' && body.slip) {   // 🧾 อ่านสลิปนอกล็อก แล้วตัดสินในล็อก
+    body.__bytes = Utilities.base64Decode(String(body.slip));
+    body.__slip = hkSlipRead_(body.__bytes);
+  }
+  let more = null;   // รายชื่อทั้งกลุ่ม (ดึงนอกล็อก)
+  if (grp && a === 'hk_home') more = grpMemberNames_(grp.gid, grp.g.type, grp.g.seen);
   return grpLocked_(null, () => {
     const users = hkUsers_();
     const meU = users[me.uid] || {};
@@ -668,7 +693,7 @@ function hkApi_(body) {
     me.disp = meU.nick || lineName || 'เพื่อน';
     if (grp) {   // เปิดแอปจากกลุ่ม = ชื่อขึ้นให้เพื่อนเลือกตอนหาร
       const c = grpCfg_(), g = c[grp.gid];
-      if (g && (g.seen || {})[me.uid] !== me.disp) { g.seen = g.seen || {}; g.seen[me.uid] = me.disp; grpCfgSave_(c); grp.g = g; }
+      if (g && ((g.seen || {})[me.uid] !== me.disp || more)) { g.seen = Object.assign(g.seen || {}, more || {}); g.seen[me.uid] = me.disp; grpCfgSave_(c); grp.g = g; }
     }
     switch (a) {
       case 'hk_home':   return hkHome_(me, grp);
@@ -700,7 +725,7 @@ function hkView_(b, me) {
   const mine = isPayer ? [] : grpMine_(b, me.uid, '');
   if (!isPayer && !mine.length) throw new Error('คุณไม่ได้อยู่ในบิลนี้');
   const g = grpCfg_()[b.gid] || {};
-  const row = m => ({ k: m.k, uid: m.uid || '', name: m.name, out: !!m.out, by: m.by ? m.by.name : '', byUid: m.by ? m.by.uid : '', byMe: !!(m.by && m.by.uid === me.uid), amtS: m.amtS, units: m.units || 0, items: m.items || [], st: m.st, at: m.at || '', slip: !!m.slip });
+  const row = m => ({ k: m.k, uid: m.uid || '', name: m.name, out: !!m.out, by: m.by ? m.by.name : '', byUid: m.by ? m.by.uid : '', byMe: !!(m.by && m.by.uid === me.uid), amtS: m.amtS, units: m.units || 0, items: m.items || [], st: m.st, at: m.at || '', slip: !!m.slip, auto: !!m.auto });
   const v = { id: b.id, title: b.title, date: b.date, mode: b.mode || 'equal', unit: b.unit || 'ชม.', status: b.status, group: g.name || '', payer: b.payer.name, isPayer: isPayer, created: b.created, totalS: b.totalS };
   if (isPayer) {
     Object.assign(v, { payerIn: b.payerIn !== false, payerShareS: b.payer.shareS || 0, payerUnits: b.payer.units || 0, payerItems: b.payer.items || [], rows: b.members.map(row), items: b.items || [] });
@@ -851,20 +876,21 @@ function hkCreate_(me, grp, p, old) {
   return { bill: hkView_(b, me), msg: hkCardFlex_(b, old ? 'แก้บิล' : 'บิลใหม่') };
 }
 
-/** คนที่ต้องจ่ายกด "ฉันโอนแล้ว" (+ สลิป) */
+/** คนที่ต้องจ่ายกด "ฉันโอนแล้ว" (+ สลิป: ยอดตรง/วันที่ใหม่/ไม่เคยใช้ = ยืนยันให้เลย) */
 function hkPaid_(me, b, p) {
   if (b.payer.uid === me.uid) throw new Error('คุณเป็นคนจ่ายก่อนของบิลนี้');
-  const mine = grpMine_(b, me.uid, '').filter(m => m.st === 'wait');
+  const mine = grpMine_(b, me.uid, '').filter(m => m.st !== 'ok');
   if (!mine.length) return { bill: hkView_(b, me), already: true };
-  let slip = '';
-  if (p.slip) {
-    const bytes = Utilities.base64Decode(String(p.slip));
-    if (bytes.length > 2 * 1024 * 1024) throw new Error('รูปสลิปใหญ่เกินไป');
-    slip = hkFolder_('สลิป').createFile(Utilities.newBlob(bytes, 'image/jpeg', b.date + '_' + cut_(b.title, 20) + '_' + me.disp + '.jpg')).getId();
+  let slip = '', v = null;
+  if (p.__bytes) {
+    if (p.__bytes.length > 4 * 1024 * 1024) throw new Error('รูปสลิปใหญ่เกินไป');
+    slip = hkFolder_('สลิป').createFile(Utilities.newBlob(p.__bytes, 'image/jpeg', b.date + '_' + cut_(b.title, 20) + '_' + me.disp + '.jpg')).getId();
+    v = hkSlipVerdict_(p.__slip, grpSum_(mine), b.date);
   }
-  mine.forEach(m => { m.slip = slip; });
-  grpSetSt_(b, mine, 'told');
-  return { bill: hkView_(b, me), text: me.disp + ' โอนแล้ว ✅ ' + b.title + ' → ' + b.payer.name };
+  mine.forEach(m => { if (slip) { m.slip = slip; m.slipRef = v && v.ok ? v.ref : ''; m.auto = !!(v && v.ok); } });
+  grpSetSt_(b, mine, v && v.ok ? 'ok' : 'told');
+  return { bill: hkView_(b, me), auto: !!(v && v.ok), why: v && !v.ok ? v.why : '',
+    text: me.disp + (v && v.ok ? ' จ่ายแล้ว ✅ (แมวกวักตรวจสลิปแล้ว) ' : ' โอนแล้ว ✅ ') + b.title + ' → ' + b.payer.name };
 }
 
 /** คนจ่ายก่อนกด "ได้เงินแล้ว" (k = แถว หรือ r:<uid> = ทุกแถวที่คนนั้นต้องจ่าย) */
@@ -901,6 +927,78 @@ function hkRead_(me, p) {
   const o = aiRead_(Utilities.newBlob(bytes, 'image/jpeg', 'receipt.jpg'), { cats: [] });
   if (!o) throw new Error('ตอนนี้อ่านใบเสร็จไม่ได้ ใส่ยอดเองได้เลย');
   return { amount: Number(o.amount) || 0, vendor: o.vendor || '', items: (o.items || []).map(it => ({ name: it.name, price: Math.round((it.price - (it.disc || 0)) * 100) / 100, qty: it.qty })), service: o.service || 0, discount: o.discount || 0 };
+}
+
+
+/* ===================== 👥 รายชื่อทั้งกลุ่ม (ใช้ได้เฉพาะ LINE OA ที่ผ่านการรับรอง/พรีเมียม) ===================== */
+function grpMemberNames_(gid, kind, seen) {
+  const cache = CacheService.getScriptCache(), ck = 'gms:' + gid.slice(-16);
+  if (cache.get(ck)) return null;
+  cache.put(ck, '1', 21600);   // ลองไม่เกินทุก 6 ชม.
+  const ids = [];
+  try {
+    let next = '';
+    for (let i = 0; i < 5; i++) {
+      const res = UrlFetchApp.fetch('https://api.line.me/v2/bot/' + (kind === 'room' ? 'room' : 'group') + '/' + gid + '/members/ids' + (next ? '?start=' + encodeURIComponent(next) : ''), { headers: { Authorization: 'Bearer ' + props.getProperty('LINE_TOKEN') }, muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) return null;   // บัญชียังไม่ผ่านการรับรอง
+      const j = JSON.parse(res.getContentText());
+      ids.push.apply(ids, j.memberIds || []);
+      if (!j.next) break;
+      next = j.next;
+    }
+  } catch (e) { return null; }
+  const out = {}, src = kind === 'room' ? { roomId: gid } : { groupId: gid };
+  ids.filter(u => !(seen || {})[u]).slice(0, 40).forEach(u => { out[u] = grpName_(src, u); });
+  return out;
+}
+
+/* ===================== 🧾 ตรวจสลิปอัตโนมัติ ===================== */
+/** อ่านสลิปด้วย AI (นอกล็อก) */
+function hkSlipRead_(bytes) {
+  if (bytes.length > 4 * 1024 * 1024) throw new Error('รูปสลิปใหญ่เกินไป');
+  let o = null;
+  try { o = aiRead_(Utilities.newBlob(bytes, 'image/jpeg', 'slip.jpg'), { cats: [] }); } catch (e) { console.warn('slip AI: ' + e); }
+  return o;
+}
+/** สลิปนี้ใช้ปิดยอด dueS ได้ไหม: ต้องเป็นสลิป ยอดตรง วันที่ไม่เก่ากว่าบิล และเลขอ้างอิงไม่เคยใช้ */
+function hkSlipVerdict_(o, dueS, billDate) {
+  if (!o || o.kind !== 'slip') return { ok: false, why: 'อ่านเป็นสลิปโอนเงินไม่ได้' };
+  const amt = Math.round(Number(o.amount || 0) * 100);
+  if (!amt) return { ok: false, why: 'อ่านยอดในสลิปไม่ได้' };
+  if (amt !== dueS) return { ok: false, amt: amt, why: 'ยอดในสลิป ' + grpB_(amt) + ' ไม่ตรงยอดที่ต้องจ่าย ' + grpB_(dueS) };
+  if (o.date && (o.date < addDays_(billDate, -1) || daysBetween_(o.date, todayStr_()) > 14)) return { ok: false, amt: amt, why: 'วันที่ในสลิปเก่ากว่าบิล' };
+  const ref = String(o.ref || '').replace(/\s/g, '');
+  if (ref.length >= 6 && grpRows_().some(x => (x.members || []).some(m => m.slipRef === ref))) return { ok: false, amt: amt, why: 'สลิปนี้เคยใช้ปิดยอดไปแล้ว' };
+  return { ok: true, amt: amt, ref: ref.length >= 6 ? ref : '' };
+}
+/** รูปที่ส่งในกลุ่ม: ถ้าคนส่งยังค้างอยู่ และเป็นสลิปที่ยอดตรง = ติ๊กจ่ายให้เอง (รูปอื่นไม่เก็บ) */
+function grpSlipImage_(ev, gid, uid, src) {
+  const due = grpBills_(gid).map(b => ({ b: b, list: grpMine_(b, uid, '').filter(m => m.st !== 'ok') })).filter(x => x.list.length);
+  if (!due.length) return;   // ไม่ได้ค้างใคร = ไม่เปิดดูรูป
+  const res = UrlFetchApp.fetch('https://api-data.line.me/v2/bot/message/' + ev.message.id + '/content', { headers: { Authorization: 'Bearer ' + props.getProperty('LINE_TOKEN') }, muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) return;
+  const bytes = res.getBlob().getBytes();
+  const o = hkSlipRead_(bytes);
+  if (!o || o.kind !== 'slip') return;   // ไม่ใช่สลิป = เงียบ
+  const amt = Math.round(Number(o.amount || 0) * 100);
+  const name = grpName_(src, uid);
+  // ยอดตรงบิลเดียว หรือรวมทุกบิลที่ค้าง
+  let pick = due.filter(x => grpSum_(x.list) === amt).slice(0, 1);
+  if (!pick.length && due.length > 1 && due.reduce((s, x) => s + grpSum_(x.list), 0) === amt) pick = due;
+  if (!pick.length) return reply_(ev.replyToken, '🐱 แมวกวักเห็นสลิป ' + (amt ? grpB_(amt) : '') + ' ของ ' + name + ' แต่ไม่ตรงยอดที่ค้างอยู่\nแตะ "ยอดของฉัน" ในการ์ดเพื่อดูยอดที่ถูกต้อง');
+  grpLocked_(ev.replyToken, () => {
+    const v = hkSlipVerdict_(o, amt, pick[0].b.date);
+    if (!v.ok) { reply_(ev.replyToken, '🐱 ' + v.why + '\nถ้าโอนแล้วจริง ให้ ' + pick[0].b.payer.name + ' กดยืนยันในแอป'); return; }
+    const fid = hkFolder_('สลิป').createFile(Utilities.newBlob(bytes, 'image/jpeg', todayStr_() + '_สลิป_' + name + '.jpg')).getId();
+    const titles = [];
+    pick.forEach(x => {
+      const b = grpBill_(x.b.id), list = grpMine_(b, uid, '').filter(m => m.st !== 'ok');
+      list.forEach(m => { m.slip = fid; m.slipRef = v.ref; m.auto = true; });
+      grpSetSt_(b, list, 'ok');
+      titles.push(b.title + ' → ' + b.payer.name);
+    });
+    reply_(ev.replyToken, '✅ ' + name + ' จ่ายแล้ว (แมวกวักตรวจสลิปแล้ว)\n' + titles.join('\n'));
+  });
 }
 
 /* ===================== เตือนทุกวัน 10:00 (เฉพาะกลุ่มที่เปิด และวันที่มีคนค้าง) ===================== */
