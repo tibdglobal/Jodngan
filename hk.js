@@ -1,6 +1,6 @@
 /* จดครบ — หารกันในกลุ่ม LINE (แอปเล็กในไลน์ / LIFF)
  * โหมดคนจ่ายก่อน: สร้างบิล ตั้งยอดทุกคน ติดตาม ยืนยันได้เงิน ทวง
- * โหมดคนที่ต้องจ่าย: เห็นเฉพาะยอดของตัวเอง QR ใส่ยอด แนบสลิป ฉันโอนแล้ว
+ * โหมดคนที่ต้องจ่าย: เห็นเฉพาะยอดของตัวเอง เลือกจ่าย โอน/สแกน QR (แนบสลิปให้ตรวจ) หรือ เงินสด แล้วกด ฉันจ่ายแล้ว
  * ยืนยันตัวตนด้วย ID token ของ LINE (ไม่มี key ในหน้านี้) · ?dev=Uxxxx = ทดสอบนอกไลน์ (หลังบ้านต้องเปิด HK_DEV)
  */
 const API_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
@@ -80,7 +80,7 @@ function drawHome() {
   const due = home.owe.reduce((s, x) => s + x.dueS, 0), get = home.get.reduce((s, x) => s + x.leftS, 0);
   const oweRows = home.owe.map(x => `<button class="row-btn item" type="button" data-bill="${esc(x.id)}">
       <div class="mid"><div class="nm">${esc(x.title)} → ${esc(x.payer)}</div><div class="lbl">${esc([x.group, thDate(x.date)].filter(Boolean).join(' · '))}</div></div>
-      ${x.st === 'wait' ? `<div class="amt">${baht(x.dueS)}</div>` : `<span class="pill ${x.st === 'ok' ? 'ok' : 'soft'}">${x.st === 'ok' ? 'ได้รับแล้ว' : 'แจ้งโอนแล้ว'}</span>`}</button>`).join('');
+      ${x.st === 'wait' ? `<div class="amt">${baht(x.dueS)}</div>` : `<span class="pill ${x.st === 'ok' ? 'ok' : 'soft'}">${x.st === 'ok' ? 'ได้รับแล้ว' : 'แจ้งจ่ายแล้ว'}</span>`}</button>`).join('');
   const getRows = home.get.map(x => `<button class="row-btn item" type="button" data-bill="${esc(x.id)}">
       <div class="mid"><div class="nm">${esc(x.title)}</div><div class="lbl">${esc([x.group, thDate(x.date)].filter(Boolean).join(' · '))} · ได้แล้ว ${x.okN}/${x.n}${x.toldN ? ' · แจ้งโอน ' + x.toldN + ' คน' : ''}</div></div>
       ${x.leftS ? `<div class="amt">${baht(x.leftS)}</div>` : '<span class="pill ok">ครบแล้ว</span>'}</button>`).join('');
@@ -372,7 +372,7 @@ function drawTrack() {
   const total = gs.reduce((s, x) => s + x.sumS, 0), got = gs.filter(x => x.st === 'ok').reduce((s, x) => s + x.sumS, 0);
   const row = x => `<div class="item">
     <div class="mid"><div class="nm">${esc(x.name)} <span class="num h">${baht(x.sumS)}</span></div>
-      <div class="lbl">${x.extra.length ? 'รวมของ' + esc(x.extra.join(', ')) + ' · ' : ''}${x.st === 'ok' ? (x.rows.some(r => r.auto) ? 'แมวกวักตรวจสลิปแล้ว' : 'ยืนยันแล้ว') : x.st === 'told' ? 'แจ้งโอนแล้ว · เช็กยอดในแอปธนาคารก่อนกด' : 'ยังไม่จ่าย'}
+      <div class="lbl">${x.extra.length ? 'รวมของ' + esc(x.extra.join(', ')) + ' · ' : ''}${x.st === 'ok' ? (x.rows.some(r => r.auto) ? 'แมวกวักตรวจสลิปแล้ว' : 'ยืนยันแล้ว') : x.st === 'told' ? (x.rows.some(r => r.via === 'cash') ? 'แจ้งว่าจ่ายเงินสดแล้ว · ได้รับแล้วกดยืนยัน' : 'แจ้งจ่ายแล้ว · เช็กยอดในแอปธนาคารก่อนกด') : 'ยังไม่จ่าย'}
       ${x.slip ? ` · <button type="button" class="lnk" data-slip="${esc(x.k)}" style="padding:0;font-size:12.5px">ดูสลิป</button>` : ''}</div></div>
     ${x.st === 'ok' ? `<button type="button" class="pill ok" data-undo="${esc(x.k)}" style="border:0;cursor:pointer" aria-label="ยกเลิกการยืนยันของ ${esc(x.name)}">ได้เงินแล้ว</button>` : `<button type="button" class="btn sm ${x.st === 'told' ? 'ink' : ''}" data-ok="${esc(x.k)}">ได้เงินแล้ว</button>`}
   </div>`;
@@ -390,7 +390,7 @@ function drawTrack() {
   A.querySelectorAll('[data-undo]').forEach(x => x.onclick = () => { if (confirm('ยกเลิกการยืนยันว่าได้เงินแล้ว?')) setOk(x.dataset.undo, true, x); });
   A.querySelectorAll('[data-slip]').forEach(x => x.onclick = () => showSlip(x.dataset.slip));
   $('#nag').onclick = async () => {
-    if (!gs.some(x => x.st === 'wait')) { toast('ทุกคนแจ้งโอนแล้ว'); return; }
+    if (!gs.some(x => x.st === 'wait')) { toast('ทุกคนแจ้งจ่ายแล้ว'); return; }
     const ok = await postToChat({ type: 'text', text: 'ทวงหน่อย ' + b.title });
     toast(ok ? 'ส่งแล้ว บอทจะแท็กคนที่ยังไม่จ่าย' : 'เปิดจากในกลุ่มก่อน หรือพิมพ์ ทวง ในกลุ่ม');
   };
@@ -459,34 +459,38 @@ function drawPay() {
   }).join('');
   let qr = '', qrNote = '';
   payCanvas = null;
-  if (st === 'wait') {
+  const cash = view.method === 'cash';
+  if (st === 'wait' && cash) qrNote = 'ยื่นเงินสดให้ ' + esc(b.payer) + ' แล้วกด ฉันจ่ายแล้ว · ' + esc(b.payer) + ' จะกดยืนยันว่าได้รับ';
+  else if (st === 'wait') {
     const text = pay.qr ? emvAmount(pay.qr, due) : pay.pp ? ppPayload(pay.pp, due) : '';
     if (text) {
       try { payCanvas = qrCanvas(text, 'จ่าย ' + baht(due), b.title); qr = `<img alt="QR จ่าย ${baht(due)} ให้ ${esc(b.payer)}" src="${payCanvas.toDataURL('image/png')}">`; qrNote = (pay.qr ? 'QR ของ ' : 'พร้อมเพย์ของ ') + esc(b.payer) + ' · ใส่ยอด ' + baht(due) + ' ให้แล้ว'; } catch (e) {}
     } else if (pay.qrImg) { qr = '<div id="qrImg"><div class="spin" role="status" aria-label="กำลังโหลด QR"></div></div>'; qrNote = 'QR ของ ' + esc(b.payer) + ' · ตอนโอนพิมพ์ยอด ' + baht(due) + ' เอง'; }
     else qrNote = esc(b.payer) + ' ยังไม่ได้ตั้ง QR หรือพร้อมเพย์ ถามช่องทางโอนจากเจ้าตัวได้เลย';
   }
-  const others = (b.others || []).map(o => `<div class="item" style="padding:8px 14px"><div class="mid">${esc(o.name)}</div><span class="pill ${o.st === 'wait' ? 'warn' : 'ok'}">${o.st === 'wait' ? 'ยังไม่จ่าย' : o.st === 'ok' ? 'ได้รับแล้ว' : 'โอนแล้ว'}</span></div>`).join('');
+  const others = (b.others || []).map(o => `<div class="item" style="padding:8px 14px"><div class="mid">${esc(o.name)}</div><span class="pill ${o.st === 'wait' ? 'warn' : 'ok'}">${o.st === 'wait' ? 'ยังไม่จ่าย' : o.st === 'ok' ? 'ได้รับแล้ว' : 'จ่ายแล้ว'}</span></div>`).join('');
   $('#app').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="lbl">${esc([b.title, b.group].filter(Boolean).join(' · '))} · เห็นเฉพาะยอดของคุณ</div><span class="pill soft">คนที่ต้องจ่าย</span></div>
     <div class="sec qrbox">
       ${st !== 'wait' ? '<img src="jod-cheer.png?v=100" alt="" style="width:88px;height:88px;image-rendering:auto">' : ''}
-      <div class="lbl">${st === 'wait' ? 'ต้องโอนให้ ' + esc(b.payer) : st === 'told' ? 'แจ้งโอนแล้ว รอ ' + esc(b.payer) + ' ยืนยัน' : esc(b.payer) + ' ได้รับเงินแล้ว'}</div>
+      ${st === 'wait' ? `<div class="tabs" role="group" aria-label="ช่องทางจ่าย" style="align-self:stretch;margin-bottom:10px"><button type="button" class="tab" data-m="transfer" aria-pressed="${!cash}">โอน / สแกน QR</button><button type="button" class="tab" data-m="cash" aria-pressed="${cash}">เงินสด</button></div>` : ''}
+      <div class="lbl">${st === 'wait' ? 'ต้องจ่ายให้ ' + esc(b.payer) : st === 'told' ? (b.mine.some(m => m.via === 'cash') ? 'แจ้งจ่ายเงินสดแล้ว' : 'แจ้งจ่ายแล้ว') + ' รอ ' + esc(b.payer) + ' ยืนยัน' : esc(b.payer) + ' ได้รับเงินแล้ว'}</div>
       <div class="due">${baht(st === 'wait' ? due : b.sumS)}</div>
       <div class="brk">${brk}</div>
       ${qr ? `<div style="margin-top:10px">${qr}</div>` : ''}
       ${qrNote ? `<div class="lbl" style="text-align:center">${qrNote}</div>` : ''}
     </div>
-    ${st === 'wait' ? `<div class="row2">${payCanvas ? '<button class="btn" type="button" id="saveQr">บันทึกรูป QR</button>' : ''}<button class="btn" type="button" id="slip">แนบสลิป</button></div>
+    ${st === 'wait' && !cash ? `<div class="row2">${payCanvas ? '<button class="btn" type="button" id="saveQr">บันทึกรูป QR</button>' : ''}<button class="btn" type="button" id="slip">แนบสลิป</button></div>
       <div class="lbl" id="slipOk" style="text-align:center">แนบสลิปแล้วแมวกวักตรวจให้ ยอดตรงติ๊กจ่ายให้เลย ไม่ต้องรอ ${esc(b.payer)} ยืนยัน</div>` : ''}
-    ${st === 'told' ? `<button class="btn" type="button" id="slip2">ส่งสลิปให้แมวกวักตรวจ</button>` : ''}
+    ${st === 'told' && !b.mine.some(m => m.via === 'cash') ? `<button class="btn" type="button" id="slip2">ส่งสลิปให้แมวกวักตรวจ</button>` : ''}
     ${others ? `<div class="sec list"><div class="sec-h">คนอื่นในบิล</div>${others}</div>` : ''}`;
   if (st === 'wait') {
-    foot('<button class="btn ink" type="button" id="paid">ฉันโอนแล้ว</button>');
-    $('#paid').onclick = markPaid;
-    $('#slip').onclick = attachSlip;
+    foot(`<button class="btn ink" type="button" id="paid">${cash ? 'ฉันจ่ายเงินสดแล้ว' : 'ฉันจ่ายแล้ว'}</button>`);
+    $('#paid').onclick = () => markPaid();
+    $('#app').querySelectorAll('[data-m]').forEach(t => t.onclick = () => { view.method = t.dataset.m; drawPay(); });
+    const sl = $('#slip'); if (sl) sl.onclick = attachSlip;
     const sq = $('#saveQr'); if (sq) sq.onclick = saveQr;
-    if (pay.qrImg && !pay.qr && !pay.pp) loadQrImg();
+    if (!cash && pay.qrImg && !pay.qr && !pay.pp) loadQrImg();
   }
   const s2 = $('#slip2');
   if (s2) s2.onclick = async () => { await attachSlip(); if (slipData) markPaid(s2); };
@@ -508,13 +512,14 @@ async function attachSlip() {
   const f = await pickFile();
   if (!f) return;
   slipData = await shrink(f, 1200, 0.8);
-  const el = $('#slipOk'); if (el) el.textContent = 'แนบสลิปแล้ว กด ฉันโอนแล้ว ให้แมวกวักตรวจได้เลย';
+  const el = $('#slipOk'); if (el) el.textContent = 'แนบสลิปแล้ว กด ฉันจ่ายแล้ว ให้แมวกวักตรวจได้เลย';
   const sb = $('#slip'); if (sb) sb.textContent = 'เปลี่ยนสลิป';
 }
 async function markPaid(b2) {
   const btn = b2 && b2.nodeType ? b2 : $('#paid'); busy(btn, true);
   try {
-    const d = await call('hk_paid', { b: view.bill.id, slip: slipData || '' });
+    const cash = view.method === 'cash';
+    const d = await call('hk_paid', { b: view.bill.id, slip: cash ? '' : slipData || '', via: cash ? 'cash' : 'transfer' });
     slipData = '';
     view.bill = d.bill;
     if (d.text) await postToChat({ type: 'text', text: d.text });
