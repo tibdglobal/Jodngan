@@ -302,6 +302,7 @@ function handleLine_(events) {
     const st = ev.source && ev.source.type;
     if (st === 'group' || st === 'room') {
       try { grpHandle_(ev); } catch (err) { console.error('group: ' + (err.stack || err)); }
+      LINE_SENDER = null;   // แชทส่วนตัวในชุดเดียวกันใช้ชื่อบัญชีตามเดิม
       return;
     }
     if (ev.type !== 'postback' && (ev.type !== 'message' || !ev.message)) return;
@@ -972,7 +973,9 @@ function deleteTask_(id) {
 /* ===================== LINE API ===================== */
 
 let REPLY_PREFIX = '';   // 🎙 เสียง: ต่อหน้าข้อความตอบแรก
+let LINE_SENDER = null;  // 🐱 ในกลุ่ม: ตอบในชื่อ/รูป "แมวกวัก" แทนชื่อบัญชี (Group.gs ตั้งค่า)
 function line_(path, payload) {
+  if (LINE_SENDER && payload && Array.isArray(payload.messages)) payload.messages.forEach(m => { if (!m.sender) m.sender = LINE_SENDER; });
   if (path === 'reply' && REPLY_PREFIX && payload && payload.messages && payload.messages[0] && payload.messages[0].type === 'text') {
     payload.messages[0].text = (REPLY_PREFIX + payload.messages[0].text).slice(0, 4900);
     REPLY_PREFIX = '';

@@ -249,9 +249,11 @@ function hkCardFlex_(b, label) {
 }
 
 /* ===================== webhook ในกลุ่ม ===================== */
+const HK_SENDER = { name: 'แมวกวัก', iconUrl: HK_WEB + 'jod.png?v=2' };
 function grpHandle_(ev) {
   const src = ev.source || {}, gid = src.groupId || src.roomId, uid = src.userId || '';
   if (!gid) return;
+  LINE_SENDER = HK_SENDER;   // ทุกข้อความที่ตอบในกลุ่ม = ชื่อและรูปแมวกวัก
   const owner = props.getProperty('LINE_USER_ID');
   const cfg = grpCfg_(), g = cfg[gid];
 
@@ -1025,8 +1027,10 @@ function grpDaily_() {
     if (!g.on || !g.daily) return;
     try {
       if (!grpBills_(gid).some(b => b.members.some(m => m.st === 'wait'))) return;
+      LINE_SENDER = HK_SENDER;
       line_('push', { to: gid, messages: [].concat(grpNag_(gid, '')).slice(0, 2) });
     } catch (e) { console.warn('grpDaily ' + gid + ': ' + e); }
   });
+  LINE_SENDER = null;
   CacheService.getScriptCache().remove('quota');
 }
