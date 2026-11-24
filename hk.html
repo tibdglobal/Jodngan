@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>หารกัน · จดครบ</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #eef0ec; --card: #fff; --line: #d9ddd4; --line2: #e3e6df; --ink: #1c1f1c; --on-ink: #f4f5f1; --mute: #5f645e; --ok: #2f6b3e; --ok-bg: #e3f0e4; --warn: #8a4b1f; --warn-bg: #f4ece2; --bad: #a4462a; --link: #2f5f8a; --soft: #e2e6dd; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.5 'IBM Plex Sans Thai Looped', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+    button, input, select { font: inherit; color: inherit; }
+    .h { font-family: Anuphan, sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    .top { position: sticky; top: 0; z-index: 5; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; background: #fff; border-bottom: 1px solid var(--line); }
+    .top .t { flex: 1; font: 600 15px Anuphan, sans-serif; display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .top .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top img { width: 28px; height: 28px; }
+    .ib { all: unset; box-sizing: border-box; min-width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; border-radius: 10px; }
+    .ib:focus-visible, .btn:focus-visible, .chk:focus-visible, .tab:focus-visible, .row-btn:focus-visible, .chip:focus-visible, .lnk:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+    main { max-width: 480px; margin: 0 auto; padding: 14px 14px 120px; display: flex; flex-direction: column; gap: 12px; }
+    h1 { font: 700 21px/1.25 Anuphan, sans-serif; margin: 0; }
+    .sub, .lbl { font-size: 12.5px; color: var(--mute); }
+    .sec { background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+    .sec-h { padding: 10px 14px 4px; font-size: 12.5px; color: var(--mute); }
+    .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+    .pill.ink { background: var(--ink); color: var(--on-ink); }
+    .pill.soft { background: var(--card); border: 1px solid var(--line); color: #3a3f39; }
+    .pill.ok { background: var(--ok-bg); color: var(--ok); }
+    .pill.warn { background: var(--warn-bg); color: var(--warn); }
+    .btn { all: unset; box-sizing: border-box; display: block; text-align: center; font: 600 15px Anuphan, sans-serif; border-radius: 12px; padding: 12px 14px; cursor: pointer; background: var(--card); border: 1px solid var(--line); }
+    .btn.ink { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+    .btn.sm { font-size: 13px; padding: 8px 12px; border-radius: 10px; }
+    .btn[disabled] { opacity: .4; pointer-events: none; }
+    .row2 { display: flex; gap: 8px; }
+    .row2 > * { flex: 1; }
+    .lnk { all: unset; cursor: pointer; color: var(--link); font-weight: 600; font-size: 13px; padding: 8px 2px; }
+    .list > * + * { border-top: 1px solid var(--line2); }
+    .item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+    .item .mid { flex: 1; min-width: 0; }
+    .item .nm { font-weight: 600; font-size: 14.5px; }
+    .row-btn { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; }
+    .row-btn.item { display: flex; padding: 12px 14px; }
+    .amt { font: 700 16px Anuphan, sans-serif; font-variant-numeric: tabular-nums; text-align: right; }
+    .hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .hero > div { border-radius: 16px; padding: 12px 14px; }
+    .hero .big { font: 700 24px Anuphan, sans-serif; font-variant-numeric: tabular-nums; }
+    .hero .dark { background: var(--ink); color: var(--on-ink); }
+    .hero .dark .lbl { color: var(--on-ink); opacity: .75; }
+    .field { display: flex; flex-direction: column; gap: 3px; }
+    .field input, .field select { border: 0; border-bottom: 1px solid var(--line); padding: 5px 0; background: transparent; outline: none; font: 600 16px Anuphan, sans-serif; width: 100%; }
+    .field input:focus { border-bottom-color: var(--ink); }
+    .tabs { display: flex; gap: 4px; background: var(--soft); border-radius: 12px; padding: 4px; }
+    .tab { all: unset; box-sizing: border-box; flex: 1; text-align: center; padding: 9px 0; border-radius: 9px; font: 600 13px Anuphan, sans-serif; cursor: pointer; color: #4f544e; }
+    .tab[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+    .chk { all: unset; box-sizing: border-box; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; flex: none; border: 1.5px solid #b9bdb4; background: #fff; }
+    .chk[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
+    .chk svg { opacity: 0; } .chk[aria-pressed="true"] svg { opacity: 1; }
+    .step { display: flex; align-items: center; gap: 4px; }
+    .step button { all: unset; box-sizing: border-box; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); display: grid; place-items: center; cursor: pointer; background: #fff; font-weight: 600; }
+    .step span { min-width: 46px; text-align: center; font: 600 13px Anuphan, sans-serif; }
+    .amt-in { width: 84px; text-align: right; border: 1px solid var(--line); border-radius: 10px; padding: 8px; font: 600 14px Anuphan, sans-serif; background: #fff; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+    .chip { all: unset; box-sizing: border-box; cursor: pointer; font-size: 12.5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: #fff; }
+    .chip[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+    .dim { opacity: .45; }
+    .foot { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line); padding: 10px 14px calc(14px + env(safe-area-inset-bottom)); z-index: 6; }
+    .foot > div { max-width: 452px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+    .foot .sum { display: flex; justify-content: space-between; font-size: 13px; }
+    .bar { height: 8px; border-radius: 4px; background: var(--line2); overflow: hidden; }
+    .bar i { display: block; height: 100%; background: var(--ink); }
+    .qrbox { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 16px 16px; }
+    .qrbox .due { font: 700 38px/1.15 Anuphan, sans-serif; font-variant-numeric: tabular-nums; }
+    .qrbox img { width: min(220px, 64vw); height: auto; border-radius: 8px; image-rendering: pixelated; }
+    .qrbox img.photo { image-rendering: auto; width: min(240px, 70vw); }
+    .brk { align-self: stretch; border-top: 1px solid var(--line2); margin-top: 8px; padding-top: 6px; }
+    .brk div { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; }
+    .empty { text-align: center; color: var(--mute); padding: 22px 14px; font-size: 14px; }
+    .msg { padding: 28px 18px; text-align: center; color: var(--mute); }
+    .toast { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); background: var(--ink); color: var(--on-ink); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 20; max-width: 90vw; }
+    .err { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 10px 12px; font-size: 13.5px; }
+    dialog { border: 0; border-radius: 18px; padding: 0; width: min(440px, 94vw); }
+    dialog::backdrop { background: rgba(20, 22, 20, .45); }
+    dialog .in { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .hide { display: none !important; }
+    .sr { position: absolute; left: -9999px; }
+    .spin { width: 22px; height: 22px; border: 2.5px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: sp .8s linear infinite; margin: 0 auto; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <button class="ib hide" id="back" type="button" aria-label="ย้อนกลับ"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="t"><img src="jod.png?v=99" alt=""><span id="ttl">หารกัน</span></div>
+    <button class="ib" id="meBtn" type="button" aria-label="ชื่อและช่องทางรับเงินของฉัน"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
+  </header>
+  <main id="app"><div class="msg"><div class="spin" role="status" aria-label="กำลังโหลด"></div></div></main>
+  <div class="foot hide" id="foot"><div id="footIn"></div></div>
+  <dialog id="dlg"><div class="in" id="dlgIn"></div></dialog>
+  <input type="file" id="file" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="qrcode.js?v=99"></script>
+  <script src="hk.js?v=99"></script>
+</body>
+</html>

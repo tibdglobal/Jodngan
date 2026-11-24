@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 55;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 56;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -175,9 +175,10 @@ function doPost(e) {
     return json_({ ok: true });
   }
 
-  // 💳 หน้า QR ของบิลกลุ่ม (สาธารณะ เห็นเฉพาะบิลของลิงก์นั้น ไม่มีสิทธิ์อื่น)
-  if (body.action === 'pub_bill') {
-    try { return json_({ ok: true, bill: grpPublic_(body.t) }); }
+  // 👥 แอปหารกันในไลน์ (LIFF): ยืนยันตัวตนด้วย ID token ของ LINE ไม่ใช้ key · hk_cfg บอกแค่ไอดีแอปเล็ก
+  if (body.action === 'hk_cfg') return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '' });
+  if (/^hk_/.test(String(body.action || ''))) {
+    try { return json_(Object.assign({ ok: true }, hkApi_(body))); }
     catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
   }
 
@@ -257,6 +258,11 @@ function doPost(e) {
       }
       case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '', goals: c.goals || [] }); }
       case 'status':       return json_({ ok: true, ...statusInfo_() });
+      case 'hk_setup': {   // 👥 ตั้งค่าแอปหารกันในไลน์: ไอดีแอปเล็ก + Channel ID ของ LINE Login (ไม่ใช่ความลับ)
+        if (body.liffId != null) { if (body.liffId && !/^\d{6,14}-[A-Za-z0-9]{4,16}$/.test(String(body.liffId))) throw new Error('LIFF ID ไม่ถูกต้อง'); props.setProperty('LIFF_ID', String(body.liffId)); }
+        if (body.channel != null) { if (body.channel && !/^\d{6,14}$/.test(String(body.channel))) throw new Error('Channel ID ไม่ถูกต้อง'); props.setProperty('LIFF_CHANNEL', String(body.channel)); }
+        return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '', channel: !!props.getProperty('LIFF_CHANNEL'), groups: Object.keys(grpCfg_()).length });
+      }
       case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
       case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
       case 'money_delete': moneyDelete_(body.id); return json_({ ok: true });
@@ -422,7 +428,6 @@ function morningSummary() {
   try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
   let owe = '';
   try { owe = oweDueLine_(); } catch (e) {}
-  try { if (typeof grpDaily_ === 'function') grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }
   const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, owe, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
@@ -481,6 +486,7 @@ function checkReminders() {
     try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
     try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }        // 💾 สำรองชีตทุกวันอาทิตย์
     try { if (typeof mailTasks_ === 'function') mailTasks_(); } catch (e) { console.warn('mail: ' + e); }   // ✉️ งานจากอีเมลที่ติดป้าย จดงาน
+    try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }   // 👥 เตือนคนที่ยังไม่จ่ายในกลุ่ม 10:00 (เฉพาะกลุ่มที่เปิด)
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
