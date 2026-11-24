@@ -470,6 +470,7 @@ function drawPay() {
   $('#app').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="lbl">${esc([b.title, b.group].filter(Boolean).join(' · '))} · เห็นเฉพาะยอดของคุณ</div><span class="pill soft">คนที่ต้องจ่าย</span></div>
     <div class="sec qrbox">
+      ${st !== 'wait' ? '<img src="jod-cheer.png?v=100" alt="" style="width:88px;height:88px;image-rendering:auto">' : ''}
       <div class="lbl">${st === 'wait' ? 'ต้องโอนให้ ' + esc(b.payer) : st === 'told' ? 'แจ้งโอนแล้ว รอ ' + esc(b.payer) + ' ยืนยัน' : esc(b.payer) + ' ได้รับเงินแล้ว'}</div>
       <div class="due">${baht(st === 'wait' ? due : b.sumS)}</div>
       <div class="brk">${brk}</div>

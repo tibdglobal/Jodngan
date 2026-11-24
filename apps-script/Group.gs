@@ -194,14 +194,15 @@ function grpMention_(parts) {
 
 /* ===================== การ์ด ===================== */
 const HK_INK = '#1c1f1c', HK_MUTE = '#5f645e';
-function hkMascot_(size) { return { type: 'image', url: HK_WEB + 'jod.png', size: size || '40px', aspectRatio: '1:1', flex: 0 }; }
+/** มาสคอตแมวกวักกล้ามใหญ่: wave = ปกติ, flex = ตอนทวง, cheer = จ่ายครบ */
+function hkMascot_(size, mood) { return { type: 'image', url: HK_WEB + (mood ? 'jod-' + mood : 'jod') + '.png?v=2', size: size || '40px', aspectRatio: '1:1', flex: 0 }; }
 
 /** การ์ดเรียกใช้ (ตอบเมื่อพิมพ์ หาร / แท็กบอท) */
-function hkSummonFlex_(gid) {
+function hkSummonFlex_(gid, mood) {
   const tok = grpEnsureTok_(gid);
   return { type: 'flex', altText: 'หารกันในกลุ่มนี้ แตะเพื่อเปิด',
     contents: { type: 'bubble', size: 'kilo',
-      body: { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: [hkMascot_('44px'),
+      body: { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', contents: [hkMascot_('48px', mood),
         { type: 'box', layout: 'vertical', contents: [
           { type: 'text', text: 'หารกันในกลุ่มนี้', weight: 'bold', size: 'md', color: HK_INK },
           { type: 'text', text: 'แตะเพื่อเปิด ไม่ต้องพิมพ์คำสั่ง', size: 'xs', color: HK_MUTE, wrap: true }] }] },
@@ -232,7 +233,7 @@ function hkCardFlex_(b, label) {
     contents: { type: 'bubble', size: 'kilo',
       body: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [
         { type: 'box', layout: 'horizontal', alignItems: 'center', contents: [
-          { type: 'text', text: label || 'บิล', size: 'xs', color: '#3a3f39', flex: 1 }, hkMascot_('30px')] },
+          { type: 'text', text: label || 'บิล', size: 'xs', color: '#3a3f39', flex: 1 }, hkMascot_('34px', b.members.every(m => m.st !== 'wait') ? 'cheer' : '')] },
         { type: 'text', text: b.title || 'หารกัน', weight: 'bold', size: 'lg', wrap: true, color: HK_INK },
         { type: 'text', text: b.payer.name + ' จ่ายก่อน · ยอดของแต่ละคนดูได้เฉพาะตัวเอง', size: 'xs', color: HK_MUTE, wrap: true },
         { type: 'separator', margin: 'md' },
@@ -490,7 +491,7 @@ function grpNag_(gid, q) {
   const parts = ['🔔 ทวงหน่อยนะ\n'];
   Object.values(per).forEach(p => { parts.push({ uid: p.uid, name: p.name }, ' ' + Object.keys(p.bills).join(', ') + '\n'); });
   parts.push('\nแตะ ยอดของฉัน ดูยอดและสแกนจ่าย');
-  return [grpMention_(parts), hkSummonFlex_(gid)];
+  return [grpMention_(parts), hkSummonFlex_(gid, 'flex')];
 }
 
 function grpVoid_(gid, uid, isOwner) {
