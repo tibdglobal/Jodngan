@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 65;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 66;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -24,7 +24,6 @@ const MORNING_HOUR = 7;          // ส่งสรุปงานวันน�
 const REMIND_EVERY_MIN = 15;     // ตรวจงานที่ต้องเตือนทุก 15 นาที
 const props = PropertiesService.getScriptProperties();
 const APP_URL = 'https://tibdglobal.github.io/Jodngan/';
-const MONEY_APP_URL = 'https://nitithon-web.github.io/maewkwak/';   // 🐱 แอปเงิน (รีโป nitithon-web/maewkwak)
 
 const HELP = [
   '📝 วิธีใช้ จดครบ',
@@ -65,8 +64,6 @@ const APP_MSG = '📲 จดครบ\n' + APP_URL + '\n\nเปิดแล้�
 
 /** ลิงก์ส่วนตัว: ฝัง API key ไว้หลัง # (ไม่ถูกส่งไปที่เซิร์ฟเวอร์) เปิดแล้วใช้ได้ทันที */
 function magicMsg_() {
-  if (isMoney_()) return '💰 ลิงก์เข้าแอปเงิน ของคุณ\n' + MONEY_APP_URL + '#k=' + props.getProperty('API_KEY') +
-    '\n\nเปิดแล้วกด "เพิ่มไปยังหน้าจอโฮม" จะได้ไอคอนแอปเงินแยกจากจดครบ\n⚠️ อย่าส่งต่อลิงก์นี้ให้คนอื่น';
   return '🔑 ลิงก์เข้าใช้งาน จดครบ ของคุณ\n' + APP_URL + '#k=' + props.getProperty('API_KEY') +
     '\n\nเปิดลิงก์นี้ในเครื่องไหนก็ใช้ได้ทันที ไม่ต้องใส่ API key' +
     '\n• iPhone/iPad: ถ้าติดตั้งลงหน้าจอโฮมแล้ว ให้คัดลอกลิงก์นี้ไปวางในหน้า ⚙ ของแอป 1 ครั้ง' +
@@ -166,45 +163,18 @@ function doPost(e) {
     return json_({ ok: true });
   }
 
-  // 🔗 ระบบเงิน: รับการจับคู่จากระบบงาน (เปิด 60 นาทีหลัง setupMoney เท่านั้น)
-  if (body.action === 'pair') {
-    try { return json_(Object.assign({ ok: true }, pairAccept_(body))); }
-    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
-  }
-
-  // 👥 แอปหารกันในไลน์ (LIFF): ยืนยันตัวตนด้วย ID token ของ LINE ไม่ใช้ key · hk_cfg บอกแค่ไอดีแอปเล็ก
-  if (body.action === 'hk_cfg') return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '' });
-  if (/^hk_/.test(String(body.action || '')) && body.action !== 'hk_setup') {   // hk_setup = ของเจ้าของ ต้องมี key
-    if (splitOn_()) return json_({ ok: false, error: 'ไม่มีคำสั่งนี้' });
-    try { return json_(Object.assign({ ok: true }, hkApi_(body))); }
-    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
-  }
-
   // คำขอจากหน้าเว็บ
   if (!body.key || body.key !== props.getProperty('API_KEY')) {
     return json_({ ok: false, error: 'API key ไม่ถูกต้อง' });
   }
 
-  // 🔗 แยก 2 ระบบ: คำสั่งจากอีกฝั่ง / คำสั่งที่ไม่ใช่ของหลังบ้านนี้
-  if (/^rx_/.test(String(body.action || ''))) {
-    try { return json_(Object.assign({ ok: true }, rxHandle_(body))); }
-    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
-  }
-  const deny = splitDeny_(body.action, body);
-  if (deny) return json_({ ok: false, error: deny });
-
   // งานช้าที่ไม่แก้ชีต (AI/OCR) ทำนอกล็อก ไม่ให้คำขออื่น (และ LINE) ต้องรอจนหมดเวลา
   try {
     switch (body.action) {
-      case 'split_pair':    return json_({ ok: true, ...splitPair_(body) });
-      case 'split_migrate': return json_({ ok: true, ...splitMigrate_(body) });
       case 'ai_debug':   return json_({ ok: true, ...aiDebug_() });
       case 'ai_bench':   return json_({ ok: true, ...aiBench_(body.id, body.model, body.think) });
       case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
-      case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
-      case 'ai_flag':    return json_({ ok: true, ...aiFlag_(body) });       // 🧪 ปุ่ม AI อ่านผิด → เก็บเข้าชุดตัวอย่าง
-      case 'ai_regress': return json_({ ok: true, ...aiRegress_(body) });    // 🧪 อ่านชุดตัวอย่างซ้ำทั้งหมด
       case 'ai_health':  return json_({ ok: true, ...aiHealthInfo_() });
       case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
@@ -217,7 +187,6 @@ function doPost(e) {
       case 'audio_chunk': return json_({ ok: true, ...audioChunk_(body) });
       case 'audio_tibd':  return json_({ ok: true, copy: audioToTibd_(body) });
       case 'audio_rm':    return json_({ ok: true, removed: audioRemove_(body.id) });
-      case 'money_snap': body.__pre = preRead_(body, () => moneyFolder_(), moneyCatList_(body.type === 'in' ? 'in' : 'out')); break;
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
   } catch (err) {
@@ -259,29 +228,14 @@ function doPost(e) {
         return json_({ ok: true });
       }
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
-      case 'money_list':   return json_({ ok: true, items: moneyAll_() });
       case 'backup_now':   return json_({ ok: true, id: weeklyBackup_(true) });
-      case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || ''), !!body.work) });
+      case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || '')) });
       case 'tpl_list':     { let t = []; try { t = JSON.parse(props.getProperty('TASK_TPL') || '[]'); } catch (e) {} return json_({ ok: true, tpl: t }); }
       case 'tpl_save': {   // 📋 ชุดเช็กลิสต์ [{name, items[]}]
         const t = (Array.isArray(body.tpl) ? body.tpl : []).slice(0, 30).map(x => ({ name: String(x.name || '').trim().slice(0, 40), items: (x.items || []).map(v => String(v).trim().slice(0, 120)).filter(Boolean).slice(0, 30) })).filter(x => x.name && x.items.length);
         props.setProperty('TASK_TPL', JSON.stringify(t)); return json_({ ok: true, tpl: t });
       }
-      case 'money_cfg':    { const c = moneyCfg_(); return json_({ ok: true, budgets: c.budgets, recur: c.recur, pp: c.pp || '', goals: c.goals || [] }); }
       case 'status':       return json_({ ok: true, ...statusInfo_() });
-      case 'hk_setup': {   // 👥 ตั้งค่าแอปหารกันในไลน์: ไอดีแอปเล็ก + Channel ID ของ LINE Login (ไม่ใช่ความลับ)
-        if (body.liffId != null) { if (body.liffId && !/^\d{6,14}-[A-Za-z0-9]{4,16}$/.test(String(body.liffId))) throw new Error('LIFF ID ไม่ถูกต้อง'); props.setProperty('LIFF_ID', String(body.liffId)); }
-        if (body.channel != null) { if (body.channel && !/^\d{6,14}$/.test(String(body.channel))) throw new Error('Channel ID ไม่ถูกต้อง'); props.setProperty('LIFF_CHANNEL', String(body.channel)); }
-        return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '', channel: !!props.getProperty('LIFF_CHANNEL'), groups: Object.keys(grpCfg_()).length });
-      }
-      case 'money_cfg_set': return json_({ ok: true, ...moneyCfgSet_(body) });
-      case 'money_save':   return json_({ ok: true, item: moneySave_(body.item) });
-      case 'money_delete': moneyDelete_(body.id); return json_({ ok: true });
-      case 'owe_list':     return json_({ ok: true, docs: oweAll_() });
-      case 'owe_save':     return json_({ ok: true, docs: oweSave_(body.docs) });
-      case 'owe_delete':   oweDelete_(body.ids); return json_({ ok: true });
-      case 'owe_slip':     return json_({ ok: true, file: oweSlip_(body) });
-      case 'money_snap':   return json_({ ok: true, ...moneySnap_(body) });
       case 'inbox_list':   return json_({ ok: true, items: inboxAll_() });
       case 'inbox_save':   return json_({ ok: true, item: inboxSave_(body.item) });
       case 'inbox_delete': inboxDelete_(body.id); return json_({ ok: true });
@@ -309,14 +263,8 @@ function doPost(e) {
 
 function handleLine_(events) {
   events.forEach(ev => {
-    // 👥 กลุ่ม/ห้องแชท → หารกันในกลุ่ม (Group.gs) แยกจากแชทส่วนตัวของเจ้าของทั้งหมด
     const st = ev.source && ev.source.type;
-    if (st === 'group' || st === 'room') {
-      if (splitOn_()) return;   // หารในกลุ่มย้ายไป OA แมวกวักแล้ว EZP BOT เงียบในกลุ่ม
-      try { grpHandle_(ev); } catch (err) { console.error('group: ' + (err.stack || err)); }
-      LINE_SENDER = null;   // แชทส่วนตัวในชุดเดียวกันใช้ชื่อบัญชีตามเดิม
-      return;
-    }
+    if (st === 'group' || st === 'room') return;   // บอทงานไม่ตอบในกลุ่ม
     if (ev.type !== 'postback' && (ev.type !== 'message' || !ev.message)) return;
     const uid = ev.source && ev.source.userId;
     if (!uid) return;
@@ -326,7 +274,7 @@ function handleLine_(events) {
     if (!owner) {
       props.setProperty('LINE_USER_ID', uid);
       owner = uid;
-      reply_(ev.replyToken, ['🔗 เชื่อมบัญชีเรียบร้อย\n\n' + (isMoney_() ? MONEY_HELP : HELP), magicMsg_()]);
+      reply_(ev.replyToken, ['🔗 เชื่อมบัญชีเรียบร้อย\n\n' + HELP, magicMsg_()]);
       return;
     }
     if (uid !== owner) {
@@ -368,21 +316,14 @@ function handleLine_(events) {
     if (ev.message.type !== 'text') return;
 
     const text = ev.message.text.trim();
-    if (isMoney_()) return moneyLineText_(ev, text);   // 🐱 OA แมวกวัก: เฉพาะเรื่องเงิน
     if (/^(id|ไอดี)$/i.test(text)) return reply_(ev.replyToken, uid);
     if (/^(ช่วย|help|วิธีใช้|\?)$/i.test(text)) return reply_(ev.replyToken, HELP);
     if (/^(ลิงก์|ลิ้งค์|ลิงค์|link|แอป|app)$/i.test(text)) {
       return reply_(ev.replyToken, magicMsg_());
     }
-    if (splitOn_() && splitLineText_(text)) return withLock_(LockService.getScriptLock(), ev.replyToken, () => saveAs_(ev.replyToken, 't', text));
     if (/^(โควตา|โควต้า|quota)$/i.test(text)) return reply_(ev.replyToken, quotaText_(quota_()));
     if (/^(บิล|เบิก|เบิกเงิน)$/.test(text)) return reply_(ev.replyToken, billSummaryText_());
     if (/^(สรุปเดือน|ภาพรวม|สรุปเดือนนี้|📊)$/.test(text)) return reply_(ev.replyToken, monthOverviewText_());
-    if (/^(เงิน|สรุปเงิน|รายรับรายจ่าย|รายรับ-รายจ่าย)$/.test(text)) return reply_(ev.replyToken, moneySummaryText_());
-    // จดเงิน: ต้องมีตัวเลขต่อจากคำสั่ง หรือจบด้วยจำนวนเงิน (กัน "รับลูก 5 โมง" กลายเป็นรายรับ)
-    if (/^(จ่าย|รับ|รายจ่าย|รายรับ)\s*[\d,]+(\.\d+)?(\s|บ|$)/.test(text) || /^(จ่าย|รายจ่าย|รายรับ)\s+\S.*\s[\d,]+(\.\d+)?\s*(บาท|บ\.?)?$/.test(text) || /^รับ\s+\S.*\s[\d,]+(\.\d+)?\s*(บาท|บ\.?)$/.test(text) || /^[+-]\s*\d/.test(text)) {
-      return withLock_(LockService.getScriptLock(), ev.replyToken, () => saveAs_(ev.replyToken, /^(รับ|รายรับ|\+)/.test(text) ? 'mi' : 'mo', text));
-    }
     if (/^(ฝาก|กล่องฝาก|โน้ต|📌)$/.test(text)) return reply_(ev.replyToken, inboxSummaryText_());
     if (/^(รอจัด|รูป|รูปรอจัด)$/.test(text)) return billNextPending_(ev.replyToken, '');
     if (/^เบิก\s+/.test(text)) {
@@ -414,17 +355,6 @@ function handleLine_(events) {
       catch (err) { return reply_(ev.replyToken, 'บันทึกการ์ดไม่สำเร็จ: ' + (err.message || err)); }
     }
 
-    // 🤝 ค้างกัน: ใครค้าง · ต้นยืม 500 · ยืมต้น 500 · ต้นคืน 200 · คืนต้น 200 · หาร 1200 เอ็ม เจ
-    if (/^(ใครค้าง|ค้าง|ค้างกัน|ใครติด|หนี้|🤝)$/.test(text) || /^หาร\s/.test(text) || /(ยืม|คืน)\s*[\d,]+/.test(text)) {
-      const lk = LockService.getScriptLock();
-      if (!lk.tryLock(25000)) return reply_(ev.replyToken, 'ระบบกำลังยุ่ง ส่งข้อความเดิมอีกครั้งได้เลย');
-      let out = '';
-      try { out = oweLineText_(text); }
-      catch (err) { out = 'จดค้างกันไม่สำเร็จ: ' + (err.message || err); }
-      finally { lk.releaseLock(); }
-      if (out) return reply_(ev.replyToken, out);
-    }
-
     routeText_(ev.replyToken, text);
   });
 }
@@ -433,7 +363,6 @@ function handleLine_(events) {
 
 /** สรุปงานวันนี้ + งานค้าง + ใกล้กำหนด ส่ง 1 ข้อความตอนเช้า (ไม่มีอะไร = ไม่ส่ง) */
 function morningSummary() {
-  if (isMoney_()) return moneyMorning_();
   const tasks = readAll_();
   const pre = buildPre_(tasks);
   const q = quota_();
@@ -441,14 +370,9 @@ function morningSummary() {
   let bills = '', meet = '';
   try { bills = billLine_(); } catch (e) {}
   try { meetSync_(true); meet = meetLine_(); } catch (e) {}
-  let inbox = '', money = '';
+  let inbox = '';
   try { inbox = inboxDueLine_(); } catch (e) {}
-  let owe = '';
-  if (!splitOn_()) {   // แยกแล้ว: OA แมวกวักส่งสรุปเงินเอง
-    try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
-    try { owe = oweDueLine_(); } catch (e) {}
-  }
-  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, owe, warn].filter(Boolean).join('\n\n');
+  const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
   const sh = sheet_(), col = HEADERS.indexOf('prenoted') + 1;
@@ -494,11 +418,6 @@ function checkReminders() {
   try {
     const now = new Date();
     props.setProperty('LAST_TICK', stamp_());   // หน้าสถานะระบบ: รอบเตือนล่าสุด
-    if (isMoney_()) {   // 💰 ระบบเงิน: เตือนหารในกลุ่ม + สำรองชีตเงิน (สรุปเช้าระบบงานดึงไปรวมให้)
-      try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }
-      try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }
-      return;
-    }
     const from = Utilities.formatDate(new Date(now.getTime() - 60 * 60000), TZ, 'yyyy-MM-dd HH:mm');
     const to = Utilities.formatDate(new Date(now.getTime() + REMIND_EVERY_MIN * 60000), TZ, 'yyyy-MM-dd HH:mm');
 
@@ -511,7 +430,6 @@ function checkReminders() {
     try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
     try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }        // 💾 สำรองชีตทุกวันอาทิตย์
     try { if (typeof mailTasks_ === 'function') mailTasks_(); } catch (e) { console.warn('mail: ' + e); }   // ✉️ งานจากอีเมลที่ติดป้าย จดงาน
-    if (!splitOn_()) try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }   // 👥 เตือนคนที่ยังไม่จ่ายในกลุ่ม 10:00 (เฉพาะกลุ่มที่เปิด)
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
@@ -774,11 +692,9 @@ function skipped_() {
 const VAULT_SHEET = 'Vault';
 const VAULT_HEADERS = ['id', 'iv', 'ct', 'updated'];
 
-/** ตู้รหัส 2 ตู้: work = งาน (ตู้เดิม) · personal = ส่วนตัว (รหัสหลักแยก ชีตแยก) */
-function vs_(space) {
-  return space === 'personal'
-    ? { sheet: 'Vault2', salt: 'VAULT2_SALT', check: 'VAULT2_CHECK' }
-    : { sheet: VAULT_SHEET, salt: 'VAULT_SALT', check: 'VAULT_CHECK' };
+/** ตู้รหัสงาน (ตู้เดียว) */
+function vs_() {
+  return { sheet: VAULT_SHEET, salt: 'VAULT_SALT', check: 'VAULT_CHECK' };
 }
 
 function vaultSheet_(space) {
@@ -997,7 +913,7 @@ function deleteTask_(id) {
 /* ===================== LINE API ===================== */
 
 let REPLY_PREFIX = '';   // 🎙 เสียง: ต่อหน้าข้อความตอบแรก
-let LINE_SENDER = null;  // 🐱 ในกลุ่ม: ตอบในชื่อ/รูป "แมวกวัก" แทนชื่อบัญชี (Group.gs ตั้งค่า)
+let LINE_SENDER = null;   // ชื่อ/รูปผู้ส่งแบบกำหนดเอง (ไม่ใช้ = ชื่อบัญชี)
 function line_(path, payload) {
   if (LINE_SENDER && payload && Array.isArray(payload.messages)) payload.messages.forEach(m => { if (!m.sender) m.sender = LINE_SENDER; });
   if (path === 'reply' && REPLY_PREFIX && payload && payload.messages && payload.messages[0] && payload.messages[0].type === 'text') {
@@ -1157,12 +1073,12 @@ function statusInfo_() {
   let mail = '';
   try { mail = Session.getEffectiveUser().getEmail(); } catch (e) {}
   return {
-    ver: BACKEND_VER, now: stamp_(), account: mail, role: isMoney_() ? 'money' : 'work', split: splitOn_(), peer: !!P.PEER_URL,
+    ver: BACKEND_VER, now: stamp_(), account: mail,
     line: { token: has('LINE_TOKEN'), owner: has('LINE_USER_ID'), quota: quota },
-    ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} if (!splitOn_()) try { o.samples = aiSamples_().length; } catch (e) {} return o; })(),
+    ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} return o; })(),
     lastTick: P.LAST_TICK || '', weeklySent: P.WEEKLY_SENT || '', backup: P.BACKUP_SENT || '',
     mail: P.MAIL_ON === '1', meet: has('MEET_SHEET_ID'), bridge: has('BRIDGE_URL'),
-    vault: { work: has('VAULT_SALT'), personal: has('VAULT2_SALT') },
+    vault: { work: has('VAULT_SALT') },
     triggers: triggers, rows: counts,
   };
 }

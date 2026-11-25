@@ -203,28 +203,14 @@ function inboxToTask_(id) {
 
 /* ===================== LINE: เดาประเภทข้อความ แล้วเปลี่ยนได้ในแตะเดียว ===================== */
 
-const KIND_LABEL = { t: '✓ งาน', i: '📌 ฝากไว้', mo: '💸 รายจ่าย', mi: '💰 รายรับ' };
+const KIND_LABEL = { t: '✓ งาน', i: '📌 ฝากไว้' };
 
 function srcPut_(id, text) { try { CacheService.getScriptCache().put('src:' + id, String(text).slice(0, 2000), 21600); } catch (e) {} }
-
-/** ข้อความที่มียอดเงินแต่ไม่บอกประเภท เช่น "ข้าว 60", "60 กาแฟ" → จำนวนเงิน (ไม่ใช่ = 0) */
-function looseAmount_(text, p) {
-  if (p.date || p.time) return 0;
-  const s = String(text).trim();
-  if (s.length > 60 || /\d{1,2}\/\d{1,2}/.test(s)) return 0;
-  const m = s.match(/^\S.*?\s([\d,]+(?:\.\d{1,2})?)\s*(?:บาท|บ\.?)?$/) || s.match(/^([\d,]+(?:\.\d{1,2})?)\s*(?:บาท|บ\.?)?\s+\S/);
-  if (!m) return 0;
-  const a = Number(m[1].replace(/,/g, ''));
-  return a > 0 && a < 10000000 ? a : 0;
-}
-
-function hasAmount_(text) { return /\d/.test(String(text).replace(/\d{1,2}[:.]\d{2}|\d{1,2}\/\d{1,2}/g, '')); }
 
 /** ปุ่ม "เปลี่ยนเป็น…" ต่อท้ายทุกครั้งที่บันทึก */
 function changeItems_(from, id, src) {
   const items = [];
-  (isMoney_() ? ['mo', 'mi'] : splitOn_() ? ['t', 'i'] : ['t', 'i', 'mo', 'mi']).filter(k => k !== from).forEach(k => {
-    if ((k === 'mo' || k === 'mi') && !hasAmount_(src)) return;
+  ['t', 'i'].filter(k => k !== from).forEach(k => {
     items.push(qr_('↔ ' + KIND_LABEL[k], 'chg|' + from + '|' + id + '|' + k, 'เปลี่ยนเป็น' + KIND_LABEL[k].replace(/^\S+\s/, '')));
   });
   items.push(qr_('🗑 ยกเลิก', 'chg|' + from + '|' + id + '|x', 'ยกเลิกรายการนี้'));
@@ -238,9 +224,7 @@ function inboxLine_(o) {
 
 /** บันทึกตามประเภทที่เลือก แล้วตอบพร้อมปุ่มเปลี่ยน · คืน false ถ้าทำไม่ได้ (เช่น ไม่มียอดเงิน) */
 function saveAs_(token, kind, src, prefix) {
-  const money = kind === 'mo' || kind === 'mi';
-  if (money && splitOn_()) kind = 't';
-  if (!money && isMoney_()) { reply_(token, (prefix ? prefix + '\n' : '') + MOVED_WORK); return false; }
+  if (kind !== 'i') kind = 't';
   let id, text;
   if (kind === 't') {
     const p = parseQuick_(src);
@@ -251,10 +235,6 @@ function saveAs_(token, kind, src, prefix) {
   } else if (kind === 'i') {
     const o = inboxSave_({ text: src });
     id = o.id; text = inboxLine_(o);
-  } else {
-    const it = moneyFromChat_((kind === 'mi' ? 'รับ ' : 'จ่าย ') + String(src).replace(/^(จ่าย|รับ|รายจ่าย|รายรับ|[+-])\s*/, ''));
-    if (!it) { reply_(token, 'ไม่มียอดเงินในข้อความ ลองพิมพ์ เช่น จ่าย 120 ข้าว'); return false; }
-    id = it.id; text = moneyLineAfter_(it);
   }
   srcPut_(id, src);
   replyQR_(token, (prefix ? prefix + '\n' : '') + text, changeItems_(kind, id, src));
@@ -263,19 +243,16 @@ function saveAs_(token, kind, src, prefix) {
 
 /** ข้อความเดิมของรายการ (จากแคช หรือสร้างจากข้อมูลที่บันทึกไว้) */
 function srcOf_(kind, id) {
-  if ((kind === 'mo' || kind === 'mi') ? splitOn_() : isMoney_()) return { ok: false };   // อยู่อีกระบบแล้ว
+  if (kind !== 't' && kind !== 'i') return { ok: false };
   const c = CacheService.getScriptCache().get('src:' + id);
   if (kind === 't') { const t = readAll_().find(x => x.id === id); return t ? { ok: true, src: c || t.title } : { ok: false }; }
   if (kind === 'i') { const o = inboxAll_().find(x => x.id === id); return o ? { ok: true, src: c || o.text || o.url } : { ok: false }; }
-  const m = moneyAll_().find(x => x.id === id);
-  return m ? { ok: true, src: c || (m.note + ' ' + m.amount) } : { ok: false };
+  return { ok: false };
 }
 
 function removeAs_(kind, id) {
-  if ((kind === 'mo' || kind === 'mi') ? splitOn_() : isMoney_()) return;
   if (kind === 't') deleteTask_(id);
   else if (kind === 'i') inboxDelete_(id);
-  else moneyDelete_(id);
 }
 
 /** ข้อความทั่วไป (ไม่ใช่คำสั่ง): ดูคำนำหน้า → ไม่งั้นเดาเอง */
@@ -289,11 +266,6 @@ function routeText_(token, text) {
   if (URL_RE.test(text)) return withLock_(lock, token, () => saveAs_(token, 'i', text));
   const p = parseQuick_(text);
   if (!p.title) return;
-  // มีตัวเลขเงินแต่ไม่บอกว่าจ่าย/รับ → นับเป็นรายจ่ายไปก่อน (เปลี่ยนเป็นรับ/งาน/ฝากได้ด้วยปุ่ม)
-  if (looseAmount_(text, p)) {
-    if (splitOn_()) return withLock_(lock, token, () => saveAs_(token, 't', text));
-    return withLock_(lock, token, () => saveAs_(token, 'mo', text));
-  }
   return withLock_(lock, token, () => saveAs_(token, 't', text));
 }
 
@@ -419,7 +391,6 @@ function audioToTibd_(p) {
   const c = src.makeCopy(name, DriveApp.getFolderById(dest));
   return { id: c.getId(), name: c.getName(), url: c.getUrl() };
 }
-
 
 /* ===================== ⏰ ให้กลับมาดู + 🔍 ข้อความในรูป ===================== */
 /** รายการที่ถึงวันให้กลับมาดู (สำหรับสรุปตอนเช้า) */

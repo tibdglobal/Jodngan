@@ -270,77 +270,7 @@ function aiDiscTarget_(discName, list) {
   return pick;
 }
 
-/** หน้าหารกัน: อ่านใบเสร็จ (เก็บรูปไว้ในโฟลเดอร์รายรับรายจ่าย) แล้วส่งรายการเมนูกลับไป */
-function aiReadUpload_(p) {
-  const mime = String(p.mime || 'image/jpeg');
-  if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
-  const bytes = Utilities.base64Decode(String(p.data || ''));
-  if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
-  const date = todayStr_();
-  const file = moneyFolder_(date.slice(0, 7)).createFile(Utilities.newBlob(bytes, mime, date + '_ใบเสร็จหาร' + (mime === 'application/pdf' ? '.pdf' : '.jpg')));
-  const ocr = readDoc_(file, { cats: [] });
-  return { ocr: ocr, file: { id: file.getId(), url: file.getUrl(), mime: mime, thumb: String(p.thumb || '').slice(0, 12000) }, ai: !!props.getProperty('GEMINI_API_KEY') };
-}
-
-/* ===================== 🧪 ชุดใบเสร็จตัวอย่าง (ใบที่ AI เคยอ่านผิด) ไว้ทดสอบซ้ำ ===================== */
-const AI_SAMPLE_SHEET = 'AiSamples', AI_SAMPLE_HEADERS = ['id', 'src', 'note', 'expect', 'added', 'last', 'lastAt'];
-function aiSampleSheet_() { return grpTab_(AI_SAMPLE_SHEET, AI_SAMPLE_HEADERS); }
-function aiSampleFolder_() {
-  const id = props.getProperty('AI_SAMPLE_FOLDER_ID');
-  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
-  const f = DriveApp.createFolder('จดครบ - ตัวอย่างใบเสร็จ AI');
-  props.setProperty('AI_SAMPLE_FOLDER_ID', f.getId());
-  return f;
-}
-function aiSamples_() {
-  const sh = aiSampleSheet_(), last = sh.getLastRow();
-  if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, AI_SAMPLE_HEADERS.length).getValues().map((r, i) => ({ row: i + 2, id: String(r[0]), src: String(r[1]), note: String(r[2]), expect: Number(r[3]) || 0, added: String(r[4]), last: String(r[5]), lastAt: String(r[6]) })).filter(x => x.id);
-}
-/** ปุ่ม "AI อ่านผิด": สำเนารูปใบเสร็จเก็บเข้าชุดตัวอย่าง พร้อมยอดที่ถูก (ถ้าเจ้าของบอก) และหมายเหตุ */
-function aiFlag_(p) {
-  const srcId = String(p.fileId || '').trim();
-  if (!/^[\w-]{20,}$/.test(srcId)) throw new Error('ไม่มีรูปใบเสร็จ');
-  const note = String(p.note || '').trim().slice(0, 200), expect = Math.max(0, Number(String(p.amount || '').replace(/[,฿\s]/g, '')) || 0);
-  const sh = aiSampleSheet_(), old = aiSamples_().find(x => x.src === srcId || x.id === srcId);
-  if (old) {
-    if (note) sh.getRange(old.row, 3).setValue(note);
-    if (expect) sh.getRange(old.row, 4).setValue(String(expect));
-    return { id: old.id, count: aiSamples_().length, updated: true };
-  }
-  const src = DriveApp.getFileById(srcId);
-  const copy = src.makeCopy(todayStr_() + '_' + (note || src.getName()).replace(/[\\/:*?"<>|#]/g, ' ').slice(0, 40), aiSampleFolder_());
-  sh.appendRow([copy.getId(), srcId, note, expect ? String(expect) : '', stamp_(), '', '']);
-  return { id: copy.getId(), count: aiSamples_().length };
-}
-/** อ่านใบตัวอย่างทั้งชุดซ้ำด้วย AI ตัวปัจจุบัน (ทีละไม่เกิน 6 ใบต่อครั้ง ใช้ from ต่อ) · ไม่นับใน 🩺 สุขภาพ AI */
-function aiRegress_(p) {
-  const all = aiSamples_(), from = Math.max(0, Number(p && p.from) || 0), list = all.slice(from, from + 6), sh = aiSampleSheet_();
-  const t0 = Date.now(), results = [];
-  for (const x of list) {
-    if (Date.now() - t0 > 240000) break;
-    const out = { id: x.id, note: x.note, expect: x.expect };
-    try {
-      AI_ERRS = [];
-      const t1 = Date.now();
-      const o = aiRead_(DriveApp.getFileById(x.id), { cats: [], noHealth: true });
-      out.ms = Date.now() - t1;
-      if (!o) { out.ok = false; out.err = (AI_ERRS[0] || 'AI ไม่ตอบ').slice(0, 120); }
-      else {
-        const a = Number(o.amount) || 0, c = o.check;
-        out.amount = a; out.items = (o.items || []).length; out.disc = Math.round(((o.items || []).reduce((s, it) => s + (it.disc || 0), 0) + (o.discount || 0)) * 100) / 100;
-        out.check = c; out.model = o.model;
-        out.ok = (x.expect ? Math.abs(a - x.expect) <= 1 : true) && (!c || c.ok);
-      }
-    } catch (e) { out.ok = false; out.err = String(e.message || e).slice(0, 120); }
-    try { sh.getRange(x.row, 6, 1, 2).setValues([[JSON.stringify({ ok: out.ok, amount: out.amount, items: out.items, disc: out.disc, diff: out.check ? out.check.diff : null, err: out.err || '' }), stamp_()]]); } catch (e) {}
-    results.push(out);
-  }
-  const next = from + results.length < all.length ? from + results.length : 0;
-  return { total: all.length, from: from, next: next, pass: results.filter(r => r.ok).length, results: results };
-}
-
-/** หมวดของบิลเบิก และของรายรับรายจ่าย (ให้ AI เลือกจากรายการนี้) */
+/** หมวดของบิลเบิก (ให้ AI เลือกจากรายการนี้) */
 function billCatList_() {
   const used = billsAll_().map(b => String(b.cat || '').trim()).filter(Boolean);
   const base = ['เดินทาง', 'อาหาร/รับรอง', 'ค่าห้องประชุม', 'ที่พัก', 'อุปกรณ์/วัสดุ', 'ค่าบริการ', 'อื่นๆ'];
@@ -358,10 +288,6 @@ function aiCatHints_(cats) {
     });
     return pairs.length ? '- หมวดที่เจ้าของเคยจัดไว้ (ร้านเดียวกันหรือประเภทเดียวกันให้ใช้หมวดเดียวกัน): ' + pairs.slice(-40).join(' · ') : '';
   } catch (e) { return ''; }
-}
-function moneyCatList_(type) {
-  const base = (MONEY_CATS[type === 'in' ? 'in' : 'out'] || []).map(c => Array.isArray(c) ? c[0] : c);
-  return Array.from(new Set(base.concat(['อื่นๆ'])));
 }
 
 /** โน้ตที่ผู้โอนพิมพ์ไว้ในสลิป (OCR แบบเดิม) */
@@ -647,7 +573,7 @@ function aiMeetSummary_(p) {
   return { summary: String(j.summary || '').replace(/\*\*/g, '').trim() };
 }
 
-/* ===================== 🎙 ข้อความเสียงใน LINE → งาน / รายจ่าย / ค้างกัน / ฝาก ===================== */
+/* ===================== 🎙 ข้อความเสียงใน LINE → งาน / ฝาก ===================== */
 /* AI ฟังเสียง (นอกล็อก) → แปลงเป็นคำสั่งรูปแบบเดียวกับที่พิมพ์ แล้วส่งต่อเข้า handleLine_ เหมือนพิมพ์เอง
  * คำตอบขึ้นต้นด้วย "🎙 ได้ยินว่า …" (REPLY_PREFIX) ถ้าเดาผิด แตะ ↔ เปลี่ยนประเภทได้เหมือนข้อความปกติ */
 function lineVoice_(ev) {
@@ -669,22 +595,19 @@ function lineVoice_(ev) {
   } finally { REPLY_PREFIX = ''; }
 }
 
-
-/** 🎙 ถอดเสียง + แปลงเป็นคำสั่งแบบพิมพ์ · page = หน้าที่กดไมค์ (tasks/money/inbox) ช่วยเดาประเภท */
+/** 🎙 ถอดเสียง + แปลงเป็นคำสั่งแบบพิมพ์ · page = หน้าที่กดไมค์ (tasks/inbox) ช่วยเดาประเภท */
 function voiceParse_(bytes, mime, page) {
   const S = (type, extra) => Object.assign({ type: type }, extra || {});
-  const hint = { tasks: 'ผู้ใช้กดไมค์ในหน้า "งาน" ส่วนใหญ่จะเป็น task', money: 'ผู้ใช้กดไมค์ในหน้า "เงิน" ส่วนใหญ่จะเป็น expense หรือ income', inbox: 'ผู้ใช้กดไมค์ในหน้า "กล่องฝาก" ส่วนใหญ่จะเป็น note' }[page] || '';
+  const hint = { tasks: 'ผู้ใช้กดไมค์ในหน้า "งาน" ส่วนใหญ่จะเป็น task', inbox: 'ผู้ใช้กดไมค์ในหน้า "กล่องฝาก" ส่วนใหญ่จะเป็น note' }[page] || '';
   return aiJson_(bytes, mime, [
-    'นี่คือข้อความเสียงภาษาไทย (อาจมีอังกฤษปน) ที่เจ้าของพูดสั่งแอปจดงาน/จดเงิน วันนี้คือ ' + todayStr_() + (hint ? ' · ' + hint : ''),
+    'นี่คือข้อความเสียงภาษาไทย (อาจมีอังกฤษปน) ที่เจ้าของพูดสั่งแอปจดงาน วันนี้คือ ' + todayStr_() + (hint ? ' · ' + hint : ''),
     '1) text = ถอดคำพูดตามที่ได้ยิน ไม่แต่งเพิ่ม ถ้าไม่ได้ยินคำพูดเลยให้เว้นว่าง',
-    '2) kind = task (งาน/นัด/สิ่งที่ต้องทำ) | expense (จ่ายเงิน) | income (ได้เงิน) | owe (ยืม/คืน/หารกับเพื่อน หรือถามว่าใครค้าง) | note (ไอเดีย/ข้อมูลเก็บไว้)',
+    '2) kind = task (งาน/นัด/สิ่งที่ต้องทำ) | note (เรื่องที่อยากจดเก็บไว้ ไม่ใช่สิ่งที่ต้องทำ)',
     '3) cmd = แปลงเป็นข้อความสั้นตามรูปแบบนี้เท่านั้น ใช้ตัวเลขอารบิก เวลาแบบ 24 ชม. HH:MM',
-    '   task: "[วัน] [เวลา] ชื่องาน" วันใช้ วันนี้/พรุ่งนี้/มะรืน/จันทร์หน้า หรือ d/m เช่น "พรุ่งนี้ 10:00 ส่งรายงาน" ไม่มีวันก็ไม่ต้องใส่',
-    '   expense: "จ่าย 120 ข้าวมันไก่"   income: "รับ 25000 เงินเดือน"',
-    '   owe: "ต้นยืม 500" (เขายืมเรา) | "ยืมต้น 500" (เรายืมเขา) | "ต้นคืน 200" (เขาคืนเรา) | "คืนต้น 200" (เราคืนเขา) | "หาร ชาบู 1200 เอ็ม เจ" (เราจ่ายก่อน หารกับเพื่อน) | "ใครค้าง"',
+    '   task: "[วัน] [เวลา] ชื่องาน" วันใช้ วันนี้/พรุ่งนี้/มะรืน/จันทร์หน้า หรือ d/m เช่น "พรุ่งนี้ 10:00 ส่งรายงาน" ไม่มีวันก็ใส่แค่ชื่องาน',
     '   note: "ฝาก ข้อความ"',
   ].join('\n'), S('OBJECT', {
-    properties: { text: S('STRING'), kind: S('STRING', { enum: ['task', 'expense', 'income', 'owe', 'note'] }), cmd: S('STRING') },
+    properties: { text: S('STRING'), kind: S('STRING', { enum: ['task', 'note'] }), cmd: S('STRING') },
     required: ['text', 'kind', 'cmd'],
   }));
 }
