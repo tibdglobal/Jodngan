@@ -205,7 +205,7 @@ function replyQR_(token, text, items) {
 }
 
 function billInbox_() {
-  const root = billFolder_();
+  const root = isMoney_() ? moneyFolder_() : billFolder_();   // แมวกวัก: รูปรอจัดอยู่ในโฟลเดอร์เงิน
   const it = root.getFoldersByName('รอจัด');
   return it.hasNext() ? it.next() : root.createFolder('รอจัด');
 }
@@ -264,7 +264,7 @@ function billFromLineMedia_(ev) {
   const fid = file.getId();
 
   let ocr = {};
-  try { ocr = readDoc_(file, { cats: billCatList_().concat(moneyCatList_('out').map(c => 'ส่วนตัว:' + c)) }); } catch (e) { ocr = {}; }
+  try { ocr = readDoc_(file, { cats: isMoney_() ? moneyCatList_('out').map(c => 'ส่วนตัว:' + c) : billCatList_().concat(moneyCatList_('out').map(c => 'ส่วนตัว:' + c)) }); } catch (e) { ocr = {}; }
   // หมวดส่วนตัวที่ AI เลือก (ส่วนตัว:อาหาร) ใช้ตอนกด "💸 จ่ายส่วนตัว"
   if (/^ส่วนตัว:/.test(ocr.cat || '')) { ocr.mcat = ocr.cat.slice(7); ocr.cat = ''; }
   const kind = ocr.kind || 'receipt';
@@ -289,33 +289,39 @@ function billPendPrompt_(fid, waiting) {
   try { pend = JSON.parse(CacheService.getScriptCache().get('pend:' + fid) || '{}'); } catch (e) {}
   const ocr = pend.ocr || {}, kind = pend.kind || 'receipt', vendor = pend.vendor || '';
   const amt = Number(ocr.amount || 0);
-  const drafts = billsAll_().filter(b => b.status === 'draft')
+  const M = isMoney_(), S = splitOn_();   // แมวกวัก = เฉพาะปุ่มเงิน · EZP หลังแยก = ไม่มีปุ่มเงิน
+  const drafts = M ? [] : billsAll_().filter(b => b.status === 'draft')
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const match = drafts.filter(b => amt && Math.abs(Number(b.amount) - amt) < 0.01);
   const rest = drafts.filter(b => match.indexOf(b) < 0);
   const lbl = b => fmtBaht_(b.amount) + ' ' + b.desc;
 
   const items = [];
-  if (waiting > 1) items.push(qr_('➕ สร้างทั้งหมด ' + waiting + ' บิล', 'newall', 'สร้างบิลใหม่จากทุกรูปที่รอจัด'));
+  if (waiting > 1 && !M) items.push(qr_('➕ สร้างทั้งหมด ' + waiting + ' บิล', 'newall', 'สร้างบิลใหม่จากทุกรูปที่รอจัด'));
   match.slice(0, 3).forEach(b => items.push(qr_('✅ ' + lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
-  items.push(qr_('➕ บิลใหม่' + (amt ? ' ' + fmtBaht_(amt) : ''), 'new|' + fid, 'สร้างบิลใหม่จากรูปนี้'));
-  items.push(qr_('💸 จ่ายส่วนตัว' + (amt ? ' ' + fmtBaht_(amt) : ''), 'mout|' + fid, 'จดเป็นรายจ่ายส่วนตัว'));
-  items.push(qr_('💰 รายรับ' + (amt ? ' ' + fmtBaht_(amt) : ''), 'min|' + fid, 'จดเป็นรายรับ'));
-  if (kind === 'slip' || ocr.docType === 'slip') oweSlipButtons_(fid, amt, [vendor, ocr.memo, ocr.desc].join(' ')).forEach(b => items.push(b));
+  if (!M) items.push(qr_('➕ บิลใหม่' + (amt ? ' ' + fmtBaht_(amt) : ''), 'new|' + fid, 'สร้างบิลใหม่จากรูปนี้'));
+  if (!S) {
+    items.push(qr_('💸 จ่าย' + (M ? '' : 'ส่วนตัว') + (amt ? ' ' + fmtBaht_(amt) : ''), 'mout|' + fid, 'จดเป็นรายจ่าย' + (M ? '' : 'ส่วนตัว')));
+    items.push(qr_('💰 รายรับ' + (amt ? ' ' + fmtBaht_(amt) : ''), 'min|' + fid, 'จดเป็นรายรับ'));
+    if (kind === 'slip' || ocr.docType === 'slip') { try { oweSlipButtons_(fid, amt, [vendor, ocr.memo, ocr.desc].join(' ')).forEach(b => items.push(b)); } catch (e) {} }
+  }
   // อ่านวันที่/ยอดไม่ได้ = น่าจะไม่ใช่ใบเสร็จ → เสนอ "เก็บไว้เฉยๆ" ไว้ปุ่มแรก
-  const keep = qr_('📌 เก็บไว้เฉยๆ', 'keep|' + fid, 'เก็บรูปไว้ในกล่องฝาก');
-  if ((!amt && !ocr.date) || ocr.docType === 'other') items.unshift(keep); else items.push(keep);
-  const card = qr_('📇 การ์ดข้อมูล', 'icard|' + fid, 'ทำเป็นการ์ดข้อมูล (นามบัตร/ป้ายร้าน)');
-  if ((!amt && !ocr.date) || ocr.docType === 'other') items.splice(1, 0, card); else items.push(card);
-  rest.slice(0, 11 - items.length).forEach(b => items.push(qr_(lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
+  if (!M) {
+    const keep = qr_('📌 เก็บไว้เฉยๆ', 'keep|' + fid, 'เก็บรูปไว้ในกล่องฝาก');
+    if ((!amt && !ocr.date) || ocr.docType === 'other') items.unshift(keep); else items.push(keep);
+    const card = qr_('📇 การ์ดข้อมูล', 'icard|' + fid, 'ทำเป็นการ์ดข้อมูล (นามบัตร/ป้ายร้าน)');
+    if ((!amt && !ocr.date) || ocr.docType === 'other') items.splice(1, 0, card); else items.push(card);
+    rest.slice(0, 11 - items.length).forEach(b => items.push(qr_(lbl(b), 'att|' + fid + '|' + b.id, 'แนบกับ ' + b.desc)));
+  }
   items.push(qr_('🗑 ไม่ใช้', 'drop|' + fid, 'ไม่ใช้รูปนี้'));
 
   const got = [ocr.date ? fmt_(ocr.date, '') : '', amt ? fmtBaht_(amt) : '', vendor, ocr.memo ? '📝 ' + ocr.memo : (ocr.desc && ocr.desc !== vendor ? ocr.desc : '')].filter(Boolean).join(' · ');
   const text = (got ? '🧾 ดูเหมือน' + (KIND_NAME[kind] || 'ใบเสร็จ') + (ocr.via === 'ai' ? ' (AI อ่าน)' : '') + '\nอ่านได้: ' + got : '📷 ได้รับรูปแล้ว (ไม่เจอวันที่/ยอดเงิน)') +
-    '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n• 💸 จ่ายส่วนตัว / 💰 รายรับ\n• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)\n• 📇 การ์ดข้อมูล (นามบัตร/ป้ายร้าน)' + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
-    (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง' : '');
+    (M ? '\n\nรูปนี้คืออะไร? แตะเลือก 💸 จ่าย / 💰 รับ' + (kind === 'slip' ? ' / 💵 คืนจาก…' : '') :
+      '\n\nรูปนี้คืออะไร? แตะเลือกด้านล่าง\n• แนบบิลเบิก / ➕ บิลใหม่\n' + (S ? '' : '• 💸 จ่ายส่วนตัว / 💰 รายรับ\n') + '• 📌 เก็บไว้เฉยๆ (ไม่ใช่บิล)\n• 📇 การ์ดข้อมูล (นามบัตร/ป้ายร้าน)' + (S ? '\n💰 สลิปเงินส่วนตัว ส่งที่ LINE แมวกวัก' : '')) + (match.length ? '\n✅ = ยอดตรงกับบิลที่มี' : '') +
+    (waiting > 1 ? '\n\n📥 มีรูปรอจัด ' + waiting + ' รูป' + (M ? ' จัดทีละรูป รูปถัดไปจะขึ้นเอง' : ' แตะ "สร้างทั้งหมด" = ทำเป็นบิลใหม่ทุกรูปทีเดียว หรือจัดทีละรูป รูปถัดไปจะขึ้นเอง') : '');
   // 🔁 กันเบิกซ้ำ: มีบิลวันเดียวกัน ยอดเท่ากันอยู่แล้ว (สถานะไหนก็ได้)
-  const dup = amt && ocr.date ? billsAll_().filter(b => String(b.date) === String(ocr.date) && Math.abs(Number(b.amount) - amt) < 0.01) : [];
+  const dup = amt && ocr.date && !M ? billsAll_().filter(b => String(b.date) === String(ocr.date) && Math.abs(Number(b.amount) - amt) < 0.01) : [];
   const dupTxt = dup.length ? '\n\n⚠️ อาจซ้ำ: มีบิลวันเดียวกัน ยอดเท่ากันแล้ว ' + dup.slice(0, 2).map(b => '"' + cut_(b.desc, 30) + '" (' + ({ draft: 'ขาดหลักฐาน', ready: 'พร้อมเบิก', submitted: 'ยื่นแล้ว', paid: 'ได้เงินแล้ว' }[b.status] || b.status) + ')').join(', ') + ' ถ้าเป็นใบเดียวกันแตะ ✅ แนบกับบิลเดิม หรือ 🗑 ไม่ใช้' : '';
   const msg = { type: 'text', text: (text + dupTxt).slice(0, 4900) };
   msg.quickReply = { items: items.slice(0, 13) };
@@ -353,6 +359,7 @@ function billPostback_(ev) {
     let file;
     try { file = DriveApp.getFileById(fid); } catch (e) { reply_(ev.replyToken, 'ไม่พบรูปนี้แล้ว ลองส่งใหม่'); return; }
     if (file.isTrashed() || (file.getParents().hasNext() && file.getParents().next().getName() !== 'รอจัด')) { reply_(ev.replyToken, 'รูปนี้จัดไปแล้ว'); return; }
+    if (splitOn_()) { reply_(ev.replyToken, MOVED_MONEY + '\nส่งรูปนี้ในแชท แมวกวัก ได้เลย'); return; }
     const it = moneyFromPending_(fid, p[0] === 'min' ? 'in' : 'out', pend);
     cache.remove('pend:' + fid);
     billNextPending_(ev.replyToken, moneyLineAfter_(it) + (Number(it.amount) ? '' : '\n⚠️ อ่านยอดไม่ได้ ใส่ยอดได้ในแอป หน้า 💰'));

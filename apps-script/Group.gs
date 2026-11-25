@@ -25,7 +25,7 @@ const HKU_SHEET = 'HkUsers';
 const HKU_HEADERS = ['uid', 'name', 'nick', 'pp', 'qr', 'qrFile', 'updated', 'bank', 'acct', 'acctName'];
 /** ธนาคารที่เลือกได้ (รหัสสั้น → ชื่อ) ต้องตรงกับ BANKS ใน hk.js */
 const HK_BANKS = { kbank: 'กสิกรไทย', scb: 'ไทยพาณิชย์', bbl: 'กรุงเทพ', ktb: 'กรุงไทย', bay: 'กรุงศรีอยุธยา', ttb: 'ทหารไทยธนชาต', gsb: 'ออมสิน', baac: 'ธ.ก.ส.', ghb: 'อาคารสงเคราะห์', uob: 'ยูโอบี', cimb: 'ซีไอเอ็มบี', kkp: 'เกียรตินาคินภัทร', lhb: 'แลนด์ แอนด์ เฮ้าส์', tisco: 'ทิสโก้', icbc: 'ไอซีบีซี', other: 'อื่นๆ' };
-const HK_WEB = 'https://tibdglobal.github.io/Jodngan/';
+const HK_WEB = 'https://nitithon-web.github.io/maewkwak/';   // แอปเล็ก + รูปมาสคอต อยู่รีโปแมวกวัก
 const HK_FOLDER = 'จดครบ - หารกลุ่ม';
 const GRP_CMD = /^(แมวกวัก|น้องแมว|หาร|หารกัน|ค้าง|ใครค้าง|ใครยังไม่จ่าย|ยังไม่จ่าย|ทวง|#ทวง|ทวงหน่อย|จ่ายแล้ว|โอนแล้ว|ลบบิล|ยกเลิกบิล|พร้อมเพย์|พร้อมเพ|ชื่อ|วิธีใช้|ช่วย|help|เตือนทุกวัน|เปิดหาร|ปิดหาร)/i;
 

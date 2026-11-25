@@ -223,7 +223,7 @@ function hasAmount_(text) { return /\d/.test(String(text).replace(/\d{1,2}[:.]\d
 /** ปุ่ม "เปลี่ยนเป็น…" ต่อท้ายทุกครั้งที่บันทึก */
 function changeItems_(from, id, src) {
   const items = [];
-  ['t', 'i', 'mo', 'mi'].filter(k => k !== from).forEach(k => {
+  (isMoney_() ? ['mo', 'mi'] : splitOn_() ? ['t', 'i'] : ['t', 'i', 'mo', 'mi']).filter(k => k !== from).forEach(k => {
     if ((k === 'mo' || k === 'mi') && !hasAmount_(src)) return;
     items.push(qr_('↔ ' + KIND_LABEL[k], 'chg|' + from + '|' + id + '|' + k, 'เปลี่ยนเป็น' + KIND_LABEL[k].replace(/^\S+\s/, '')));
   });
@@ -238,6 +238,9 @@ function inboxLine_(o) {
 
 /** บันทึกตามประเภทที่เลือก แล้วตอบพร้อมปุ่มเปลี่ยน · คืน false ถ้าทำไม่ได้ (เช่น ไม่มียอดเงิน) */
 function saveAs_(token, kind, src, prefix) {
+  const money = kind === 'mo' || kind === 'mi';
+  if (money && splitOn_()) { reply_(token, (prefix ? prefix + '\n' : '') + MOVED_MONEY + '\nพิมพ์ "' + cut_(src, 60) + '" ในแชท แมวกวัก ได้เลย'); return false; }
+  if (!money && isMoney_()) { reply_(token, (prefix ? prefix + '\n' : '') + MOVED_WORK); return false; }
   let id, text;
   if (kind === 't') {
     const p = parseQuick_(src);
@@ -260,6 +263,7 @@ function saveAs_(token, kind, src, prefix) {
 
 /** ข้อความเดิมของรายการ (จากแคช หรือสร้างจากข้อมูลที่บันทึกไว้) */
 function srcOf_(kind, id) {
+  if ((kind === 'mo' || kind === 'mi') ? splitOn_() : isMoney_()) return { ok: false };   // อยู่อีกระบบแล้ว
   const c = CacheService.getScriptCache().get('src:' + id);
   if (kind === 't') { const t = readAll_().find(x => x.id === id); return t ? { ok: true, src: c || t.title } : { ok: false }; }
   if (kind === 'i') { const o = inboxAll_().find(x => x.id === id); return o ? { ok: true, src: c || o.text || o.url } : { ok: false }; }
@@ -268,6 +272,7 @@ function srcOf_(kind, id) {
 }
 
 function removeAs_(kind, id) {
+  if ((kind === 'mo' || kind === 'mi') ? splitOn_() : isMoney_()) return;
   if (kind === 't') deleteTask_(id);
   else if (kind === 'i') inboxDelete_(id);
   else moneyDelete_(id);
@@ -285,7 +290,10 @@ function routeText_(token, text) {
   const p = parseQuick_(text);
   if (!p.title) return;
   // มีตัวเลขเงินแต่ไม่บอกว่าจ่าย/รับ → นับเป็นรายจ่ายไปก่อน (เปลี่ยนเป็นรับ/งาน/ฝากได้ด้วยปุ่ม)
-  if (looseAmount_(text, p)) return withLock_(lock, token, () => saveAs_(token, 'mo', text));
+  if (looseAmount_(text, p)) {
+    if (splitOn_()) return withLock_(lock, token, () => saveAs_(token, 't', text, '💡 ถ้าเป็นรายจ่าย จดที่ LINE แมวกวัก (จดเป็นงานไว้ให้ก่อน)'));
+    return withLock_(lock, token, () => saveAs_(token, 'mo', text));
+  }
   return withLock_(lock, token, () => saveAs_(token, 't', text));
 }
 

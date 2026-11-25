@@ -209,6 +209,7 @@ function owePostback_(ev, p) {
   try { file = DriveApp.getFileById(fid); } catch (e) { reply_(ev.replyToken, 'ไม่พบรูปนี้แล้ว ลองส่งใหม่'); return; }
   if (file.isTrashed() || (file.getParents().hasNext() && file.getParents().next().getName() !== 'รอจัด')) { reply_(ev.replyToken, 'รูปนี้จัดไปแล้ว'); return; }
   if (!amt) { reply_(ev.replyToken, 'อ่านยอดในสลิปไม่ได้ พิมพ์แทนได้ เช่น ' + person + 'คืน 200'); return; }
+  if (splitOn_()) { reply_(ev.replyToken, MOVED_MONEY); return; }
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(o.date || '')) ? o.date : todayStr_();
   file.moveTo(moneyFolder_(date.slice(0, 7)));
   try { file.setName([date, 'คืนเงิน', person].join('_') + (/pdf/.test(file.getMimeType()) ? '.pdf' : '.jpg')); } catch (e) {}

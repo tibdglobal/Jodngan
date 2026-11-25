@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 60;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 64;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -24,6 +24,7 @@ const MORNING_HOUR = 7;          // ส่งสรุปงานวันน�
 const REMIND_EVERY_MIN = 15;     // ตรวจงานที่ต้องเตือนทุก 15 นาที
 const props = PropertiesService.getScriptProperties();
 const APP_URL = 'https://tibdglobal.github.io/Jodngan/';
+const MONEY_APP_URL = 'https://nitithon-web.github.io/maewkwak/';   // 🐱 แอปเงิน (รีโป nitithon-web/maewkwak)
 
 const HELP = [
   '📝 วิธีใช้ จดครบ',
@@ -44,7 +45,7 @@ const HELP = [
   '• โควตา = ดูโควตาข้อความ LINE เดือนนี้',
   '• เบิก 350 ค่าแท็กซี่ = จดบิลรอเบิก',
   '• บิล = สรุปยอดเบิกเงิน',
-  '• ส่งรูป/PDF = เลือกได้: แนบบิล / จ่ายส่วนตัว / 📌 เก็บไว้เฉยๆ / 📇 การ์ดข้อมูล (นามบัตร)',
+  '• ส่งรูป/PDF = เลือกได้: แนบบิล / ➕ บิลใหม่ / 📌 เก็บไว้เฉยๆ / 📇 การ์ดข้อมูล (นามบัตร)',
   '',
   'บอทเดาประเภทให้ ถ้าผิดแตะ ↔ เปลี่ยนได้ทันที',
   '• ส่งลิงก์ = 📌 ฝากไว้ (ไม่กลายเป็นงาน)',
@@ -52,22 +53,11 @@ const HELP = [
   '• ข้อมูล ชื่อ เบอร์ อีเมล ... = 📇 การ์ดข้อมูล (AI แยกช่องให้)',
   '• งาน ข้อความ = บังคับเป็นงาน',
   '• ฝาก = ดูของที่ฝากไว้ล่าสุด',
-  '• ข้าว 60 (ไม่บอกจ่าย/รับ) = นับเป็นรายจ่าย',
   '',
-  'รายรับ-รายจ่ายส่วนตัว',
-  '• จ่าย 120 ข้าว (หรือ -120 ข้าว)',
-  '• รับ 25000 เงินเดือน (หรือ +25000)',
-  '• เงิน = สรุปรายรับรายจ่ายเดือนนี้',
+  '🎙 ส่งข้อความเสียงได้เลย เช่น "พรุ่งนี้สิบโมงส่งรายงาน" ระบบฟังแล้วจดให้',
+  '• สรุปเดือน = ภาพรวมเดือนนี้ (งาน เบิก)',
   '',
-  '🤝 ค้างกัน (ไม่นับเป็นรายจ่าย/รายรับ)',
-  '• ใครค้าง = สรุปใครค้างเรา / เราค้างใคร',
-  '• ต้นยืม 500 / ยืมต้น 500',
-  '• ต้นคืน 200 / คืนต้น 200',
-  '• หาร 1200 เอ็ม เจ (หรือ หาร ชาบู 1200 เอ็ม เจ) = เราจ่ายไปก่อน หารเท่ากัน',
-  '• ส่งสลิปโอน → ปุ่ม 💵 คืนจาก… ได้',
-  '',
-  '🎙 ส่งข้อความเสียงได้เลย เช่น "พรุ่งนี้สิบโมงส่งรายงาน" "จ่ายค่าข้าวหกสิบ" "ต้นยืมห้าร้อย" ระบบฟังแล้วจดให้',
-  '• สรุปเดือน = ภาพรวมเดือนนี้ (งาน เงิน เบิก ค้างกัน)',
+  '💰 รายรับรายจ่าย ค้างกัน หารกัน → จดที่ LINE "แมวกวัก" (@912spdex)',
   '',
   '✉️ ติดป้าย "จดงาน" ที่อีเมลใน Gmail → กลายเป็นงานพร้อมลิงก์กลับไปที่อีเมล (ภายใน 15 นาที)',
 ].join('\n');
@@ -76,6 +66,8 @@ const APP_MSG = '📲 จดครบ\n' + APP_URL + '\n\nเปิดแล้�
 
 /** ลิงก์ส่วนตัว: ฝัง API key ไว้หลัง # (ไม่ถูกส่งไปที่เซิร์ฟเวอร์) เปิดแล้วใช้ได้ทันที */
 function magicMsg_() {
+  if (isMoney_()) return '💰 ลิงก์เข้าแอปเงิน ของคุณ\n' + MONEY_APP_URL + '#k=' + props.getProperty('API_KEY') +
+    '\n\nเปิดแล้วกด "เพิ่มไปยังหน้าจอโฮม" จะได้ไอคอนแอปเงินแยกจากจดครบ\n⚠️ อย่าส่งต่อลิงก์นี้ให้คนอื่น';
   return '🔑 ลิงก์เข้าใช้งาน จดครบ ของคุณ\n' + APP_URL + '#k=' + props.getProperty('API_KEY') +
     '\n\nเปิดลิงก์นี้ในเครื่องไหนก็ใช้ได้ทันที ไม่ต้องใส่ API key' +
     '\n• iPhone/iPad: ถ้าติดตั้งลงหน้าจอโฮมแล้ว ให้คัดลอกลิงก์นี้ไปวางในหน้า ⚙ ของแอป 1 ครั้ง' +
@@ -175,9 +167,16 @@ function doPost(e) {
     return json_({ ok: true });
   }
 
+  // 🔗 ระบบเงิน: รับการจับคู่จากระบบงาน (เปิด 60 นาทีหลัง setupMoney เท่านั้น)
+  if (body.action === 'pair') {
+    try { return json_(Object.assign({ ok: true }, pairAccept_(body))); }
+    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
+  }
+
   // 👥 แอปหารกันในไลน์ (LIFF): ยืนยันตัวตนด้วย ID token ของ LINE ไม่ใช้ key · hk_cfg บอกแค่ไอดีแอปเล็ก
   if (body.action === 'hk_cfg') return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '' });
   if (/^hk_/.test(String(body.action || '')) && body.action !== 'hk_setup') {   // hk_setup = ของเจ้าของ ต้องมี key
+    if (splitOn_()) return json_({ ok: false, error: 'ระบบหารกันย้ายไปแล้ว ปิดแล้วเปิดแอปใหม่อีกครั้ง' });
     try { return json_(Object.assign({ ok: true }, hkApi_(body))); }
     catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
   }
@@ -187,9 +186,19 @@ function doPost(e) {
     return json_({ ok: false, error: 'API key ไม่ถูกต้อง' });
   }
 
+  // 🔗 แยก 2 ระบบ: คำสั่งจากอีกฝั่ง / คำสั่งที่ไม่ใช่ของหลังบ้านนี้
+  if (/^rx_/.test(String(body.action || ''))) {
+    try { return json_(Object.assign({ ok: true }, rxHandle_(body))); }
+    catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
+  }
+  const deny = splitDeny_(body.action, body);
+  if (deny) return json_({ ok: false, error: deny });
+
   // งานช้าที่ไม่แก้ชีต (AI/OCR) ทำนอกล็อก ไม่ให้คำขออื่น (และ LINE) ต้องรอจนหมดเวลา
   try {
     switch (body.action) {
+      case 'split_pair':    return json_({ ok: true, ...splitPair_(body) });
+      case 'split_migrate': return json_({ ok: true, ...splitMigrate_(body) });
       case 'ai_debug':   return json_({ ok: true, ...aiDebug_() });
       case 'ai_bench':   return json_({ ok: true, ...aiBench_(body.id, body.model, body.think) });
       case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
@@ -253,7 +262,7 @@ function doPost(e) {
       case 'claim_idcard': return json_({ ok: true, ...claimIdCard_(body) });
       case 'money_list':   return json_({ ok: true, items: moneyAll_() });
       case 'backup_now':   return json_({ ok: true, id: weeklyBackup_(true) });
-      case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || '')) });
+      case 'month_overview': return json_({ ok: true, ...monthOverview_(String(body.month || ''), !!body.work) });
       case 'tpl_list':     { let t = []; try { t = JSON.parse(props.getProperty('TASK_TPL') || '[]'); } catch (e) {} return json_({ ok: true, tpl: t }); }
       case 'tpl_save': {   // 📋 ชุดเช็กลิสต์ [{name, items[]}]
         const t = (Array.isArray(body.tpl) ? body.tpl : []).slice(0, 30).map(x => ({ name: String(x.name || '').trim().slice(0, 40), items: (x.items || []).map(v => String(v).trim().slice(0, 120)).filter(Boolean).slice(0, 30) })).filter(x => x.name && x.items.length);
@@ -304,6 +313,7 @@ function handleLine_(events) {
     // 👥 กลุ่ม/ห้องแชท → หารกันในกลุ่ม (Group.gs) แยกจากแชทส่วนตัวของเจ้าของทั้งหมด
     const st = ev.source && ev.source.type;
     if (st === 'group' || st === 'room') {
+      if (splitOn_()) return;   // หารในกลุ่มย้ายไป OA แมวกวักแล้ว EZP BOT เงียบในกลุ่ม
       try { grpHandle_(ev); } catch (err) { console.error('group: ' + (err.stack || err)); }
       LINE_SENDER = null;   // แชทส่วนตัวในชุดเดียวกันใช้ชื่อบัญชีตามเดิม
       return;
@@ -317,7 +327,7 @@ function handleLine_(events) {
     if (!owner) {
       props.setProperty('LINE_USER_ID', uid);
       owner = uid;
-      reply_(ev.replyToken, ['🔗 เชื่อมบัญชีเรียบร้อย\n\n' + HELP, magicMsg_()]);
+      reply_(ev.replyToken, ['🔗 เชื่อมบัญชีเรียบร้อย\n\n' + (isMoney_() ? MONEY_HELP : HELP), magicMsg_()]);
       return;
     }
     if (uid !== owner) {
@@ -359,9 +369,13 @@ function handleLine_(events) {
     if (ev.message.type !== 'text') return;
 
     const text = ev.message.text.trim();
+    if (isMoney_()) return moneyLineText_(ev, text);   // 🐱 OA แมวกวัก: เฉพาะเรื่องเงิน
     if (/^(id|ไอดี)$/i.test(text)) return reply_(ev.replyToken, uid);
     if (/^(ช่วย|help|วิธีใช้|\?)$/i.test(text)) return reply_(ev.replyToken, HELP);
-    if (/^(ลิงก์|ลิ้งค์|ลิงค์|link|แอป|app)$/i.test(text)) return reply_(ev.replyToken, magicMsg_());
+    if (/^(ลิงก์|ลิ้งค์|ลิงค์|link|แอป|app)$/i.test(text)) {
+      return reply_(ev.replyToken, [magicMsg_()].concat(splitOn_() ? ['💰 แอปเงิน: พิมพ์ ลิงก์ ในแชท LINE แมวกวัก'] : []));
+    }
+    if (splitOn_() && splitLineText_(text)) return reply_(ev.replyToken, MOVED_MONEY);
     if (/^(โควตา|โควต้า|quota)$/i.test(text)) return reply_(ev.replyToken, quotaText_(quota_()));
     if (/^(บิล|เบิก|เบิกเงิน)$/.test(text)) return reply_(ev.replyToken, billSummaryText_());
     if (/^(สรุปเดือน|ภาพรวม|สรุปเดือนนี้|📊)$/.test(text)) return reply_(ev.replyToken, monthOverviewText_());
@@ -420,6 +434,7 @@ function handleLine_(events) {
 
 /** สรุปงานวันนี้ + งานค้าง + ใกล้กำหนด ส่ง 1 ข้อความตอนเช้า (ไม่มีอะไร = ไม่ส่ง) */
 function morningSummary() {
+  if (isMoney_()) return moneyMorning_();
   const tasks = readAll_();
   const pre = buildPre_(tasks);
   const q = quota_();
@@ -429,9 +444,11 @@ function morningSummary() {
   try { meetSync_(true); meet = meetLine_(); } catch (e) {}
   let inbox = '', money = '';
   try { inbox = inboxDueLine_(); } catch (e) {}
-  try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
   let owe = '';
-  try { owe = oweDueLine_(); } catch (e) {}
+  if (!splitOn_()) {   // แยกแล้ว: OA แมวกวักส่งสรุปเงินเอง
+    try { money = moneyDaily_(); } catch (e) { console.warn('moneyDaily: ' + e); }
+    try { owe = oweDueLine_(); } catch (e) {}
+  }
   const msg = [buildToday_(tasks), pre.text, meet, bills, inbox, money, owe, warn].filter(Boolean).join('\n\n');
   if (!msg) return;
   push_(msg);
@@ -478,6 +495,11 @@ function checkReminders() {
   try {
     const now = new Date();
     props.setProperty('LAST_TICK', stamp_());   // หน้าสถานะระบบ: รอบเตือนล่าสุด
+    if (isMoney_()) {   // 💰 ระบบเงิน: เตือนหารในกลุ่ม + สำรองชีตเงิน (สรุปเช้าระบบงานดึงไปรวมให้)
+      try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }
+      try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }
+      return;
+    }
     const from = Utilities.formatDate(new Date(now.getTime() - 60 * 60000), TZ, 'yyyy-MM-dd HH:mm');
     const to = Utilities.formatDate(new Date(now.getTime() + REMIND_EVERY_MIN * 60000), TZ, 'yyyy-MM-dd HH:mm');
 
@@ -490,7 +512,7 @@ function checkReminders() {
     try { weeklySummary_(false); } catch (e) { console.warn('weekly: ' + e); }   // 📊 สรุปสัปดาห์ ศุกร์ 17:00
     try { weeklyBackup_(); } catch (e) { console.warn('backup: ' + e); }        // 💾 สำรองชีตทุกวันอาทิตย์
     try { if (typeof mailTasks_ === 'function') mailTasks_(); } catch (e) { console.warn('mail: ' + e); }   // ✉️ งานจากอีเมลที่ติดป้าย จดงาน
-    try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }   // 👥 เตือนคนที่ยังไม่จ่ายในกลุ่ม 10:00 (เฉพาะกลุ่มที่เปิด)
+    if (!splitOn_()) try { grpDaily_(); } catch (e) { console.warn('grpDaily: ' + e); }   // 👥 เตือนคนที่ยังไม่จ่ายในกลุ่ม 10:00 (เฉพาะกลุ่มที่เปิด)
     if (!due.length) return;
 
     push_('⏰ เตือน\n' + due.map(t => '• ' + t.time + ' ' + t.title + tag_(t)).join('\n'));
@@ -1136,9 +1158,9 @@ function statusInfo_() {
   let mail = '';
   try { mail = Session.getEffectiveUser().getEmail(); } catch (e) {}
   return {
-    ver: BACKEND_VER, now: stamp_(), account: mail,
+    ver: BACKEND_VER, now: stamp_(), account: mail, role: isMoney_() ? 'money' : 'work', split: splitOn_(), peer: !!P.PEER_URL,
     line: { token: has('LINE_TOKEN'), owner: has('LINE_USER_ID'), quota: quota },
-    ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} try { o.samples = aiSamples_().length; } catch (e) {} return o; })(),
+    ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} if (!splitOn_()) try { o.samples = aiSamples_().length; } catch (e) {} return o; })(),
     lastTick: P.LAST_TICK || '', weeklySent: P.WEEKLY_SENT || '', backup: P.BACKUP_SENT || '',
     mail: P.MAIL_ON === '1', meet: has('MEET_SHEET_ID'), bridge: has('BRIDGE_URL'),
     vault: { work: has('VAULT_SALT'), personal: has('VAULT2_SALT') },
