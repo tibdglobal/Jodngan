@@ -341,6 +341,7 @@ async function readReceipt() {
     if (r.items && r.items.length) {
       const dishes = r.items.filter(it => !DISC_RE.test(it.name)), discs = r.items.filter(it => DISC_RE.test(it.name));
       // ส่วนลดที่บอกชื่อเมนู → หักจากเมนูนั้น · ไม่บอก (เช่น Meal Deal) → ส่วนลดท้ายบิล หารตามสัดส่วน
+      dishes.forEach(it => { discTotal += it.cut || 0; });   // ส่วนลดที่หลังบ้านหักจากเมนูให้แล้ว
       discs.forEach(d => {
         const t = discTarget(d.name, dishes);
         discTotal += d.price;
@@ -361,7 +362,8 @@ async function readReceipt() {
       cs.total = plain(itemsS - toS(billDisc) - toS(r.discount || 0)); cs.touched = !!(billDisc || r.discount);
     } else if (r.amount) { cs.total = String(r.amount); cs.touched = true; }
     if (!cs.title && r.vendor) cs.title = r.vendor;
-    toast(cs.items.length ? 'อ่านได้ ' + cs.items.length + ' รายการ' + (discTotal ? ' หักส่วนลด ' + baht(toS(discTotal)) + ' แล้ว' : '') + ' แตะชื่อคนที่กินแต่ละเมนู' : 'อ่านได้แค่ยอดรวม');
+    if (r.check && !r.check.ok && cs.items.length) toast('⚠️ เมนูที่อ่านได้รวมแล้วไม่ตรงยอดใบเสร็จ (ต่าง ' + baht(toS(Math.abs(r.check.diff))) + ') เช็กเมนูกับใบเสร็จอีกครั้ง');
+    else toast(cs.items.length ? 'อ่านได้ ' + cs.items.length + ' รายการ' + (discTotal ? ' หักส่วนลด ' + baht(toS(discTotal)) + ' แล้ว' : '') + ' แตะชื่อคนที่กินแต่ละเมนู' : 'อ่านได้แค่ยอดรวม');
   } catch (e) { toast(e.message); }
   drawCreate();
 }

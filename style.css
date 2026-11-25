@@ -1419,6 +1419,9 @@ body.split { --accent: #c2571a; --accent-soft: color-mix(in srgb, #c2571a 12%, t
 .s-rcpt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .s-rcpt .s-read { flex: 1; min-height: 44px; border-radius: 12px; border: 1px dashed var(--accent-line); background: var(--card); color: var(--accent); font-weight: 600; font-size: calc(14px * var(--fs, 1)); }
 .s-rcpt small { width: 100%; color: var(--muted); }
+.s-rcpt small.s-warn { color: #b45309; font-weight: 600; }
+.s-rcpt .s-flag { min-height: 32px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); text-decoration: underline; }
+@media (prefers-color-scheme: dark) { .s-rcpt small.s-warn { color: #fbbf24; } }
 .d-tr { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); margin-bottom: 8px; }
 .d-tr.ok { opacity: .7; }
 .d-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

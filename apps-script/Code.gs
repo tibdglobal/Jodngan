@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 59;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 60;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -195,6 +195,9 @@ function doPost(e) {
       case 'ai_status':  return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), model: props.getProperty('GEMINI_MODEL') || AI_MODELS[0] });
       case 'ai_compare': return json_({ ok: true, ai: !!props.getProperty('GEMINI_API_KEY'), results: aiCompare_(body.ids, body.data, body.mime) });
       case 'ai_read':    return json_({ ok: true, ...aiReadUpload_(body) });
+      case 'ai_flag':    return json_({ ok: true, ...aiFlag_(body) });       // 🧪 ปุ่ม AI อ่านผิด → เก็บเข้าชุดตัวอย่าง
+      case 'ai_regress': return json_({ ok: true, ...aiRegress_(body) });    // 🧪 อ่านชุดตัวอย่างซ้ำทั้งหมด
+      case 'ai_health':  return json_({ ok: true, ...aiHealthInfo_() });
       case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
       case 'ai_voice':   return json_({ ok: true, ...aiVoice_(body) });   // 🎙 ปุ่มไมค์ในแอป
@@ -1135,7 +1138,7 @@ function statusInfo_() {
   return {
     ver: BACKEND_VER, now: stamp_(), account: mail,
     line: { token: has('LINE_TOKEN'), owner: has('LINE_USER_ID'), quota: quota },
-    ai: { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] },
+    ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} try { o.samples = aiSamples_().length; } catch (e) {} return o; })(),
     lastTick: P.LAST_TICK || '', weeklySent: P.WEEKLY_SENT || '', backup: P.BACKUP_SENT || '',
     mail: P.MAIL_ON === '1', meet: has('MEET_SHEET_ID'), bridge: has('BRIDGE_URL'),
     vault: { work: has('VAULT_SALT'), personal: has('VAULT2_SALT') },

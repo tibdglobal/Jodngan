@@ -566,7 +566,9 @@ function paintSplit() {
       ${many ? `<div class="s-bh"><input class="s-btitle" placeholder="บิลที่ ${bi + 1} เช่น ที่พัก" value="${esc(b.title)}"><button type="button" class="mini s-rm" aria-label="ลบบิล">🗑</button></div>` : ''}
       <div class="s-rcpt">${b.file ? `<a href="${esc(b.file.url)}" target="_blank" rel="noopener" class="s-rthumb">${b.file.thumb ? `<img src="${b.file.thumb}" alt="">` : '🧾'}</a>` : ''}
         <button type="button" class="s-read">${b.file ? '📷 อ่านใบเสร็จใหม่' : '📷 ถ่าย/อัปใบเสร็จ ให้ AI อ่านเมนู'}</button>
-        ${b.rTotal ? `<small>ยอดในใบเสร็จ ${bahtS(toS(b.rTotal))}</small>` : ''}</div>
+        ${b.rTotal ? `<small>ยอดในใบเสร็จ ${bahtS(toS(b.rTotal))}</small>` : ''}
+        ${b.aiCheck && !b.aiCheck.ok ? `<small class="s-warn">⚠️ เมนูที่ AI อ่านรวมกันแล้วไม่ตรงยอด (ต่าง ${bahtS(toS(Math.abs(b.aiCheck.diff)))}) เช็กเมนูกับใบเสร็จก่อนบันทึก</small>` : ''}
+        ${b.file && b.file.id ? `<button type="button" class="link-btn s-flag" ${b.flagged ? 'disabled' : ''}>${b.flagged ? '✓ ส่งให้ทดสอบแล้ว' : 'AI อ่านผิด?'}</button>` : ''}</div>
       <label>ใครจ่ายไปก่อน <select class="s-payer">${sp.people.map(p => `<option value="${esc(p)}" ${p === b.payer ? 'selected' : ''}>${esc(who(p))}</option>`).join('')}</select></label>
       <div class="seg s-method">${[['equal', 'หารเท่ากัน'], ['custom', 'ระบุเอง'], ['menu', 'ตามเมนู']].map(([v, t]) => `<button type="button" data-v="${v}" class="${b.method === v ? 'on' : ''}">${t}</button>`).join('')}</div>
       <div class="s-body"></div>`;
@@ -599,6 +601,8 @@ function paintSplit() {
     }
     el.querySelector('.s-payer').onchange = e => { b.payer = e.target.value; paintSum(); };
     el.querySelector('.s-read').onclick = () => readReceiptFor(b);
+    const fl = el.querySelector('.s-flag');
+    if (fl) fl.onclick = () => flagReceipt(b);
     el.querySelector('.s-method').onclick = e => {
       const c = e.target.closest('button'); if (!c) return;
       b.method = c.dataset.v;
@@ -632,6 +636,7 @@ async function onReceiptFile(e) {
     const r = await api('ai_read', { data: p.data, mime: p.mime, thumb: p.thumb, for: 'split' });
     const o = r.ocr || {};
     b.file = r.file;
+    b.aiCheck = o.check || null; b.flagged = false;
     if (o.amount) b.rTotal = Number(o.amount);
     if (!b.title && o.vendor && sp.bills.length > 1) b.title = o.vendor;
     if (!$('#sForm').elements.title.value.trim() && (o.vendor || o.desc)) $('#sForm').elements.title.value = o.vendor || o.desc;
@@ -661,9 +666,22 @@ async function onReceiptFile(e) {
       : o.via === 'ocr' ? '⚠️ ตอนนี้ AI ไม่ตอบ อ่านได้แค่ยอดรวม ลองกดอ่านใบเสร็จใหม่อีกครั้งในอีกสักครู่'
       : items.length >= 2 ? `🧾 AI อ่านได้ ${items.length} รายการ${items.some(it => it.disc) ? ` (มีส่วนลด ${items.filter(it => it.disc).length} รายการ)` : ''} แตะชื่อคนใต้แต่ละเมนูให้ตรงกับคนกิน`
       : o.amount ? `🧾 อ่านยอดได้ ${bahtS(toS(o.amount))} (ไม่เจอรายการเมนู)` : '📷 เก็บรูปแล้ว แต่อ่านไม่ได้ กรอกเองได้เลย';
-    toast(msg);
+    toast(o.check && !o.check.ok && items.length >= 2 ? `⚠️ AI อ่านได้ ${items.length} รายการ แต่รวมแล้วไม่ตรงยอดใบเสร็จ (ต่าง ${bahtS(toS(Math.abs(o.check.diff)))}) เช็กเมนูอีกครั้ง ถ้าผิดกด "AI อ่านผิด?"` : msg);
   } catch (err) { showStatus('อ่านใบเสร็จไม่สำเร็จ: ' + err.message); }
   finally { busyEnd(); }
+}
+
+/* 🧪 AI อ่านผิด → ส่งรูปเข้าชุดใบเสร็จตัวอย่าง (หลังบ้านใช้ทดสอบ AI ซ้ำทุกครั้งที่ปรับ) */
+async function flagReceipt(b) {
+  if (!b.file || !b.file.id) return;
+  const amt = prompt('ยอดที่ถูกต้องในใบเสร็จ (ไม่ทราบเว้นว่างได้)', b.rTotal ? String(b.rTotal) : '');
+  if (amt === null) return;
+  const note = prompt('อ่านผิดตรงไหน (เช่น ส่วนลดหาย, เมนูขาด) เว้นว่างได้', '') || '';
+  try {
+    const r = await api('ai_flag', { fileId: b.file.id, amount: amt, note: note });
+    b.flagged = true; paintSplit();
+    toast(`🧪 เก็บเป็นใบตัวอย่างแล้ว (มี ${r.count} ใบ) ไว้ทดสอบ AI รอบหน้า`);
+  } catch (err) { showStatus('ส่งไม่สำเร็จ: ' + err.message); }
 }
 
 function paintSum() {

@@ -37,6 +37,7 @@ function remote(r) {
     ${row(r.line.token && r.line.owner, 'LINE OA', r.line.token && r.line.owner ? 'เชื่อมแล้ว' : 'ยังไม่ครบ')}
     ${q ? row(!q.limit || q.used < q.limit * 0.8 ? true : null, 'โควตาข้อความ LINE เดือนนี้', qTxt) : ''}
     ${row(r.ai.key, 'AI อ่านใบเสร็จ / เสียง', r.ai.key ? esc(r.ai.model) : 'ยังไม่ใส่ key', '<button type="button" class="link-btn" id="stAi">ทดสอบ</button>')}
+    ${aiHealthRow(r.ai)}
     ${row(bk <= 8 ? true : null, 'สำรองชีตรายสัปดาห์', r.backup ? ago(r.backup) : 'ยังไม่เคย', '<button type="button" class="link-btn" id="stBk">สำรองตอนนี้</button>')}
     ${row(r.weeklySent ? true : null, 'สรุปสัปดาห์ (ศุกร์ 17:00)', r.weeklySent ? 'ส่งล่าสุด ' + esc(r.weeklySent) : 'ยังไม่เคยส่ง')}
     ${row(r.mail ? true : null, '✉️ งานจากอีเมล (ป้าย จดงาน)', r.mail ? 'เปิดใช้' : 'ยังไม่เปิด')}
@@ -44,6 +45,16 @@ function remote(r) {
     ${row(r.bridge ? true : null, '📅 ปฏิทิน (สะพาน)', r.bridge ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.vault.work || r.vault.personal ? true : null, '🔐 ตู้รหัส', [r.vault.work ? 'งาน' : '', r.vault.personal ? 'ส่วนตัว' : ''].filter(Boolean).join(' + ') || 'ยังไม่ตั้ง')}
   </ul>${rows ? `<p class="hint">ข้อมูลในชีต: ${rows}</p>` : ''}<p class="hint" id="stMsg"></p></section>`;
+}
+
+/* 🩺 AI วันนี้: อ่านสำเร็จ/ไม่ตอบ · รุ่นที่ใช้อยู่ · error ล่าสุด · ชุดใบเสร็จตัวอย่าง */
+function aiHealthRow(ai) {
+  const h = ai && ai.health;
+  if (!ai || !ai.key || !h) return '';
+  const bad = h.fail >= 3 ? false : h.fail ? null : true;
+  const sub = [h.switched ? `สลับไปใช้รุ่นสำรอง ${esc(h.use)} ชั่วคราว` : '', h.last && h.fail ? `ล่าสุด ${esc(h.last.model)}: ${esc(h.last.msg)}` : '', h.prev ? `เมื่อวาน สำเร็จ ${h.prev.ok} · ไม่ตอบ ${h.prev.fail}` : ''].filter(Boolean).join('<br>');
+  return row(bad, 'AI วันนี้', `สำเร็จ ${h.ok} · ไม่ตอบ ${h.fail}`, sub) +
+    row(ai.samples ? true : null, '🧪 ใบเสร็จตัวอย่าง (ที่ AI เคยอ่านผิด)', ai.samples ? ai.samples + ' ใบ' : 'ยังไม่มี', ai.samples ? '<button type="button" class="link-btn" id="stReg">ทดสอบ AI กับทุกใบ</button>' : 'กด "AI อ่านผิด?" ในหน้าหารกัน เพื่อเก็บใบไว้ทดสอบ');
 }
 
 async function load() {
@@ -67,6 +78,20 @@ function bind() {
     $('#stMsg').textContent = 'กำลังทดสอบ AI…';
     try { const r = await api('ai_debug'); const ok = (r.tries || []).find(t => t.code === 200 || t.ok); $('#stMsg').textContent = ok ? `✅ AI ตอบได้ (${ok.model || ''}${ok.ms ? ' · ' + (ok.ms / 1000).toFixed(1) + ' วิ' : ''})` : '⚠️ ' + ((r.tries || [])[0] ? JSON.stringify(r.tries[0]).slice(0, 160) : (r.msg || r.listErr || 'ไม่มีผลทดสอบ')); }
     catch (e) { $('#stMsg').textContent = '❌ ' + e.message; }
+  });
+  on('stReg', async () => {
+    const out = [];
+    let from = 0, total = 0, pass = 0;
+    try {
+      do {
+        $('#stMsg').textContent = `กำลังให้ AI อ่านใบตัวอย่าง… ${out.length}${total ? '/' + total : ''}`;
+        const r = await api('ai_regress', { from });
+        total = r.total; pass += r.pass; out.push(...r.results); from = r.next;
+        if (!r.results.length) break;
+      } while (from > 0);
+      const fails = out.filter(x => !x.ok);
+      $('#stMsg').innerHTML = `${fails.length ? '⚠️' : '✅'} ผ่าน ${pass}/${out.length} ใบ` + fails.map(x => `<br>• ${esc(x.note || 'ใบตัวอย่าง')}: ${x.err ? esc(x.err) : `AI ได้ ฿${x.amount}${x.expect ? ' (ที่ถูก ฿' + x.expect + ')' : ''}${x.check && !x.check.ok ? ' รายการรวมต่าง ฿' + Math.abs(x.check.diff) : ''}`}`).join('');
+    } catch (e) { $('#stMsg').textContent = '❌ ' + e.message; }
   });
   on('stBk', async () => { $('#stMsg').textContent = 'กำลังสำรอง…'; try { await api('backup_now'); $('#stMsg').textContent = '✅ สำรองแล้ว'; setTimeout(load, 800); } catch (e) { $('#stMsg').textContent = '❌ ' + e.message; } });
 }

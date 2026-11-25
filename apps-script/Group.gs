@@ -941,7 +941,7 @@ function hkRead_(me, p) {
   if (bytes.length > 4 * 1024 * 1024) throw new Error('รูปใหญ่เกินไป');
   const o = aiRead_(Utilities.newBlob(bytes, 'image/jpeg', 'receipt.jpg'), { cats: [] });
   if (!o) throw new Error('ตอนนี้อ่านใบเสร็จไม่ได้ ใส่ยอดเองได้เลย');
-  return { amount: Number(o.amount) || 0, vendor: o.vendor || '', items: (o.items || []).map(it => ({ name: it.name, price: Math.round((it.price - (it.disc || 0)) * 100) / 100, qty: it.qty })), service: o.service || 0, discount: o.discount || 0 };
+  return { amount: Number(o.amount) || 0, vendor: o.vendor || '', items: (o.items || []).map(it => ({ name: it.name, price: Math.round((it.price - (it.disc || 0)) * 100) / 100, qty: it.qty, cut: it.disc || 0 })), service: o.service || 0, discount: o.discount || 0, check: o.check ? { ok: o.check.ok, diff: o.check.diff } : null };
 }
 
 
