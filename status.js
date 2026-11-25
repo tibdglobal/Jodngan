@@ -44,7 +44,6 @@ function remote(r) {
     ${row(r.meet ? true : null, '📋 คลังรายงานประชุม TIBD', r.meet ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.bridge ? true : null, '📅 ปฏิทิน (สะพาน)', r.bridge ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.vault.work ? true : null, '🔐 ตู้รหัสงาน', r.vault.work ? 'ตั้งแล้ว' : 'ยังไม่ตั้ง')}
-    ${r.split ? row(true, '🐱 เรื่องเงิน', 'ย้ายไปแมวกวักแล้ว', '<a href="https://nitithon-web.github.io/maewkwak/" class="link-btn">เปิดแอปแมวกวัก</a>') : ''}
   </ul>${rows ? `<p class="hint">ข้อมูลในชีต: ${rows}</p>` : ''}<p class="hint" id="stMsg"></p></section>`;
 }
 

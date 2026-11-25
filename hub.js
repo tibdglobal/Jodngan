@@ -263,9 +263,9 @@ if (window.JK_APP === 'money') {
           if (PAGE_EARLY() === 'inbox') cmd = cmd.replace(/^ฝาก\s*/, '');
           input.value = cmd; input.focus(); input.dispatchEvent(new Event('input', { bubbles: true }));
           const esc2 = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-          const wrong = { tasks: /expense|income|owe/, money: /task|note/, inbox: /expense|income|owe|task/ }[PAGE_EARLY()];
-          const M = window.JK_APP === 'money', W = M ? 'https://tibdglobal.github.io/Jodngan/' : '', G = M ? '' : 'https://nitithon-web.github.io/maewkwak/';
-          const where = { expense: [G + 'money.html', 'แอปเงิน'], income: [G + 'money.html', 'แอปเงิน'], owe: [G + 'money.html#owe', 'หน้าค้างกัน'], task: [W + './', 'จดครบ หน้างาน'], note: [W + 'inbox.html', 'กล่องฝาก'] }[r.kind];
+          const M = window.JK_APP === 'money';
+          const wrong = M ? null : { tasks: /^note$/, inbox: /^task$/ }[PAGE_EARLY()];
+          const where = M ? null : { task: ['./', 'หน้างาน'], note: ['inbox.html', 'กล่องฝาก'] }[r.kind];
           say(`🎙 ได้ยินว่า "${esc2(r.text)}" · ตรวจแล้วแตะ ＋ เพื่อ${T[1]}` + (wrong && wrong.test(r.kind) && where ? `<br>ดูเหมือนเรื่องของ${where[1]} <a href="${where[0].replace(/(#.*)?$/, '?say=' + encodeURIComponent(r.kind === 'note' ? cmd.replace(/^ฝาก\s*/, '') : cmd) + '$1')}">ไป${where[1]} ›</a>` : ''), 12000);
         } catch (e) { say('🎙 ' + (e.message || 'ถอดเสียงไม่สำเร็จ'), 6000); }
         finally { mic.classList.remove('busy'); input.placeholder = ph; }
@@ -407,7 +407,7 @@ if (window.JK_APP === 'money') {
     const go = () => {
       inflight++; paint();
       return realFetch(input, init).then(res => {
-        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); setTimeout(() => window.badgeUpdateRef && window.badgeUpdateRef(), 400); } })
+        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (/API key/.test(lastErr) && window.hubConnect) window.hubConnect('ลิงก์ที่เครื่องนี้ใช้อยู่หมดอายุแล้ว ขอลิงก์ใหม่ได้เลย'); if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); setTimeout(() => window.badgeUpdateRef && window.badgeUpdateRef(), 400); } })
           .catch(() => { lastErr = 'ตอบกลับไม่ถูกต้อง'; }).finally(() => { inflight = Math.max(0, inflight - 1); paint(); });
         return res;
       }, err => {
@@ -472,11 +472,8 @@ if (window.JK_APP === 'money') {
     const dueL = tasks.filter(x => eff(x) === t), lateL = tasks.filter(x => eff(x) && eff(x) < t).sort((a, b) => eff(a) < eff(b) ? -1 : 1);
     const mt = get('meetTasks', null);
     const meet = mt && Array.isArray(mt.tasks) ? mt.tasks.filter(x => x.open && x.scope === 'me' && x.due && x.due !== 'none' && x.due <= soon).sort((a, b) => a.due < b.due ? -1 : 1) : [];
-    const bills = get('bills', null), money = null;   // เงินอยู่แอปเงินแล้ว ไม่โชว์ในจดครบ
+    const bills = get('bills', null);
     const ready = bills ? bills.filter(b => b.status === 'ready') : [], draft = bills ? bills.filter(b => b.status === 'draft') : [];
-    const todayM = money ? money.filter(x => x.date === t) : [];
-    const spent = todayM.filter(x => (x.type || 'out') === 'out').reduce((s, x) => s + Number(x.amount || 0), 0);
-
     const K = {
       tasks: { ico: ICO.tasks, main: `${dueL.length} งาน`, sub: lateL.length ? `เลยกำหนด ${lateL.length}` : 'ไม่มีงานค้าง', warn: lateL.length > 0,
         rows: [...lateL.map(x => [x.title, short(eff(x)), 'late']), ...dueL.map(x => [x.title, x.time || 'วันนี้', ''])],
@@ -489,9 +486,6 @@ if (window.JK_APP === 'money') {
       sub: ready.length ? `รอส่งเบิก ${ready.length}` + (draft.length ? ` · ขาดใบ ${draft.length}` : '') : (draft.length ? `ขาดใบ ${draft.length}` : 'ไม่มีบิลค้าง'), warn: draft.length > 0,
       rows: [...draft.map(b => [b.desc || b.vendor || 'บิล', 'ขาดใบ · ' + baht(b.amount), 'late']), ...ready.map(b => [b.desc || b.vendor || 'บิล', baht(b.amount), ''])],
       empty: 'ไม่มีบิลค้างเบิก', go: ['ไปหน้าเบิก', 'bills.html'] };
-    if (money) K.money = { ico: ICO.money, main: baht(spent), sub: 'ใช้จ่ายวันนี้', warn: false,
-      rows: todayM.map(x => [x.note || x.cat || (x.type === 'in' ? 'รายรับ' : 'รายจ่าย'), (x.type === 'in' ? '+' : '−') + baht(x.amount), x.type === 'in' ? 'in' : '']),
-      empty: 'วันนี้ยังไม่ได้จดรายจ่าย', go: ['ไปหน้าเงิน', 'money.html'] };
     if (!K[openK]) openK = '';
 
     const chip = k => { const c = K[k]; return `<button type="button" class="td-chip${c.warn ? ' warn' : ''}${openK === k ? ' on' : ''}" data-k="${k}" aria-expanded="${openK === k}"><span class="td-ico td-${k}">${c.ico}</span><b>${c.main}</b><small>${esc(c.sub)}</small></button>`; };
@@ -545,3 +539,38 @@ if (window.JK_APP === 'money') {
     </div>`).join('') + '</section>';
   };
 })();
+
+/* 🔗 แอปเงิน: เครื่องที่ยังไม่มีลิงก์ส่วนตัว (หรือ key เก่า) → หน้าต่างเชื่อมเครื่อง
+ * แตะขอลิงก์ในแชทแมวกวัก · iPhone ที่เปิดจากไอคอนหน้าจอโฮมเก็บข้อมูลแยกจาก LINE จึงให้วางลิงก์ได้ */
+if (window.JK_APP === 'money') {
+  window.hubConnect = why => {
+    if (document.getElementById('mConnect')) return;
+    const d = document.createElement('dialog');
+    d.id = 'mConnect';
+    d.innerHTML = `<form method="dialog">
+      <h2>เชื่อมเครื่องนี้กับแมวกวัก</h2>
+      <p style="margin:0">${why || 'เครื่องนี้ยังไม่ได้เชื่อม ข้อมูลเงินของคุณจึงยังไม่ขึ้น'}</p>
+      <ol style="margin:0;padding-left:20px;display:grid;gap:4px">
+        <li>แตะ <b>ขอลิงก์</b> แล้วส่งคำว่า ลิงก์ ในแชทแมวกวัก</li>
+        <li>แตะลิงก์ที่แมวกวักตอบกลับ แอปจะเชื่อมให้เอง</li>
+      </ol>
+      <a class="btn primary" style="text-align:center" href="https://line.me/R/oaMessage/@912spdex/?${encodeURIComponent('ลิงก์')}">ขอลิงก์ในแชทแมวกวัก</a>
+      <label>เปิดจากไอคอนหน้าจอโฮม? กดค้างที่ลิงก์ในแชท เลือกคัดลอก แล้ววางที่นี่
+        <input id="mcIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="วางลิงก์ที่ได้จากแชท"></label>
+      <p id="mcErr" style="margin:0;color:var(--danger)" role="alert"></p>
+      <div class="dlg-actions"><button value="cancel" formnovalidate>ไว้ทีหลัง</button><button type="button" id="mcGo" class="primary">เชื่อม</button></div>
+    </form>`;
+    document.body.appendChild(d);
+    d.querySelector('#mcGo').onclick = () => {
+      const v = d.querySelector('#mcIn').value.trim();
+      const m = v.match(/[#&]k=([A-Za-z0-9]{16,})/) || v.match(/^([A-Za-z0-9]{16,})$/);
+      if (!m) { d.querySelector('#mcErr').textContent = 'ไม่พบรหัสในข้อความนี้ คัดลอกลิงก์ทั้งบรรทัดที่ขึ้นต้นด้วย https:// มาวาง'; return; }
+      localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: m[1] }));
+      location.reload();
+    };
+    d.addEventListener('close', () => d.remove());
+    try { d.showModal(); } catch (e) { d.setAttribute('open', ''); }
+  };
+  const ask = () => { if (window.JK_NOKEY && !/hk\.html/.test(location.pathname)) window.hubConnect(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ask); else ask();
+}

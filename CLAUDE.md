@@ -77,7 +77,7 @@
 - โค้ดหลังบ้าน**ชุดเดียวกัน** (`apps-script/` ที่นี่เป็นต้นฉบับ) ต่างกันที่ Script Property `ROLE` · `Split.gs`: `isMoney_()` `splitOn_()` (`SPLIT_ON`=1 ที่ pm01) `splitDeny_` กันคำสั่งข้ามระบบ · EZP BOT ตอบ `MOVED_MONEY` เมื่อเจอเรื่องเงิน เงียบในกลุ่ม · แมวกวักตอบ `moneyLineText_` + `MOVED_WORK` · สรุปเช้าเงิน `moneyMorning_` ส่งจากแมวกวักเอง
 - deploy หลังบ้านแมวกวัก: รวม Code Bills Money Inbox Owe Ai Meet Mail Group Split เป็นไฟล์เดียววางทับ `รหัส.gs` (Chrome `/u/3/` = nitithon.see) → เวอร์ชันใหม่ของ deployment เดิม
 - ไฟล์หน้าเว็บร่วม (hub.js style.css mcore.js vault.js) แก้ที่นี่แล้วคัดลอกไปรีโปแมวกวัก · hub.js รู้ว่าเป็นแอปเงินจาก `maewkwak` ใน URL (`JK_APP`, `JK_MONEY_API`)
-- ลบออกจากรีโปนี้แล้ว: `money.js` `owe.js` `qrcode.js` `split.html` `hk.html` `hk.js` `jod*.png` (ต้นฉบับอยู่รีโปแมวกวักแล้ว แก้ที่นั่น) · `hub.js` `style.css` `mcore.js` `vault.js` ยังเป็นไฟล์ร่วม แก้ที่นี่แล้วคัดลอกไป · `money.html` ที่นี่เหลือเป็นหน้าแจ้งย้าย · ข้อมูลเงินเก่าในชีต "จดงาน" ยังอยู่ (ยังไม่ลบ) + แท็บ `_ย้ายไฟล์` = แผนที่ไฟล์เก่า→ใหม่
+- ลบออกจากรีโปนี้แล้ว: `money.js` `owe.js` `qrcode.js` `split.html` `hk.html` `hk.js` `jod*.png` (ต้นฉบับอยู่รีโปแมวกวักแล้ว แก้ที่นั่น) · `hub.js` `style.css` `mcore.js` `vault.js` ยังเป็นไฟล์ร่วม แก้ที่นี่แล้วคัดลอกไป · `money.html` ลบแล้ว · จดครบไม่มีข้อความหรือลิงก์ถึงแมวกวักให้ผู้ใช้เห็น (EZP BOT รับข้อความเงินเป็นงานธรรมดา) · แมวกวักเครื่องที่ไม่มี key ขึ้นหน้าต่างเชื่อมเครื่อง `hubConnect` (ขอลิงก์ในแชท / วางลิงก์) · ข้อมูลเงินเก่าในชีต "จดงาน" ยังอยู่ (ยังไม่ลบ) + แท็บ `_ย้ายไฟล์` = แผนที่ไฟล์เก่า→ใหม่
 
 ## วิธีอัปขึ้นระบบ
 
