@@ -439,13 +439,22 @@ function apportion(totalS, weights, unit) {
   raw.map((r, i) => [r - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rest > 0) { base[i]++; rest--; } });
   return base.map(x => x * u);
 }
-const DISC_RE = /^\s*(ส่วนลด|ลด\s|discount|disc\.?\s|โปรโมชั่น|คูปอง|coupon)/i;
+const DISC_RE = /^\s*(?:ส่วนลด|ลด\s|discount|disc\.?\s|โปรโมชั่น|โปร\s|คูปอง|coupon|[A-Za-z0-9]{1,6}\s?(?:ลด|คูปอง))/i;   // AMBลด…, 7ลด…
 /* หาเมนูที่บรรทัดส่วนลดพูดถึง เช่น "ส่วนลดน้ำแร่เพอร์ร่า 1500" → "2× น้ำแร่เพอร์ร่า 1500" */
 function discTarget(discName, list) {
-  const norm = t => String(t || '').toLowerCase().replace(DISC_RE, '').replace(/^\s*\d+\s*[×x]\s*/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+  const norm = t => String(t || '').toLowerCase().replace(DISC_RE, '').replace(/^\s*\d+\s*[×x]\s*/, '').replace(/\d+\s*(บ|บาท)?$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
   const k = norm(discName);
   if (k.length < 2) return null;
-  return list.find(it => { const n = norm(it.name); return n && (n.includes(k) || k.includes(n)); }) || null;
+  // ชื่อซ้อนกัน หรือมีคำร่วมกันยาว ≥4 ตัว (เช่น "คูปองชีสไบท์Line" → "ชีสไบท์(หมูผสมไก่)")
+  const common = (a, b) => { let best = 0; for (let i = 0; i < a.length; i++) for (let j = i + best + 1; j <= a.length; j++) { if (b.includes(a.slice(i, j))) best = j - i; else break; } return best; };
+  let pick = null, score = 0;
+  list.forEach(it => {
+    const n = norm(it.name);
+    if (!n) return;
+    const sc = n.includes(k) || k.includes(n) ? 99 : common(k, n);
+    if (sc >= 4 && sc > score) { pick = it; score = sc; }
+  });
+  return pick;
 }
 const itemNetS = it => Math.max(0, toS(it.price) - toS(it.disc));
 /* ส่วนของคนหนึ่งในเมนูหนึ่ง: ราคา และส่วนลด (สตางค์) เช่น น้ำ 40 ลด 8 หาร 2 → [2000, 400] */
@@ -634,17 +643,22 @@ async function onReceiptFile(e) {
       let extraDisc = 0;
       items.forEach(it => {
         // บรรทัดส่วนลดที่ AI แยกมาเป็นเมนู → ย้ายไปเป็นส่วนลดของเมนูก่อนหน้า (ไม่มีให้เป็นส่วนลดท้ายบิล)
-        if (DISC_RE.test(it.name)) { const prev = discTarget(it.name, b.items) || b.items[b.items.length - 1]; if (prev) { prev.disc = String(fromS(toS(prev.disc) + toS(it.price))); prev.discNote = prev.discNote || it.name; } else extraDisc += it.price; return; }
+        // ส่วนลดที่ไม่ระบุเมนู (เช่น Meal Deal) = ส่วนลดท้ายบิล หารตามสัดส่วนที่กิน
+        if (DISC_RE.test(it.name)) { const prev = discTarget(it.name, b.items); if (prev) { prev.disc = String(fromS(toS(prev.disc) + toS(it.price))); prev.discNote = prev.discNote ? prev.discNote + ', ' + it.name : it.name; } else extraDisc += it.price; return; }
         b.items.push({ name: (it.qty > 1 ? it.qty + '× ' : '') + it.name, price: String(it.price), disc: it.disc ? String(it.disc) : '', discNote: it.discNote || '', who: [...sp.people], all: true });
       });
       // ค่าบริการ / VAT ที่ยังไม่รวมในราคาเมนู
-      const itemSum = items.reduce((s2, it) => s2 + it.price, 0);
+      const itemSum = items.filter(it => !DISC_RE.test(it.name)).reduce((s2, it) => s2 + it.price, 0);
+      const discSum = items.reduce((s2, it) => s2 + (DISC_RE.test(it.name) ? it.price : it.disc || 0), 0) + (o.discount || 0);
+      // ใบเสร็จที่ส่วนลดอยู่ใต้ "ยอดรวม" (เช่น 7-Eleven): AI มักเอายอดก่อนลดมา → ยอดจริง = ยอดรวม − ส่วนลด
+      if (discSum && Math.abs(Number(o.amount || 0) - itemSum) < 0.5) b.rTotal = Math.round((itemSum - discSum) * 100) / 100;
       b.svc = !!o.service && Math.abs(o.service - itemSum * 0.1) <= Math.max(2, itemSum * 0.01);
       b.vat = o.vat === 'yes' && o.pricesIncVat === false;
       if (o.discount || extraDisc) b.disc = String((o.discount || 0) + extraDisc);
     } else if (o.amount) { b.method = 'equal'; b.total = String(o.amount); }
     paintSplit();
     const msg = !r.ai ? '⚠️ ยังไม่ได้ตั้งค่า AI (อ่านแบบเดิม) ตรวจรายการอีกครั้ง'
+      : o.via === 'ocr' ? '⚠️ ตอนนี้ AI ไม่ตอบ อ่านได้แค่ยอดรวม ลองกดอ่านใบเสร็จใหม่อีกครั้งในอีกสักครู่'
       : items.length >= 2 ? `🧾 AI อ่านได้ ${items.length} รายการ${items.some(it => it.disc) ? ` (มีส่วนลด ${items.filter(it => it.disc).length} รายการ)` : ''} แตะชื่อคนใต้แต่ละเมนูให้ตรงกับคนกิน`
       : o.amount ? `🧾 อ่านยอดได้ ${bahtS(toS(o.amount))} (ไม่เจอรายการเมนู)` : '📷 เก็บรูปแล้ว แต่อ่านไม่ได้ กรอกเองได้เลย';
     toast(msg);

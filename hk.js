@@ -177,6 +177,16 @@ function compute() {
   const sum = on.reduce((s, p) => s + (amt[p.key] || 0), 0);
   return { T, amt, sub, sum, diff: T - sum };
 }
+const DISC_RE = /^\s*(?:ส่วนลด|ลด\s|discount|disc\.?\s|โปรโมชั่น|โปร\s|คูปอง|coupon|[A-Za-z0-9]{1,6}\s?(?:ลด|คูปอง))/i;
+function discTarget(discName, list) {   // เหมือน owe.js: ชื่อซ้อนกัน หรือคำร่วมยาว ≥4 ตัว
+  const norm = t => String(t || '').toLowerCase().replace(DISC_RE, '').replace(/^\s*\d+\s*[×x]\s*/, '').replace(/\d+\s*(บ|บาท)?$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+  const k = norm(discName);
+  if (k.length < 2) return null;
+  const common = (a, b) => { let best = 0; for (let i = 0; i < a.length; i++) for (let j = i + best + 1; j <= a.length; j++) { if (b.includes(a.slice(i, j))) best = j - i; else break; } return best; };
+  let pick = null, score = 0;
+  list.forEach(it => { const n = norm(it.name); if (!n) return; const sc = n.includes(k) || k.includes(n) ? 99 : common(k, n); if (sc >= 4 && sc > score) { pick = it; score = sc; } });
+  return pick;
+}
 function itemsTotal() { return cs.items.reduce((s, it) => s + toS(it.price), 0); }
 function byName(uid) { if (uid === 'me') return 'ฉัน'; const p = cs.people.find(x => x.uid === uid); return p ? p.name : ''; }
 
@@ -327,20 +337,31 @@ async function readReceipt() {
   const b = $('#readRc'); b.textContent = 'กำลังอ่าน…'; b.disabled = true;
   try {
     const r = await call('hk_read', { data: await shrink(file, 1600, 0.85) });
+    let discTotal = 0, billDisc = 0;
     if (r.items && r.items.length) {
+      const dishes = r.items.filter(it => !DISC_RE.test(it.name)), discs = r.items.filter(it => DISC_RE.test(it.name));
+      // ส่วนลดที่บอกชื่อเมนู → หักจากเมนูนั้น · ไม่บอก (เช่น Meal Deal) → ส่วนลดท้ายบิล หารตามสัดส่วน
+      discs.forEach(d => {
+        const t = discTarget(d.name, dishes);
+        discTotal += d.price;
+        if (t) { t.price = Math.max(0, Math.round((t.price - d.price) * 100) / 100); t.cut = (t.cut || 0) + d.price; } else billDisc += d.price;
+      });
       cs.items = [];
-      r.items.forEach(it => {   // 3 จาน = แยก 3 แถว ให้แตะคนกินทีละจาน
-        const q = Math.round(it.qty || 1), P = toS(it.price);
+      dishes.forEach(it => {   // 3 จาน = แยก 3 แถว ให้แตะคนกินทีละจาน
+        const q = Math.round(it.qty || 1), P = toS(it.price), tag = it.cut ? ' (ลด ' + plain(toS(it.cut)) + ')' : '';
         if (q > 1 && q <= 10 && Math.abs(q - (it.qty || 1)) < 0.01) {
           const o = {}; spread(P, Array.from({ length: q }, (x, i) => ({ key: i })), null, () => 1, o);
-          for (let i = 0; i < q; i++) cs.items.push({ name: it.name + ' (' + (i + 1) + '/' + q + ')', price: plain(o[i]), who: [] });
-        } else cs.items.push({ name: it.name + (it.qty > 1 ? ' x' + it.qty : ''), price: String(it.price), who: [] });
+          for (let i = 0; i < q; i++) cs.items.push({ name: it.name + ' (' + (i + 1) + '/' + q + ')' + tag, price: plain(o[i]), who: [] });
+        } else cs.items.push({ name: it.name + (it.qty > 1 ? ' x' + it.qty : '') + tag, price: String(it.price), who: [] });
       });
       if (r.service) cs.items.push({ name: 'ค่าบริการ', price: String(r.service), who: cs.people.filter(p => p.on).map(p => p.key) });
     }
-    if (r.amount) { cs.total = String(r.amount); cs.touched = true; }
+    const itemsS = cs.items.reduce((x, it) => x + toS(it.price), 0);
+    if (cs.items.length) {   // ยอดบิล = เมนู − ส่วนลดท้ายบิล (AI มักเอา "ยอดรวม" ก่อนลดมา)
+      cs.total = plain(itemsS - toS(billDisc) - toS(r.discount || 0)); cs.touched = !!(billDisc || r.discount);
+    } else if (r.amount) { cs.total = String(r.amount); cs.touched = true; }
     if (!cs.title && r.vendor) cs.title = r.vendor;
-    toast(r.items && r.items.length ? 'อ่านได้ ' + r.items.length + ' เมนู แตะชื่อคนที่กินแต่ละเมนู' : 'อ่านได้แค่ยอดรวม');
+    toast(cs.items.length ? 'อ่านได้ ' + cs.items.length + ' รายการ' + (discTotal ? ' หักส่วนลด ' + baht(toS(discTotal)) + ' แล้ว' : '') + ' แตะชื่อคนที่กินแต่ละเมนู' : 'อ่านได้แค่ยอดรวม');
   } catch (e) { toast(e.message); }
   drawCreate();
 }
