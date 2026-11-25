@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 64;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 65;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -57,7 +57,6 @@ const HELP = [
   '🎙 ส่งข้อความเสียงได้เลย เช่น "พรุ่งนี้สิบโมงส่งรายงาน" ระบบฟังแล้วจดให้',
   '• สรุปเดือน = ภาพรวมเดือนนี้ (งาน เบิก)',
   '',
-  '💰 รายรับรายจ่าย ค้างกัน หารกัน → จดที่ LINE "แมวกวัก" (@912spdex)',
   '',
   '✉️ ติดป้าย "จดงาน" ที่อีเมลใน Gmail → กลายเป็นงานพร้อมลิงก์กลับไปที่อีเมล (ภายใน 15 นาที)',
 ].join('\n');
@@ -176,7 +175,7 @@ function doPost(e) {
   // 👥 แอปหารกันในไลน์ (LIFF): ยืนยันตัวตนด้วย ID token ของ LINE ไม่ใช้ key · hk_cfg บอกแค่ไอดีแอปเล็ก
   if (body.action === 'hk_cfg') return json_({ ok: true, liffId: props.getProperty('LIFF_ID') || '' });
   if (/^hk_/.test(String(body.action || '')) && body.action !== 'hk_setup') {   // hk_setup = ของเจ้าของ ต้องมี key
-    if (splitOn_()) return json_({ ok: false, error: 'ระบบหารกันย้ายไปแล้ว ปิดแล้วเปิดแอปใหม่อีกครั้ง' });
+    if (splitOn_()) return json_({ ok: false, error: 'ไม่มีคำสั่งนี้' });
     try { return json_(Object.assign({ ok: true }, hkApi_(body))); }
     catch (err) { return json_({ ok: false, error: String(err && err.message || err) }); }
   }
@@ -373,9 +372,9 @@ function handleLine_(events) {
     if (/^(id|ไอดี)$/i.test(text)) return reply_(ev.replyToken, uid);
     if (/^(ช่วย|help|วิธีใช้|\?)$/i.test(text)) return reply_(ev.replyToken, HELP);
     if (/^(ลิงก์|ลิ้งค์|ลิงค์|link|แอป|app)$/i.test(text)) {
-      return reply_(ev.replyToken, [magicMsg_()].concat(splitOn_() ? ['💰 แอปเงิน: พิมพ์ ลิงก์ ในแชท LINE แมวกวัก'] : []));
+      return reply_(ev.replyToken, magicMsg_());
     }
-    if (splitOn_() && splitLineText_(text)) return reply_(ev.replyToken, MOVED_MONEY);
+    if (splitOn_() && splitLineText_(text)) return withLock_(LockService.getScriptLock(), ev.replyToken, () => saveAs_(ev.replyToken, 't', text));
     if (/^(โควตา|โควต้า|quota)$/i.test(text)) return reply_(ev.replyToken, quotaText_(quota_()));
     if (/^(บิล|เบิก|เบิกเงิน)$/.test(text)) return reply_(ev.replyToken, billSummaryText_());
     if (/^(สรุปเดือน|ภาพรวม|สรุปเดือนนี้|📊)$/.test(text)) return reply_(ev.replyToken, monthOverviewText_());

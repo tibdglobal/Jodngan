@@ -239,7 +239,7 @@ function inboxLine_(o) {
 /** บันทึกตามประเภทที่เลือก แล้วตอบพร้อมปุ่มเปลี่ยน · คืน false ถ้าทำไม่ได้ (เช่น ไม่มียอดเงิน) */
 function saveAs_(token, kind, src, prefix) {
   const money = kind === 'mo' || kind === 'mi';
-  if (money && splitOn_()) { reply_(token, (prefix ? prefix + '\n' : '') + MOVED_MONEY + '\nพิมพ์ "' + cut_(src, 60) + '" ในแชท แมวกวัก ได้เลย'); return false; }
+  if (money && splitOn_()) kind = 't';
   if (!money && isMoney_()) { reply_(token, (prefix ? prefix + '\n' : '') + MOVED_WORK); return false; }
   let id, text;
   if (kind === 't') {
@@ -291,7 +291,7 @@ function routeText_(token, text) {
   if (!p.title) return;
   // มีตัวเลขเงินแต่ไม่บอกว่าจ่าย/รับ → นับเป็นรายจ่ายไปก่อน (เปลี่ยนเป็นรับ/งาน/ฝากได้ด้วยปุ่ม)
   if (looseAmount_(text, p)) {
-    if (splitOn_()) return withLock_(lock, token, () => saveAs_(token, 't', text, '💡 ถ้าเป็นรายจ่าย จดที่ LINE แมวกวัก (จดเป็นงานไว้ให้ก่อน)'));
+    if (splitOn_()) return withLock_(lock, token, () => saveAs_(token, 't', text));
     return withLock_(lock, token, () => saveAs_(token, 'mo', text));
   }
   return withLock_(lock, token, () => saveAs_(token, 't', text));

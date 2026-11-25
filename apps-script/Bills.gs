@@ -359,7 +359,7 @@ function billPostback_(ev) {
     let file;
     try { file = DriveApp.getFileById(fid); } catch (e) { reply_(ev.replyToken, 'ไม่พบรูปนี้แล้ว ลองส่งใหม่'); return; }
     if (file.isTrashed() || (file.getParents().hasNext() && file.getParents().next().getName() !== 'รอจัด')) { reply_(ev.replyToken, 'รูปนี้จัดไปแล้ว'); return; }
-    if (splitOn_()) { reply_(ev.replyToken, MOVED_MONEY + '\nส่งรูปนี้ในแชท แมวกวัก ได้เลย'); return; }
+    if (splitOn_()) return;
     const it = moneyFromPending_(fid, p[0] === 'min' ? 'in' : 'out', pend);
     cache.remove('pend:' + fid);
     billNextPending_(ev.replyToken, moneyLineAfter_(it) + (Number(it.amount) ? '' : '\n⚠️ อ่านยอดไม่ได้ ใส่ยอดได้ในแอป หน้า 💰'));
