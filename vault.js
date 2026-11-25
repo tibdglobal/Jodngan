@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
 };
-const DEFAULT_URL = window.JK_DEFAULT_URL || 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
+const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
 const cfg = LS.get('cfg', { url: '', key: '' });
 if (!cfg.url) cfg.url = DEFAULT_URL;
 
@@ -41,7 +41,7 @@ const CAT_RULES_PERSONAL = [
   ['🏛 ราชการ/สุขภาพ/ประกัน', /สรรพากร|ภาษี|ประกันสังคม|go\.th|ไทยดี|thaid|หมอพร้อม|กยศ|โรงพยาบาล|hospital|ประกัน|insurance|aia|เมืองไทย|allianz|fwd|คลินิก|ฟิตเนส|fitness|gym/i],
   ['🎓 เรียน/แอปอื่นๆ', /udemy|coursera|skooldio|duolingo|มหาวิทยาลัย|\.ac\.th|เรียน|คอร์ส|chatgpt|openai|claude|canva|notion|dropbox/i],
 ];
-let space = window.JK_APP === 'money' ? 'personal' : 'work';   // แยก 2 แอป: ตู้ส่วนตัวอยู่แอปเงิน ตู้งานอยู่จดครบ
+let space = 'work';   // ตู้รหัสงาน
 const rules = () => space === 'personal' ? CAT_RULES_PERSONAL : CAT_RULES_WORK;
 const defaultCats = () => [...rules().map(r => r[0]), '🔖 อื่นๆ'];
 const LEGACY_CATS = { 'งาน': '🏢 ระบบบริษัท', '🏢 งาน': '🏢 ระบบบริษัท', 'ธนาคาร/การเงิน': '💳 การเงิน/ชำระเงิน', 'อีเมล': '📧 อีเมลงาน', 'โซเชียล': '📣 เพจ/โซเชียล/โฆษณา', 'ช้อปปิ้ง': '🔖 อื่นๆ', 'อื่นๆ': '🔖 อื่นๆ', '🏦 ธนาคาร': '🏦 ธนาคาร/บัตร', '💳 บัตร/e-Wallet': '🏦 ธนาคาร/บัตร', '📧 อีเมล': '📧 อีเมล/บัญชีหลัก', '🛒 ช้อปปิ้ง': '🛒 ช้อปปิ้ง/เดลิเวอรี่', '🍜 อาหาร/เดลิเวอรี่': '🛒 ช้อปปิ้ง/เดลิเวอรี่' };

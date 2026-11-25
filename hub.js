@@ -3,28 +3,6 @@
  * 2) หน้างาน: แถบ ☀️ วันนี้ (งานวันนี้/เลยกำหนด · งานประชุมใกล้กำหนด · บิลรอเบิก · ใช้จ่ายวันนี้)
  * 3) หน้างาน: ค้นหาข้ามหมวด (กล่องฝาก · บิลเบิก · รายรับรายจ่าย) ใต้ผลค้นหางาน
  * อ่านจากข้อมูลที่เก็บในเครื่องของแต่ละหน้า (localStorage) · หน้างานดึงบิล/เงินมาเก็บไว้ให้ถ้าเครื่องนี้ยังไม่เคยเปิด */
-/* 💰 แยก 2 แอป: หน้าใต้ /ngoen/ = แอปเงิน (หลังบ้านของ nitithon.see) · ที่เหลือ = จดครบ (งาน, pm01)
- * แอปเงินเก็บลิงก์ส่วนตัว/กล่องรอส่งแยกชื่อ (m:cfg …) ไม่ปนกับแอปงานที่อยู่โดเมนเดียวกัน */
-window.JK_MONEY_API = 'https://script.google.com/macros/s/AKfycbwzD8Bffxcrd4Md_RgM-XcxiBWssGCvqV3zasNlXL-UR1Ulet2XySmBAz5MV6iERtJA/exec';
-window.JK_APP = /\/ngoen\/|maewkwak/i.test(location.hostname + location.pathname) ? 'money' : 'work';
-if (window.JK_APP === 'money') {
-  window.JK_DEFAULT_URL = window.JK_MONEY_API;
-  const NS = { cfg: 1, hubOutbox: 1, hubOutboxFail: 1, vaultSpace: 1 };
-  const P = Storage.prototype, g = P.getItem, s = P.setItem, r = P.removeItem;
-  const k = (st, x) => st === window.localStorage && NS[x] ? 'm:' + x : x;
-  P.getItem = function (x) { return g.call(this, k(this, x)); };
-  P.setItem = function (x, v) { return s.call(this, k(this, x), v); };
-  P.removeItem = function (x) { return r.call(this, k(this, x)); };
-  try {
-    const m = location.hash.match(/[#&]k=([A-Za-z0-9]{16,})/);
-    if (m) { localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: m[1] })); history.replaceState(null, '', location.pathname + location.search); }
-    const c = JSON.parse(localStorage.getItem('cfg') || '{}');
-    if (c.key && c.url !== window.JK_MONEY_API) localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: c.key }));
-    window.JK_NOKEY = !c.key && !m;
-  } catch (e) {}
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-}
-
 (() => {
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -150,7 +128,7 @@ if (window.JK_APP === 'money') {
     dlg.querySelector('#uiBody').innerHTML = `
       <h3>โหมดสี</h3>${seg('theme', [['auto', 'อัตโนมัติ'], ['light', 'กลางวัน'], ['dark', 'กลางคืน']], window.hubTheme ? hubTheme.get() : 'auto')}
       <h3>ขนาดตัวอักษร</h3>${seg('scale', [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']], get('fontScale', 1))}
-      ${window.JK_APP === 'money' ? '' : `<h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}`}
+      ${`<h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}`}
       <h3>ลายพื้นหลัง</h3>
       <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}
         <button type="button" aria-pressed="${hubBg.get() === 'photo'}" data-v="photo"><i class="pv pv-photo" data-bg="${get('bgPhoto', '') ? 'photo' : 'plain'}" data-tint="${hubBg.tint()}">${get('bgPhoto', '') ? '' : ICO.cam}</i><span>รูปของฉัน</span></button></div>
@@ -160,7 +138,7 @@ if (window.JK_APP === 'money') {
       <h3>อื่นๆ</h3>
       <div class="ui-links">
         ${document.getElementById('btnSettings') ? `<button type="button" data-go="conn">${ICO.link}<span>เชื่อมเครื่อง / ดึงข้อมูลใหม่</span></button>` : ''}
-        ${window.JK_APP === "money" ? "" : `<a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>`}
+        ${`<a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>`}
       </div>`;
   }
   function uiOpen() {
@@ -263,9 +241,8 @@ if (window.JK_APP === 'money') {
           if (PAGE_EARLY() === 'inbox') cmd = cmd.replace(/^ฝาก\s*/, '');
           input.value = cmd; input.focus(); input.dispatchEvent(new Event('input', { bubbles: true }));
           const esc2 = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-          const M = window.JK_APP === 'money';
-          const wrong = M ? null : { tasks: /^note$/, inbox: /^task$/ }[PAGE_EARLY()];
-          const where = M ? null : { task: ['./', 'หน้างาน'], note: ['inbox.html', 'กล่องฝาก'] }[r.kind];
+          const wrong = { tasks: /^note$/, inbox: /^task$/ }[PAGE_EARLY()];
+          const where = { task: ['./', 'หน้างาน'], note: ['inbox.html', 'กล่องฝาก'] }[r.kind];
           say(`🎙 ได้ยินว่า "${esc2(r.text)}" · ตรวจแล้วแตะ ＋ เพื่อ${T[1]}` + (wrong && wrong.test(r.kind) && where ? `<br>ดูเหมือนเรื่องของ${where[1]} <a href="${where[0].replace(/(#.*)?$/, '?say=' + encodeURIComponent(r.kind === 'note' ? cmd.replace(/^ฝาก\s*/, '') : cmd) + '$1')}">ไป${where[1]} ›</a>` : ''), 12000);
         } catch (e) { say('🎙 ' + (e.message || 'ถอดเสียงไม่สำเร็จ'), 6000); }
         finally { mic.classList.remove('busy'); input.placeholder = ph; }
@@ -407,7 +384,7 @@ if (window.JK_APP === 'money') {
     const go = () => {
       inflight++; paint();
       return realFetch(input, init).then(res => {
-        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (/API key/.test(lastErr) && window.hubConnect) window.hubConnect('ลิงก์ที่เครื่องนี้ใช้อยู่หมดอายุแล้ว ขอลิงก์ใหม่ได้เลย'); if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); setTimeout(() => window.badgeUpdateRef && window.badgeUpdateRef(), 400); } })
+        res.clone().json().then(d => { lastErr = d && d.ok === false ? (d.error || 'error') : ''; if (!lastErr) { lastOk = Date.now(); put('hubLastSync', lastOk); setTimeout(() => window.badgeUpdateRef && window.badgeUpdateRef(), 400); } })
           .catch(() => { lastErr = 'ตอบกลับไม่ถูกต้อง'; }).finally(() => { inflight = Math.max(0, inflight - 1); paint(); });
         return res;
       }, err => {
@@ -540,37 +517,3 @@ if (window.JK_APP === 'money') {
   };
 })();
 
-/* 🔗 แอปเงิน: เครื่องที่ยังไม่มีลิงก์ส่วนตัว (หรือ key เก่า) → หน้าต่างเชื่อมเครื่อง
- * แตะขอลิงก์ในแชทแมวกวัก · iPhone ที่เปิดจากไอคอนหน้าจอโฮมเก็บข้อมูลแยกจาก LINE จึงให้วางลิงก์ได้ */
-if (window.JK_APP === 'money') {
-  window.hubConnect = why => {
-    if (document.getElementById('mConnect')) return;
-    const d = document.createElement('dialog');
-    d.id = 'mConnect';
-    d.innerHTML = `<form method="dialog">
-      <h2>เชื่อมเครื่องนี้กับแมวกวัก</h2>
-      <p style="margin:0">${why || 'เครื่องนี้ยังไม่ได้เชื่อม ข้อมูลเงินของคุณจึงยังไม่ขึ้น'}</p>
-      <ol style="margin:0;padding-left:20px;display:grid;gap:4px">
-        <li>แตะ <b>ขอลิงก์</b> แล้วส่งคำว่า ลิงก์ ในแชทแมวกวัก</li>
-        <li>แตะลิงก์ที่แมวกวักตอบกลับ แอปจะเชื่อมให้เอง</li>
-      </ol>
-      <a class="btn primary" style="text-align:center" href="https://line.me/R/oaMessage/@912spdex/?${encodeURIComponent('ลิงก์')}">ขอลิงก์ในแชทแมวกวัก</a>
-      <label>เปิดจากไอคอนหน้าจอโฮม? กดค้างที่ลิงก์ในแชท เลือกคัดลอก แล้ววางที่นี่
-        <input id="mcIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="วางลิงก์ที่ได้จากแชท"></label>
-      <p id="mcErr" style="margin:0;color:var(--danger)" role="alert"></p>
-      <div class="dlg-actions"><button value="cancel" formnovalidate>ไว้ทีหลัง</button><button type="button" id="mcGo" class="primary">เชื่อม</button></div>
-    </form>`;
-    document.body.appendChild(d);
-    d.querySelector('#mcGo').onclick = () => {
-      const v = d.querySelector('#mcIn').value.trim();
-      const m = v.match(/[#&]k=([A-Za-z0-9]{16,})/) || v.match(/^([A-Za-z0-9]{16,})$/);
-      if (!m) { d.querySelector('#mcErr').textContent = 'ไม่พบรหัสในข้อความนี้ คัดลอกลิงก์ทั้งบรรทัดที่ขึ้นต้นด้วย https:// มาวาง'; return; }
-      localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: m[1] }));
-      location.reload();
-    };
-    d.addEventListener('close', () => d.remove());
-    try { d.showModal(); } catch (e) { d.setAttribute('open', ''); }
-  };
-  const ask = () => { if (window.JK_NOKEY && !/hk\.html/.test(location.pathname)) window.hubConnect(); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ask); else ask();
-}
