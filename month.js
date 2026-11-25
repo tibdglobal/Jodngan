@@ -20,7 +20,7 @@ async function load(force) {
   if (!cfg.key) { showStatus('ยังไม่ได้เชื่อมเครื่อง เปิดลิงก์ส่วนตัวจาก LINE (พิมพ์ ลิงก์) ก่อนครับ'); return; }
   const want = month;
   try {
-    const r = await api('month_overview', { month: want });
+    const r = await api('month_overview', { month: want, work: true });
     r._at = Date.now();
     LS.set(cacheKey(want), r);
     if (want === month) { showStatus(''); render(r); }
@@ -31,16 +31,13 @@ const pct = (a, b) => b ? Math.min(100, Math.round(a / b * 100)) : 0;
 const fmtD = s => s ? new Date(s.slice(0, 10) + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '';
 
 function render(o) {
-  const T = o.tasks, M = o.money, B = o.bills, W = o.owe;
-  const net = M.inc - M.out;
-  const diff = M.prevOut ? M.out - M.prevOut : 0;
+  const T = o.tasks, B = o.bills;
   const isNow = month === today().slice(0, 7);
-  const catMax = M.cats.length ? M.cats[0][1] : 0;
 
   const tiles = `<section class="ov-tiles">
     <a href="./" class="ov-tile t-task"><b>${T.done}</b><span>งานเสร็จ</span><small>${T.overdue ? `เลยกำหนด ${T.overdue}` : `ค้าง ${T.open}`}</small></a>
-    <a href="money.html" class="ov-tile t-out"><b>${baht(M.out)}</b><span>รายจ่าย</span><small>${M.prevOut ? (diff > 0 ? '▲ เพิ่ม ' : '▼ ลด ') + baht(Math.abs(diff)) : M.count + ' รายการ'}</small></a>
-    <a href="money.html" class="ov-tile ${net < 0 ? 't-neg' : 't-in'}"><b>${net < 0 ? '−' + baht(-net) : baht(net)}</b><span>${net < 0 ? 'จ่ายเกินรับ' : 'คงเหลือ'}</span><small>รับ ${baht(M.inc)}</small></a>
+    <a href="bills.html" class="ov-tile t-out"><b>${baht(B.ready + B.draft)}</b><span>รอเบิก</span><small>${B.readyN + B.draftN} บิล</small></a>
+    <a href="bills.html" class="ov-tile t-in"><b>${baht(B.submitted)}</b><span>รอเงินคืน</span><small>${B.submittedN} บิล</small></a>
   </section>`;
 
   const task = `<section class="s-card ov-card">
@@ -49,13 +46,6 @@ function render(o) {
     ${T.overdueList.length ? `<h4 class="ov-sub warn">⚠️ เลยกำหนด</h4><ul class="ov-list">${T.overdueList.map(t => `<li><span>${esc(t.title)}</span><small>${fmtD(t.date)}</small></li>`).join('')}</ul>` : ''}
     ${T.doneList.length ? `<h4 class="ov-sub">เสร็จล่าสุด</h4><ul class="ov-list done">${T.doneList.map(t => `<li><span>${esc(t.title)}</span><small>${fmtD(t.at)}</small></li>`).join('')}</ul>` : '<p class="hint">ยังไม่มีงานที่ติ๊กเสร็จในเดือนนี้</p>'}
     <a class="ov-more" href="./">ไปหน้างาน ›</a>
-  </section>`;
-
-  const money = `<section class="s-card ov-card">
-    <h3>💰 เงิน <small>รับ ${baht(M.inc)} · จ่าย ${baht(M.out)}</small></h3>
-    ${M.cats.length ? `<div class="ov-bars">${M.cats.map(([k, v]) => `<div class="ov-bar"><span>${icon('out', k)} ${esc(k)}</span><b>${baht(v)}</b><i><em style="width:${pct(v, catMax)}%"></em></i></div>`).join('')}</div>` : '<p class="hint">ยังไม่มีรายจ่ายในเดือนนี้</p>'}
-    ${M.budgets.length ? `<h4 class="ov-sub">🎯 งบ</h4><div class="ov-bars">${M.budgets.sort((a, b) => b.used / b.limit - a.used / a.limit).map(b => `<div class="ov-bar ${b.used > b.limit ? 'over' : b.used >= b.limit * .8 ? 'near' : 'ok'}"><span>${icon('out', b.cat)} ${esc(b.cat)}</span><b>${baht(b.used)} <small>/ ${baht(b.limit)}</small></b><i><em style="width:${pct(b.used, b.limit)}%"></em></i></div>`).join('')}</div>` : ''}
-    <a class="ov-more" href="money.html">ไปหน้าเงิน ›</a>
   </section>`;
 
   const row = (label, v, n, cls) => n ? `<li class="${cls || ''}"><span>${label} <small>${n} รายการ</small></span><b>${baht(v)}</b></li>` : '';
@@ -71,14 +61,7 @@ function render(o) {
     <a class="ov-more" href="bills.html">ไปหน้าเบิก ›</a>
   </section>`;
 
-  const owe = `<section class="s-card ov-card">
-    <h3>🤝 ค้างกัน <small>ยอดตอนนี้</small></h3>
-    <div class="ov-owe"><div class="in"><small>ใครค้างเรา</small><b>${baht(W.they)}</b></div><div class="out"><small>เราค้างเขา</small><b>${baht(W.me)}</b></div></div>
-    ${W.people.length ? `<ul class="ov-rows">${W.people.map(p => `<li class="${p.net > 0 ? 'good' : 'warn'}"><span>${esc(p.name)} <small>${p.net > 0 ? 'ค้างเรา' : 'เราค้าง'}</small></span><b>${baht(Math.abs(p.net))}</b></li>`).join('')}</ul>` : '<p class="hint">ไม่มีใครค้างกัน 🎉</p>'}
-    <a class="ov-more" href="money.html#owe">ไปหน้าค้างกัน ›</a>
-  </section>`;
-
-  $('#ov').innerHTML = tiles + task + money + bills + owe;
+  $('#ov').innerHTML = tiles + task + bills;   // เงิน/ค้างกัน อยู่แอปเงิน
 }
 
 window.addEventListener('hashchange', () => { const m = (location.hash.match(/^#(\d{4}-\d{2})$/) || [])[1]; if (m && m !== month) { month = m; load(); } });

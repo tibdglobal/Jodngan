@@ -678,7 +678,7 @@ h1 { white-space: nowrap; }
 /* แถบนำทางล่าง */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   height: calc(62px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--card) 92%, transparent);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
@@ -905,7 +905,7 @@ dialog h2, .v-card h2 { font-size: calc(21px * var(--fs, 1)); font-weight: 600; 
   border-top: 1px solid var(--line);
 }
 .tabbar a { --c: var(--ink-tasks); gap: 3px; font-size: calc(12px * var(--fs, 1)); font-weight: 500; color: var(--muted); }
-.tabbar a[href="money.html"] { --c: var(--ink-money); }
+.tabbar a[href="money.html"], .tabbar a[href="money.html#owe"], .tabbar a[href="split.html"] { --c: var(--ink-money); }
 .tabbar a[href="bills.html"] { --c: var(--ink-bills); }
 .tabbar a[href="vault.html"] { --c: var(--ink-vault); }
 .tabbar a[href="inbox.html"] { --c: var(--ink-inbox); }

@@ -30,7 +30,7 @@ function remote(r) {
   const q = r.line.quota;
   const qTxt = q ? (q.limit ? `${q.used}/${q.limit}` : `${q.used} ข้อความ`) : '';
   const bk = r.backup ? (Date.now() - Date.parse(r.backup + 'T00:00:00+07:00')) / 864e5 : 99;
-  const rows = Object.entries(r.rows || {}).filter(([k]) => /^(Tasks|Bills|Money|Inbox|Owe)$/.test(k)).map(([k, n]) => `${{ Tasks: 'งาน', Bills: 'บิล', Money: 'เงิน', Inbox: 'ฝาก', Owe: 'ค้างกัน' }[k]} ${n}`).join(' · ');
+  const rows = Object.entries(r.rows || {}).filter(([k]) => /^(Tasks|Bills|Inbox)$/.test(k)).map(([k, n]) => `${{ Tasks: 'งาน', Bills: 'บิล', Inbox: 'ฝาก' }[k]} ${n}`).join(' · ');
   return `<section class="s-card ov-card"><h3>☁️ หลังบ้าน <small>v${r.ver} · ${esc(r.account || '')}</small></h3><ul class="ov-rows st">
     ${row(tickM < 40, 'รอบเตือนอัตโนมัติ (ทุก 15 นาที)', ago(r.lastTick) || 'ยังไม่เคยทำงาน', tickM < 40 ? '' : 'ถ้าเกิน 40 นาที ตัวตั้งเวลาอาจหยุด')}
     ${row(!missT.length, 'ตัวตั้งเวลา', missT.length ? 'ขาด ' + missT.join(', ') : (r.triggers || []).length + ' ตัว')}
@@ -43,7 +43,8 @@ function remote(r) {
     ${row(r.mail ? true : null, '✉️ งานจากอีเมล (ป้าย จดงาน)', r.mail ? 'เปิดใช้' : 'ยังไม่เปิด')}
     ${row(r.meet ? true : null, '📋 คลังรายงานประชุม TIBD', r.meet ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.bridge ? true : null, '📅 ปฏิทิน (สะพาน)', r.bridge ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
-    ${row(r.vault.work || r.vault.personal ? true : null, '🔐 ตู้รหัส', [r.vault.work ? 'งาน' : '', r.vault.personal ? 'ส่วนตัว' : ''].filter(Boolean).join(' + ') || 'ยังไม่ตั้ง')}
+    ${row(r.vault.work ? true : null, '🔐 ตู้รหัสงาน', r.vault.work ? 'ตั้งแล้ว' : 'ยังไม่ตั้ง')}
+    ${r.split ? row(true, '🐱 เรื่องเงิน', 'ย้ายไปแมวกวักแล้ว', '<a href="https://nitithon-web.github.io/maewkwak/" class="link-btn">เปิดแอปแมวกวัก</a>') : ''}
   </ul>${rows ? `<p class="hint">ข้อมูลในชีต: ${rows}</p>` : ''}<p class="hint" id="stMsg"></p></section>`;
 }
 
@@ -53,8 +54,8 @@ function aiHealthRow(ai) {
   if (!ai || !ai.key || !h) return '';
   const bad = h.fail >= 3 ? false : h.fail ? null : true;
   const sub = [h.switched ? `สลับไปใช้รุ่นสำรอง ${esc(h.use)} ชั่วคราว` : '', h.last && h.fail ? `ล่าสุด ${esc(h.last.model)}: ${esc(h.last.msg)}` : '', h.prev ? `เมื่อวาน สำเร็จ ${h.prev.ok} · ไม่ตอบ ${h.prev.fail}` : ''].filter(Boolean).join('<br>');
-  return row(bad, 'AI วันนี้', `สำเร็จ ${h.ok} · ไม่ตอบ ${h.fail}`, sub) +
-    row(ai.samples ? true : null, '🧪 ใบเสร็จตัวอย่าง (ที่ AI เคยอ่านผิด)', ai.samples ? ai.samples + ' ใบ' : 'ยังไม่มี', ai.samples ? '<button type="button" class="link-btn" id="stReg">ทดสอบ AI กับทุกใบ</button>' : 'กด "AI อ่านผิด?" ในหน้าหารกัน เพื่อเก็บใบไว้ทดสอบ');
+  return row(bad, 'AI วันนี้', `สำเร็จ ${h.ok} · ไม่ตอบ ${h.fail}`, sub) + (ai.samples === undefined ? '' :
+    row(ai.samples ? true : null, '🧪 ใบเสร็จตัวอย่าง (ที่ AI เคยอ่านผิด)', ai.samples ? ai.samples + ' ใบ' : 'ยังไม่มี', ai.samples ? '<button type="button" class="link-btn" id="stReg">ทดสอบ AI กับทุกใบ</button>' : 'กด "AI อ่านผิด?" ในหน้าหารกัน เพื่อเก็บใบไว้ทดสอบ'));
 }
 
 async function load() {

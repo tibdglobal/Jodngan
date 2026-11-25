@@ -3,6 +3,28 @@
  * 2) หน้างาน: แถบ ☀️ วันนี้ (งานวันนี้/เลยกำหนด · งานประชุมใกล้กำหนด · บิลรอเบิก · ใช้จ่ายวันนี้)
  * 3) หน้างาน: ค้นหาข้ามหมวด (กล่องฝาก · บิลเบิก · รายรับรายจ่าย) ใต้ผลค้นหางาน
  * อ่านจากข้อมูลที่เก็บในเครื่องของแต่ละหน้า (localStorage) · หน้างานดึงบิล/เงินมาเก็บไว้ให้ถ้าเครื่องนี้ยังไม่เคยเปิด */
+/* 💰 แยก 2 แอป: หน้าใต้ /ngoen/ = แอปเงิน (หลังบ้านของ nitithon.see) · ที่เหลือ = จดครบ (งาน, pm01)
+ * แอปเงินเก็บลิงก์ส่วนตัว/กล่องรอส่งแยกชื่อ (m:cfg …) ไม่ปนกับแอปงานที่อยู่โดเมนเดียวกัน */
+window.JK_MONEY_API = 'https://script.google.com/macros/s/AKfycbwzD8Bffxcrd4Md_RgM-XcxiBWssGCvqV3zasNlXL-UR1Ulet2XySmBAz5MV6iERtJA/exec';
+window.JK_APP = /\/ngoen\/|maewkwak/i.test(location.hostname + location.pathname) ? 'money' : 'work';
+if (window.JK_APP === 'money') {
+  window.JK_DEFAULT_URL = window.JK_MONEY_API;
+  const NS = { cfg: 1, hubOutbox: 1, hubOutboxFail: 1, vaultSpace: 1 };
+  const P = Storage.prototype, g = P.getItem, s = P.setItem, r = P.removeItem;
+  const k = (st, x) => st === window.localStorage && NS[x] ? 'm:' + x : x;
+  P.getItem = function (x) { return g.call(this, k(this, x)); };
+  P.setItem = function (x, v) { return s.call(this, k(this, x), v); };
+  P.removeItem = function (x) { return r.call(this, k(this, x)); };
+  try {
+    const m = location.hash.match(/[#&]k=([A-Za-z0-9]{16,})/);
+    if (m) { localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: m[1] })); history.replaceState(null, '', location.pathname + location.search); }
+    const c = JSON.parse(localStorage.getItem('cfg') || '{}');
+    if (c.key && c.url !== window.JK_MONEY_API) localStorage.setItem('cfg', JSON.stringify({ url: window.JK_MONEY_API, key: c.key }));
+    window.JK_NOKEY = !c.key && !m;
+  } catch (e) {}
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 (() => {
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
   const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -54,7 +76,7 @@
     cam: sv('<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
-  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault' };
+  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault', 'split.html': 'split', 'money.html#owe': 'users' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
 
@@ -128,7 +150,7 @@
     dlg.querySelector('#uiBody').innerHTML = `
       <h3>โหมดสี</h3>${seg('theme', [['auto', 'อัตโนมัติ'], ['light', 'กลางวัน'], ['dark', 'กลางคืน']], window.hubTheme ? hubTheme.get() : 'auto')}
       <h3>ขนาดตัวอักษร</h3>${seg('scale', [[1, 'ปกติ'], [1.1, 'ใหญ่'], [1.2, 'ใหญ่มาก']], get('fontScale', 1))}
-      <h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}
+      ${window.JK_APP === 'money' ? '' : `<h3>เลขงานบนไอคอนแอป</h3>${hubBadge.ok ? seg('badge', [['0', 'ปิด'], ['1', 'แสดงเลขงานวันนี้ + เลยกำหนด']], hubBadge.on() ? '1' : '0') + `<p class="ui-note">${hubBadge.on() ? 'ตอนนี้ ' + hubBadge.count() + ' งาน · ' : ''}อัปเดตตอนเปิดแอป · iPhone/iPad ต้องเพิ่มแอปไว้ที่หน้าโฮมและอนุญาตการแจ้งเตือน</p>` : '<p class="ui-note">เครื่อง/เบราว์เซอร์นี้ยังไม่รองรับเลขบนไอคอน (ต้องเพิ่มแอปไว้ที่หน้าโฮมก่อน)</p>'}`}
       <h3>ลายพื้นหลัง</h3>
       <div class="ui-sw" data-k="bg">${BGS.map(([v, l]) => `<button type="button" aria-pressed="${v === hubBg.get()}" data-v="${v}"><i class="pv" data-bg="${v}" data-tint="${hubBg.tint()}"></i><span>${l}</span></button>`).join('')}
         <button type="button" aria-pressed="${hubBg.get() === 'photo'}" data-v="photo"><i class="pv pv-photo" data-bg="${get('bgPhoto', '') ? 'photo' : 'plain'}" data-tint="${hubBg.tint()}">${get('bgPhoto', '') ? '' : ICO.cam}</i><span>รูปของฉัน</span></button></div>
@@ -138,7 +160,7 @@
       <h3>อื่นๆ</h3>
       <div class="ui-links">
         ${document.getElementById('btnSettings') ? `<button type="button" data-go="conn">${ICO.link}<span>เชื่อมเครื่อง / ดึงข้อมูลใหม่</span></button>` : ''}
-        <a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>
+        ${window.JK_APP === "money" ? "" : `<a href="status.html">${ICO.pulse}<span>สถานะระบบ</span></a>`}
       </div>`;
   }
   function uiOpen() {
@@ -242,7 +264,8 @@
           input.value = cmd; input.focus(); input.dispatchEvent(new Event('input', { bubbles: true }));
           const esc2 = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
           const wrong = { tasks: /expense|income|owe/, money: /task|note/, inbox: /expense|income|owe|task/ }[PAGE_EARLY()];
-          const where = { expense: ['money.html', 'หน้าเงิน'], income: ['money.html', 'หน้าเงิน'], owe: ['money.html#owe', 'หน้าค้างกัน'], task: ['./', 'หน้างาน'], note: ['inbox.html', 'กล่องฝาก'] }[r.kind];
+          const M = window.JK_APP === 'money', W = M ? 'https://tibdglobal.github.io/Jodngan/' : '', G = M ? '' : 'https://nitithon-web.github.io/maewkwak/';
+          const where = { expense: [G + 'money.html', 'แอปเงิน'], income: [G + 'money.html', 'แอปเงิน'], owe: [G + 'money.html#owe', 'หน้าค้างกัน'], task: [W + './', 'จดครบ หน้างาน'], note: [W + 'inbox.html', 'กล่องฝาก'] }[r.kind];
           say(`🎙 ได้ยินว่า "${esc2(r.text)}" · ตรวจแล้วแตะ ＋ เพื่อ${T[1]}` + (wrong && wrong.test(r.kind) && where ? `<br>ดูเหมือนเรื่องของ${where[1]} <a href="${where[0].replace(/(#.*)?$/, '?say=' + encodeURIComponent(r.kind === 'note' ? cmd.replace(/^ฝาก\s*/, '') : cmd) + '$1')}">ไป${where[1]} ›</a>` : ''), 12000);
         } catch (e) { say('🎙 ' + (e.message || 'ถอดเสียงไม่สำเร็จ'), 6000); }
         finally { mic.classList.remove('busy'); input.placeholder = ph; }
@@ -449,7 +472,7 @@
     const dueL = tasks.filter(x => eff(x) === t), lateL = tasks.filter(x => eff(x) && eff(x) < t).sort((a, b) => eff(a) < eff(b) ? -1 : 1);
     const mt = get('meetTasks', null);
     const meet = mt && Array.isArray(mt.tasks) ? mt.tasks.filter(x => x.open && x.scope === 'me' && x.due && x.due !== 'none' && x.due <= soon).sort((a, b) => a.due < b.due ? -1 : 1) : [];
-    const bills = get('bills', null), money = get('money', null);
+    const bills = get('bills', null), money = null;   // เงินอยู่แอปเงินแล้ว ไม่โชว์ในจดครบ
     const ready = bills ? bills.filter(b => b.status === 'ready') : [], draft = bills ? bills.filter(b => b.status === 'draft') : [];
     const todayM = money ? money.filter(x => x.date === t) : [];
     const spent = todayM.filter(x => (x.type || 'out') === 'out').reduce((s, x) => s + Number(x.amount || 0), 0);
@@ -499,7 +522,6 @@
   setTimeout(async () => {
     if (!cfg.key) return;
     try { if (!get('bills', null)) put('bills', (await api('bills_list')).bills || []); } catch (e) {}
-    try { if (!get('money', null)) put('money', (await api('money_list')).items || []); } catch (e) {}
     try { const m = get('meetTasks', null); if (!m || Date.now() - (m.at || 0) > 3 * 3600e3) { const r = await api('meet_tasks'); put('meetTasks', { tasks: r.tasks, me: r.me, statuses: r.statuses, url: r.url, at: Date.now() }); } } catch (e) {}
     today();
   }, 2500);
@@ -514,9 +536,6 @@
         .map(o => ({ t: o.title || String(o.text || '').split('\n')[0] || (o.data && o.data.title) || 'รายการ', s: String(o.created || '').slice(0, 10), href: 'inbox.html?q=' + encodeURIComponent(q) }))],
       ['🧾 บิลเบิก', get('bills', []).filter(b => hit([b.desc, b.vendor, b.project, b.cat, b.note].join(' ')))
         .map(b => ({ t: b.desc || b.vendor || 'บิล', s: `${b.date || ''} · ${baht(b.amount)}`, href: 'bills.html' }))],
-      ['💰 รายรับ-รายจ่าย', get('money', []).filter(x => hit([x.note, x.cat].join(' ')))
-        .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-        .map(x => ({ t: x.note || x.cat, s: `${x.date || ''} · ${(x.type === 'in' ? '+' : '−') + baht(x.amount)}`, href: 'money.html' }))],
     ].filter(g => g[1].length);
     if (!groups.length) return '';
     return `<section class="group x-search"><h3>จากหมวดอื่น</h3>` + groups.map(([name, list]) => `<div class="items">

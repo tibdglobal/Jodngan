@@ -4,7 +4,7 @@ const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
+const DEFAULT_URL = window.JK_DEFAULT_URL || 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
 const cfg = LS.get('cfg', { url: '', key: '' });
 if (!cfg.url) cfg.url = DEFAULT_URL;
 
@@ -62,7 +62,7 @@ function showStatus(msg, ok) { const el = $('#status'); el.textContent = msg || 
 function upsert(m) { const i = items.findIndex(x => x.id === m.id); if (i > -1) items[i] = m; else items.push(m); LS.set('money', items); }
 
 async function sync() {
-  if (!cfg.key) { showStatus('ยังไม่ได้เชื่อมเครื่องนี้ กลับไปหน้าหลักแล้วเปิดลิงก์จาก LINE ก่อน'); return; }
+  if (!cfg.key) { showStatus(window.JK_APP === 'money' ? 'ยังไม่ได้เชื่อมเครื่องนี้ พิมพ์ ลิงก์ ในแชท LINE แมวกวัก แล้วเปิดลิงก์แอปเงิน' : 'ยังไม่ได้เชื่อมเครื่องนี้ กลับไปหน้าหลักแล้วเปิดลิงก์จาก LINE ก่อน'); return; }
   $('#btnSync').classList.add('spin');
   try { items = (await api('money_list')).items; LS.set('money', items); showStatus(''); render(); }
   catch (e) { showStatus('ดึงข้อมูลไม่สำเร็จ: ' + e.message); }

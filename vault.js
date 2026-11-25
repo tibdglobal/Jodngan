@@ -6,7 +6,7 @@ const $ = s => document.querySelector(s);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
 };
-const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
+const DEFAULT_URL = window.JK_DEFAULT_URL || 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
 const cfg = LS.get('cfg', { url: '', key: '' });
 if (!cfg.url) cfg.url = DEFAULT_URL;
 
@@ -41,7 +41,7 @@ const CAT_RULES_PERSONAL = [
   ['🏛 ราชการ/สุขภาพ/ประกัน', /สรรพากร|ภาษี|ประกันสังคม|go\.th|ไทยดี|thaid|หมอพร้อม|กยศ|โรงพยาบาล|hospital|ประกัน|insurance|aia|เมืองไทย|allianz|fwd|คลินิก|ฟิตเนส|fitness|gym/i],
   ['🎓 เรียน/แอปอื่นๆ', /udemy|coursera|skooldio|duolingo|มหาวิทยาลัย|\.ac\.th|เรียน|คอร์ส|chatgpt|openai|claude|canva|notion|dropbox/i],
 ];
-let space = (() => { try { return localStorage.getItem('vaultSpace') === 'personal' ? 'personal' : 'work'; } catch { return 'work'; } })();
+let space = window.JK_APP === 'money' ? 'personal' : 'work';   // แยก 2 แอป: ตู้ส่วนตัวอยู่แอปเงิน ตู้งานอยู่จดครบ
 const rules = () => space === 'personal' ? CAT_RULES_PERSONAL : CAT_RULES_WORK;
 const defaultCats = () => [...rules().map(r => r[0]), '🔖 อื่นๆ'];
 const LEGACY_CATS = { 'งาน': '🏢 ระบบบริษัท', '🏢 งาน': '🏢 ระบบบริษัท', 'ธนาคาร/การเงิน': '💳 การเงิน/ชำระเงิน', 'อีเมล': '📧 อีเมลงาน', 'โซเชียล': '📣 เพจ/โซเชียล/โฆษณา', 'ช้อปปิ้ง': '🔖 อื่นๆ', 'อื่นๆ': '🔖 อื่นๆ', '🏦 ธนาคาร': '🏦 ธนาคาร/บัตร', '💳 บัตร/e-Wallet': '🏦 ธนาคาร/บัตร', '📧 อีเมล': '📧 อีเมล/บัญชีหลัก', '🛒 ช้อปปิ้ง': '🛒 ช้อปปิ้ง/เดลิเวอรี่', '🍜 อาหาร/เดลิเวอรี่': '🛒 ช้อปปิ้ง/เดลิเวอรี่' };
@@ -363,7 +363,7 @@ function openDlg(it) {
   const f = form.elements;
   $('#vDlgTitle').textContent = it ? 'แก้ไขรหัส' : 'เพิ่มรหัส';
   $('#btnVDelete').hidden = !it;
-  $('#btnVMove').hidden = !it;
+  $('#btnVMove').hidden = true;   // ตู้งาน/ส่วนตัวอยู่คนละระบบแล้ว ย้ายข้ามไม่ได้
   $('#btnVMove').textContent = space === 'work' ? '↔ ย้ายไปตู้ส่วนตัว' : '↔ ย้ายไปตู้งาน';
   f.name.value = it ? it.name : '';
   $('#vCatIn').value = it ? (it.cat || '') : (cat || '');
@@ -780,7 +780,7 @@ $('#btnVMove').onclick = async () => {
     showStatus(`✓ ย้าย "${data.name}" ไป${SPACE_NAME[other]}แล้ว`, true);
   } catch (e) { showStatus('ย้ายไม่สำเร็จ: ' + e.message); }
 };
-document.querySelectorAll('#vSpace button').forEach(b => b.onclick = () => switchSpace(b.dataset.s));
+{ const vs = document.getElementById('vSpace'); if (vs) vs.hidden = true; }
 paintSpace();
 
 /* ---------- เริ่มต้น ---------- */

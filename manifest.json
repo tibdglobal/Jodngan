@@ -37,42 +37,7 @@
           "type": "image/png"
         }
       ]
-    },
-    {
-      "name": "จดรายจ่าย",
-      "short_name": "รายจ่าย",
-      "url": "money.html?do=expense",
-      "icons": [
-        {
-          "src": "icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "ถ่ายสลิป / ใบเสร็จ",
-      "short_name": "ถ่ายสลิป",
-      "url": "money.html?do=snap",
-      "icons": [
-        {
-          "src": "icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "ถ่ายบิลเบิกบริษัท",
-      "short_name": "บิลเบิก",
-      "url": "bills.html?do=snap",
-      "icons": [
-        {
-          "src": "icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
     }
-  ]
+  ],
+  "id": "./"
 }
