@@ -44,6 +44,13 @@ function remote(r) {
     ${row(r.meet ? true : null, '📋 คลังรายงานประชุม TIBD', r.meet ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.bridge ? true : null, '📅 ปฏิทิน (สะพาน)', r.bridge ? 'เชื่อมแล้ว' : 'ยังไม่ตั้งค่า')}
     ${row(r.vault.work ? true : null, '🔐 ตู้รหัสงาน', r.vault.work ? 'ตั้งแล้ว' : 'ยังไม่ตั้ง')}
+    ${(() => {   // 🧯 error ล่าสุดของคำขอจากแอป (หลังบ้านเก็บ 5 อัน) · เกิน 3 วันแล้วถือว่าเก่า
+      const es = r.errors || [], recent = es.filter(x => (Date.now() - Date.parse(String(x.at).replace(' ', 'T') + '+07:00')) / 864e5 < 3);
+      if (!es.length) return row(true, '🧯 error ล่าสุด', 'ไม่มี');
+      const e = es[0];
+      return row(recent.length ? null : true, '🧯 error ล่าสุด', recent.length ? `${recent.length} ครั้งใน 3 วัน` : 'ไม่มีใน 3 วัน',
+        esc(`${ago(e.at) || e.at} · ${e.action || '-'} · ${e.msg}`));
+    })()}
   </ul>${rows ? `<p class="hint">ข้อมูลในชีต: ${rows}</p>` : ''}<p class="hint" id="stMsg"></p></section>`;
 }
 

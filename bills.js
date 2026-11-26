@@ -874,6 +874,7 @@ function askMany(n) {
 async function snapMany(files) {
   const list = files.slice(0, 15), p = parseQuick($('#bInput').value);
   let ok = 0, fail = 0, noAmt = 0;
+  const got = [];
   for (let i = 0; i < list.length; i++) {
     let prep;
     try { prep = await prepare(list[i]); } catch (err) { fail++; continue; }
@@ -881,15 +882,19 @@ async function snapMany(files) {
     const t = { id: uid(), project: p.project };
     try {
       const res = await api('bill_snap', { bill: t, ...prep });
-      upsert(res.bill); ok++;
+      upsert(res.bill); ok++; got.push(res.bill);
       if (!Number(res.bill.amount)) noAmt++;
     } catch (err) { fail++; }
   }
   busyEnd();
   $('#bInput').value = '';
   render();
-  const msg = `🧾 เพิ่ม ${ok} บิล` + (noAmt ? ` · ${noAmt} ใบอ่านยอดไม่ได้ กรอกเอง` : '') + (fail ? ` · ไม่สำเร็จ ${fail} ไฟล์ ลองส่งใหม่` : '') + (files.length > 15 ? ` · ส่งได้ครั้งละ 15 ไฟล์` : '');
-  if (fail) showStatus(msg); else toast(msg + ' · ตรวจยอดอีกครั้งนะ');
+  // บิลที่วันที่ไม่ใช่เดือนที่ดูอยู่ จะไม่ขึ้นในรายการ → บอกว่าไปอยู่เดือนไหน
+  const away = {};
+  got.filter(b => b.date && !inMonth(b, sumMonth)).forEach(b => { const m = b.date.slice(0, 7); away[m] = (away[m] || 0) + 1; });
+  const awayTxt = Object.keys(away).sort().map(m => `${monthShort(m)} ${away[m]}`).join(', ');
+  const msg = `🧾 เพิ่ม ${ok} บิล` + (noAmt ? ` · ${noAmt} ใบอ่านยอดไม่ได้ กรอกเอง` : '') + (awayTxt ? ` · อยู่เดือนอื่น: ${awayTxt}` : '') + (fail ? ` · ไม่สำเร็จ ${fail} ไฟล์ ลองส่งใหม่` : '') + (files.length > 15 ? ` · ส่งได้ครั้งละ 15 ไฟล์` : '');
+  if (fail || awayTxt) showStatus(msg + (fail ? '' : ' · ตรวจยอดอีกครั้งนะ'), !fail); else toast(msg + ' · ตรวจยอดอีกครั้งนะ');
   go('list/all');
 }
 

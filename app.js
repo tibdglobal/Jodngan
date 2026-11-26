@@ -174,13 +174,17 @@ async function save(action, task) {
   if (action === 'delete') { if (i > -1) tasks.splice(i, 1); }
   else if (i > -1) tasks[i] = { ...tasks[i], ...task };
   else tasks.push(task);
+  if (action !== 'delete' && task.done !== undefined) {   // ✅ วันเสร็จในเครื่อง (หลังบ้านตั้ง doneat ของจริงเอง)
+    const k = tasks.findIndex(t => t.id === task.id);
+    if (k > -1) tasks[k].doneat = task.done === '1' ? (was && was.done === '1' ? was.doneat || '' : new Date().toISOString()) : '';
+  }
   // 🔁 ติ๊กเสร็จงานทำซ้ำ → รอบถัดไปขึ้นทันที (id เดียวกับที่ระบบหลังบ้านสร้าง จึงไม่ซ้ำ)
   let spawned = null;
   if (action === 'update' && was && was.done !== '1' && task.done === '1' && REPEAT_TH[was.repeat]) {
     const cur = tasks[i], d = nextRepeat(cur.date, cur.repeat), id = String(cur.id).split('~')[0] + '~' + d.replace(/-/g, '');
     if (!tasks.some(x => x.id === id)) {
       let ck = ''; try { const a = JSON.parse(cur.checks || '[]'); ck = a.length ? JSON.stringify(a.map(c => ({ t: c.t, d: '' }))) : ''; } catch (e) {}
-      spawned = { ...cur, id, date: d, done: '', notified: '', prenoted: '', earlynoted: '', checks: ck, created: new Date().toISOString(), updated: new Date().toISOString() };
+      spawned = { ...cur, id, date: d, done: '', notified: '', prenoted: '', earlynoted: '', doneat: '', checks: ck, created: new Date().toISOString(), updated: new Date().toISOString() };
       tasks.push(spawned);
     }
   }
@@ -263,7 +267,7 @@ function renderChips() {
 function weekStart() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); }
 /** วันที่ติ๊กเสร็จ (ใช้เวลาแก้ไขล่าสุด · ISO จากเครื่อง = แปลงเป็นเวลาไทยก่อน) */
 function doneDay(x) {
-  const u = String(x.updated || '');
+  const u = String(x.doneat || x.updated || '');   // doneat = เวลาติ๊กเสร็จจริง (งานเก่าใช้ updated)
   if (/T.*Z$/.test(u)) { const d = new Date(u); if (!isNaN(d)) return ymd(d); }
   return u.slice(0, 10);
 }
@@ -290,7 +294,7 @@ function render() {
 
   const star = x => x.star === '1';
   const open = view.filter(x => x.done !== '1').sort((a, b) => (+star(b) - +star(a)) || (whenKey(a) < whenKey(b) ? -1 : 1));   // ⭐ ขึ้นก่อนในแต่ละกลุ่ม
-  const doneAll = view.filter(x => x.done === '1').sort((a, b) => (b.updated || '') < (a.updated || '') ? -1 : 1);
+  const doneAll = view.filter(x => x.done === '1').sort((a, b) => doneDay(b) < doneDay(a) ? -1 : doneDay(b) > doneDay(a) ? 1 : (b.updated || '') < (a.updated || '') ? -1 : 1);
   const wk = weekStart();
   const doneWeek = doneAll.filter(x => doneDay(x) >= wk);
   const done = doneAll.filter(x => doneDay(x) < wk).slice(0, 10);
