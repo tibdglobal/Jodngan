@@ -7,7 +7,8 @@ function monthOverview_(month) {
   const sum = list => list.reduce((s, x) => s + Number(x.amount || 0), 0);
   // งาน (เสร็จ = ติ๊กเสร็จ + แก้ล่าสุดในเดือนนั้น)
   const tasks = readAll_();
-  const done = tasks.filter(t => t.done === '1' && inM(t.updated || t.date));
+  const dAt = t => t.doneat || t.updated;   // วันที่เสร็จจริง (งานเก่าที่ไม่มี doneat ใช้ updated)
+  const done = tasks.filter(t => t.done === '1' && inM(dAt(t) || t.date));
   const open = tasks.filter(t => t.done !== '1');
   const overdue = open.filter(t => t.date && t.date < today);
   const dueM = open.filter(t => t.date && inM(t.date) && t.date >= today);
@@ -20,7 +21,7 @@ function monthOverview_(month) {
   return {
     month: month,
     tasks: { done: done.length, open: open.length, overdue: overdue.length, dueLeft: dueM.length,
-      doneList: done.sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 8).map(t => ({ title: t.title, project: t.project, at: String(t.updated || '').slice(0, 10) })),
+      doneList: done.sort((a, b) => String(dAt(b)).localeCompare(String(dAt(a)))).slice(0, 8).map(t => ({ title: t.title, project: t.project, at: String(dAt(t) || '').slice(0, 10) })),
       overdueList: overdue.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6).map(t => ({ title: t.title, date: t.date })),
       projects: Object.entries(byProj).sort((a, b) => b[1] - a[1]).slice(0, 5) },
     bills: { month: sum(bm), monthN: bm.length, draft: sum(st('draft')), draftN: st('draft').length, ready: sum(st('ready')), readyN: st('ready').length,

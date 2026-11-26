@@ -6,14 +6,14 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 69;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 70;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
 // 'due' = ชนิดกำหนดส่ง: '' วันแน่นอน | week ภายในสัปดาห์ | month ภายในเดือน | before ก่อนงานอื่น
 // 'dep' = id ของงานที่ต้องเสร็จก่อน (ใช้กับ due = before)
 // 'pre' = เตือนล่วงหน้ากี่วัน เช่น "7,3" | 'prenoted' = ระยะที่เตือนไปแล้ว
-const HEADERS = ['id', 'title', 'note', 'date', 'time', 'remind', 'done', 'notified', 'created', 'updated', 'project', 'source', 'due', 'dep', 'pre', 'prenoted', 'repeat', 'wait', 'checks', 'star', 'early', 'earlynoted'];   // star = ⭐ งานสำคัญ · early = เตือนก่อนเวลากี่นาที · earlynoted = ส่งเตือนก่อนเวลาแล้ว
+const HEADERS = ['id', 'title', 'note', 'date', 'time', 'remind', 'done', 'notified', 'created', 'updated', 'project', 'source', 'due', 'dep', 'pre', 'prenoted', 'repeat', 'wait', 'checks', 'star', 'early', 'earlynoted', 'doneat'];   // star = ⭐ งานสำคัญ · early = เตือนก่อนเวลากี่นาที · earlynoted = ส่งเตือนก่อนเวลาแล้ว · doneat = เวลาที่ติ๊กเสร็จ
 const CAL_DAYS = 14;             // ดึงประชุมล่วงหน้ากี่วัน
 // ปฏิทินเพิ่มเติมที่แชร์ให้บัญชีนี้โดยตรง — ปฏิทินหลักของบัญชีนี้ดึงเสมอ
 const EXTRA_CALENDARS = [];
@@ -190,6 +190,7 @@ function doPost(e) {
       case 'bill_snap': case 'bill_upload': body.__pre = preRead_(body, () => billInbox_(), billCatList_()); break;
     }
   } catch (err) {
+    logErr_(body.action, err);
     return json_({ ok: false, error: String(err && err.message || err) });
   }
 
@@ -253,10 +254,22 @@ function doPost(e) {
       default:       return json_({ ok: false, error: 'unknown action' });
     }
   } catch (err) {
+    logErr_(body.action, err);
     return json_({ ok: false, error: String(err.message || err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+/** 🧯 บันทึก error ของคำขอจากแอป: เห็นใน Executions (console.error) + หน้าสถานะระบบ (prop LAST_ERRORS เก็บ 5 อันล่าสุด) */
+function logErr_(action, err) {
+  const msg = String(err && err.message || err).slice(0, 300);
+  console.error('[' + action + '] ' + msg + (err && err.stack ? '\n' + err.stack : ''));
+  try {
+    let a = []; try { a = JSON.parse(props.getProperty('LAST_ERRORS') || '[]'); } catch (e) {}
+    a.unshift({ at: stamp_(), action: String(action || ''), msg: msg });
+    props.setProperty('LAST_ERRORS', JSON.stringify(a.slice(0, 5)));
+  } catch (e) {}
 }
 
 /* ===================== LINE webhook ===================== */
@@ -545,7 +558,7 @@ function weeklySummary_(force) {
   const tasks = readAll_(), today = todayStr_();
   const weekAgo = Utilities.formatDate(new Date(now.getTime() - 7 * 864e5), TZ, 'yyyy-MM-dd');
   const in7 = Utilities.formatDate(new Date(now.getTime() + 7 * 864e5), TZ, 'yyyy-MM-dd');
-  const doneW = tasks.filter(t => t.done && String(t.updated).slice(0, 10) >= weekAgo);
+  const doneW = tasks.filter(t => t.done && String(t.doneat || t.updated).slice(0, 10) >= weekAgo);
   const open = tasks.filter(t => !t.done);
   const late = open.filter(t => t.date && t.date < today && !t.wait);
   const wait = open.filter(t => t.wait).sort(byWhen_);
@@ -893,6 +906,7 @@ function addTask_(t) {
     star: t.star && t.star !== '0' ? '1' : '',
     early: String(t.early || '').replace(/\D/g, ''),
     earlynoted: '',
+    doneat: t.done ? now : '',
   };
   if (!row.title) throw new Error('ไม่มีชื่องาน');
   const sh = sheet_();
@@ -925,6 +939,8 @@ function updateTask_(t) {
   } else if (cur.pre !== beforePre) cur.prenoted = '';
   if (cur.early !== beforeEarly) cur.earlynoted = '';
   cur.updated = stamp_();
+  if (!wasDone && cur.done === '1') cur.doneat = cur.updated;   // ✅ วันที่เสร็จจริง (แก้งานทีหลังไม่ทำให้วันเสร็จเปลี่ยน)
+  else if (cur.done !== '1') cur.doneat = '';
 
   rng.setNumberFormat('@').setValues([HEADERS.map(h => cur[h])]);
   if (/^meet:/.test(cur.id) && wasDone !== cur.done) meetOnLocalDone_(cur.id, cur.done === '1');   // งานจากคลังประชุม → อัปเดตสถานะในคลัง
@@ -1113,6 +1129,7 @@ function statusInfo_() {
     line: { token: has('LINE_TOKEN'), owner: has('LINE_USER_ID'), quota: quota },
     ai: (() => { const o = { key: has('GEMINI_API_KEY'), model: P.GEMINI_MODEL || AI_MODELS[0] }; try { o.health = aiHealthInfo_(); } catch (e) {} return o; })(),
     lastTick: P.LAST_TICK || '', weeklySent: P.WEEKLY_SENT || '', backup: P.BACKUP_SENT || '',
+    errors: (() => { try { return JSON.parse(P.LAST_ERRORS || '[]'); } catch (e) { return []; } })(),
     mail: P.MAIL_ON === '1', meet: has('MEET_SHEET_ID'), bridge: has('BRIDGE_URL'),
     vault: { work: has('VAULT_SALT') },
     triggers: triggers, rows: counts,
