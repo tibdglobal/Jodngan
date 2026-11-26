@@ -1,7 +1,7 @@
 /* ===================== 📌 กล่องฝาก (ลิงก์ / โน้ต / รูป ที่ไม่ใช่งาน) + แยกประเภทข้อความจาก LINE ===================== */
 
 const INBOX_SHEET = 'Inbox';
-const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated', 'data', 'remind', 'ocr'];   // remind = วันให้กลับมาดู · ocr = ข้อความในรูป (ไว้ค้นหา)   // data = JSON ของ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม
+const INBOX_HEADERS = ['id', 'kind', 'text', 'url', 'title', 'file', 'tags', 'created', 'updated', 'data', 'remind', 'ocr', 'pin', 'book'];   // remind = วันให้กลับมาดู · ocr = ข้อความในรูป (ไว้ค้นหา) · pin = 📌 ปักไว้บนสุด ('1') · book = 📒 อยู่ในบันทึก ('1', ประชุม/การ์ดอยู่ในบันทึกเสมอ)   // data = JSON ของ 📇 การ์ดข้อมูล / 📋 บันทึกประชุม
 const INBOX_FOLDER = 'จดครบ - กล่องฝาก';
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 
@@ -15,8 +15,10 @@ function inboxSheet_() {
     sh.getRange(1, 1, 1, INBOX_HEADERS.length).setValues([INBOX_HEADERS]).setFontWeight('bold');
     sh.setFrozenRows(1);
   } else if (sh.getRange(1, INBOX_HEADERS.length).getDisplayValue() !== INBOX_HEADERS[INBOX_HEADERS.length - 1]) {
-    sh.getRange(1, 1, 1, INBOX_HEADERS.length).setValues([INBOX_HEADERS]).setFontWeight('bold');   // เพิ่มคอลัมน์ใหม่ (data)
-    sh.getRange(1, INBOX_HEADERS.length, sh.getMaxRows(), 1).setNumberFormat('@');
+    if (sh.getMaxColumns() < INBOX_HEADERS.length) sh.insertColumnsAfter(sh.getMaxColumns(), INBOX_HEADERS.length - sh.getMaxColumns());
+    sh.getRange(1, 1, 1, INBOX_HEADERS.length).setValues([INBOX_HEADERS]).setFontWeight('bold');   // เพิ่มคอลัมน์ใหม่ (ocr / pin / book)
+    const c0 = INBOX_HEADERS.indexOf('ocr') + 1;
+    sh.getRange(1, c0, sh.getMaxRows(), INBOX_HEADERS.length - c0 + 1).setNumberFormat('@');
   }
   return sh;
 }
@@ -79,7 +81,11 @@ function inboxSave_(t) {
   const now = stamp_();
   const o = cur || { id: t.id || Utilities.getUuid().replace(/-/g, ''), created: now, file: null, title: '' };
   if (t.remind !== undefined) o.remind = String(t.remind || '').slice(0, 10);   // ⏰ วันให้กลับมาดู ('' = ไม่เตือน)
-  if (t.only === 'remind' && cur) { o.updated = now; inboxWrite_(o, row); return o; }
+  if (t.pin !== undefined) o.pin = t.pin ? '1' : '';   // 📌 ปักไว้บนสุด
+  if (o.pin === undefined) o.pin = '';
+  if (t.book !== undefined) o.book = t.book ? '1' : '';   // 📒 เก็บเข้าบันทึก / ย้ายกลับไปฝาก
+  if (o.book === undefined) o.book = '';
+  if (t.only === 'remind' && cur) { o.updated = now; inboxWrite_(o, row); return o; }   // แก้เฉพาะ ⏰/📌 ไม่แตะข้อความ
   if (t.kind === 'card' || t.kind === 'meet') {   // การ์ดข้อมูล / บันทึกประชุม: เก็บเป็น JSON + ข้อความไว้ค้นหา
     const d = t.data || {};
     if (JSON.stringify(d).length > 45000) throw new Error('บันทึกยาวเกินไป ลองแยกเป็น 2 บันทึก หรือลบรูปบางรูป');
