@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 67;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 68;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -1075,7 +1075,14 @@ function weeklyBackup_(force) {
     folder = it.hasNext() ? it.next() : parent.createFolder(NAME);
     props.setProperty('BACKUP_FOLDER_ID', folder.getId());
   }
-  const copy = src.makeCopy(src.getName() + ' (สำรอง ' + ymd + ')', folder);
+  // คัดลอกเฉพาะแท็บข้อมูลลงไฟล์ใหม่ (ไม่ใช้ makeCopy เพราะจะได้สำเนาสคริปต์ "จดงาน API" ติดมาด้วยทุกครั้ง)
+  const ss = SpreadsheetApp.openById(id);
+  const dst = SpreadsheetApp.create(src.getName() + ' (สำรอง ' + ymd + ')');
+  const blank = dst.getSheets()[0];
+  ss.getSheets().forEach(sh => { const c = sh.copyTo(dst); c.setName(sh.getName()); });
+  dst.deleteSheet(blank);
+  const copy = DriveApp.getFileById(dst.getId());
+  copy.moveTo(folder);
   // เก็บ 8 ฉบับล่าสุด (เฉพาะสำเนาที่ระบบสร้าง ชื่อขึ้นต้นตามไฟล์ต้นฉบับ + "(สำรอง ")
   const old = [], files = folder.getFiles(), pre = src.getName() + ' (สำรอง ';
   while (files.hasNext()) { const f = files.next(); if (f.getName().indexOf(pre) === 0) old.push(f); }
