@@ -37,6 +37,7 @@
     money: sv('<path d="M5 7.5h13.5A1.5 1.5 0 0 1 20 9v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V6.5A1.5 1.5 0 0 1 5.5 5H16"/><path d="M20 11.5h-3.5a1.8 1.8 0 0 0 0 3.6H20"/>'),
     bills: sv('<path d="M6.5 3.5h11v17l-2.75-1.6L12 20.5l-2.75-1.6L6.5 20.5z"/><path d="M9.5 8h5M9.5 11.5h5M9.5 15h3"/>'),
     vault: sv('<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5"/><path d="M12 14.4v2.2"/>'),
+    book: sv('<path d="M6 4.5h11.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1.5 1.5 0 0 1-1.5-1.5V6A1.5 1.5 0 0 1 6 4.5z"/><path d="M8.5 4.5v15M11.5 9h4M11.5 12h4"/>'),
     users: sv('<circle cx="9" cy="8.5" r="3.1"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M15.3 5.7a3.1 3.1 0 0 1 0 5.7"/><path d="M17.3 13.9A5.4 5.4 0 0 1 20.4 19"/>'),
     cal: sv('<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>'),
     list: sv('<path d="M9.5 7h10M9.5 12h10M9.5 17h10"/><path d="M5 7h.01M5 12h.01M5 17h.01" stroke-width="2.6"/>'),
@@ -54,7 +55,7 @@
     cam: sv('<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
-  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'month.html': 'chart', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault', 'split.html': 'split', 'money.html#owe': 'users' };
+  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'notes.html': 'book', 'month.html': 'chart', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault', 'split.html': 'split', 'money.html#owe': 'users' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
 

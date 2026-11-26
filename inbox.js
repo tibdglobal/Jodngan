@@ -9,7 +9,8 @@ const cfg = LS.get('cfg', { url: '', key: '' });
 if (!cfg.url) cfg.url = DEFAULT_URL;
 
 let items = LS.get('inbox', []);
-let filter = LS.get('inboxFilter', '');
+const PG = document.body.classList.contains('notes') ? 'notes' : 'inbox';   // แยกตัวกรองของแต่ละหน้า
+let filter = LS.get(PG + 'Filter', '');
 let q = '';
 let editing = null;
 let toastTimer = 0;
@@ -19,11 +20,11 @@ const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const KINDS_DROP = [['', 'ทั้งหมด'], ['due', '⏰ ถึงวันดู'], ['stale', '🕸 ค้างนาน'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
 const KINDS_BOOK = [['', 'ทั้งหมด'], ['pin', '📌 ปักไว้'], ['due', '⏰ ถึงวันดู'], ['note', '📝 โน้ต'], ['meet', '📋 ประชุม/ดูงาน'], ['card', '📇 ข้อมูล'], ['image', '🖼 รูป'], ['link', '🔗 ลิงก์']];
-let mode = LS.get('inboxMode', 'drop') === 'book' ? 'book' : 'drop';   // 📥 ฝาก | 📒 บันทึก
+const mode = document.body.classList.contains('notes') ? 'book' : 'drop';   // inbox.html = 📥 ฝาก · notes.html = 📒 บันทึก (ใช้ข้อมูลชุดเดียวกัน)
 const isBook = o => o.kind === 'meet' || o.kind === 'card' || o.book === '1';
 const STALE_DAYS = 14;
 const ageDays = o => { const d = new Date(String(o.created || '').replace(' ', 'T')); return isNaN(d) ? 0 : Math.floor((Date.now() - d) / 864e5); };
-let tagF = LS.get('inboxTag', '');   // #แท็กที่กรองอยู่ (ใช้ร่วมกับประเภท)
+let tagF = LS.get(PG + 'Tag', '');   // #แท็กที่กรองอยู่ (ใช้ร่วมกับประเภท)
 const tagsOf = o => String(o.tags || '').split(',').map(s => s.trim()).filter(Boolean);
 const isPin = o => o.pin === '1';
 
@@ -158,17 +159,12 @@ async function setPin(o, on) {
 async function setBook(o, on) {
   const before = o.book || '';
   o.book = on ? '1' : ''; upsert(o); render();
-  toast(on ? '📒 เก็บเข้าบันทึกแล้ว' : '📥 ย้ายกลับไปฝากแล้ว');
+  toast(on ? '📒 เก็บเข้าบันทึกแล้ว (แท็บบันทึก)' : '📥 ย้ายกลับไปฝากแล้ว (แท็บฝาก)');
   try {
     const r = await api('inbox_save', { item: { id: o.id, book: o.book, remind: o.remind || '', only: 'remind' } });
     if (r.item && r.item.book === undefined) { o.book = before; upsert(o); render(); showStatus('ย้ายยังใช้ไม่ได้: ต้องอัปหลังบ้านเป็นรุ่น 67 ก่อน'); }
   } catch (err) { o.book = before; upsert(o); render(); showStatus('ย้ายไม่สำเร็จ: ' + err.message); }
 }
-$('#iMode').addEventListener('click', e => {
-  const b = e.target.closest('[data-m]');
-  if (!b || b.dataset.m === mode) return;
-  mode = b.dataset.m; LS.set('inboxMode', mode); filter = ''; LS.set('inboxFilter', ''); render();
-});
 $('#btnMove').addEventListener('click', () => { if (!editing) return; const o = editing; $('#iDlg').close(); setBook(o, !isBook(o)); });
 
 /* ---------- ☐ ติ๊กเช็กลิสต์ในโน้ต (แก้ข้อความแล้วบันทึกเบื้องหลัง) ---------- */
@@ -201,13 +197,9 @@ function render() {
   // 📥 ฝาก = รับเข้ามาก่อน แล้วจัดการให้หมด (ทำเป็นงาน / เก็บเข้าบันทึก / ลบ) · 📒 บันทึก = ที่เก็บไว้อ่านซ้ำ
   const inMode = items.filter(o => mode === 'book' ? isBook(o) : !isBook(o));
   const nDrop = items.filter(o => !isBook(o)).length, nBook = items.length - nDrop;
-  $('#iModeDrop').textContent = nDrop ? String(nDrop) : '';
-  $('#iModeBook').textContent = nBook ? String(nBook) : '';
-  $('#iMode').querySelectorAll('[data-m]').forEach(b => { const on = b.dataset.m === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
   document.body.classList.toggle('mode-book', mode === 'book');
-  $('#iTitle').textContent = mode === 'book' ? 'บันทึก' : 'กล่องฝาก';
   const stale = inMode.filter(o => ageDays(o) >= STALE_DAYS).length;
-  $('#iSub').textContent = mode === 'book' ? 'โน้ตที่เก็บไว้ · 📋 บันทึกประชุม/ดูงาน · 📇 การ์ดข้อมูล'
+  $('#iSub').textContent = mode === 'book' ? (nBook ? `${nBook} รายการ · 📋 กดเพื่อบันทึกประชุม/การ์ด` : 'โน้ตที่เก็บไว้ · บันทึกประชุม · การ์ดข้อมูล')
     : nDrop ? `รอจัดการ ${nDrop} รายการ` + (stale ? ` · ค้างเกิน ${STALE_DAYS} วัน ${stale}` : '') : 'ว่างแล้ว 🎉 ของใหม่จาก LINE จะเข้ามาที่นี่';
   iIn.placeholder = mode === 'book' ? 'จดบันทึก…' : 'จดโน้ต / ลิงก์';
 
@@ -373,9 +365,9 @@ $('#iFilters').addEventListener('click', e => {
   if (t) { setTag(tagF === t.dataset.tag ? '' : t.dataset.tag); return; }
   const b = e.target.closest('[data-k]');
   if (!b) return;
-  filter = b.dataset.k; LS.set('inboxFilter', filter); render();
+  filter = b.dataset.k; LS.set(PG + 'Filter', filter); render();
 });
-function setTag(t) { tagF = t; LS.set('inboxTag', t); render(); if (t) scrollTo({ top: 0, behavior: 'smooth' }); }
+function setTag(t) { tagF = t; LS.set(PG + 'Tag', t); render(); if (t) scrollTo({ top: 0, behavior: 'smooth' }); }
 $('#iSearch').addEventListener('input', e => { q = e.target.value; render(); });
 $('#iList').addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.in-tag[data-tag]')) { e.preventDefault(); e.target.click(); } });
 $('#iList').addEventListener('click', e => {
@@ -457,7 +449,6 @@ $('#iDlg').addEventListener('click', e => { if (e.target === $('#iDlg')) $('#iDl
 })();
 /* 📤 แชร์จากแอปอื่นเข้าจดครบ (Android: เมนูแชร์ → จดครบ) · sw.js รับไว้ในแคช 'jodkrob-share' แล้วเปิดหน้านี้ ?shared=1 */
 async function takeShared() {
-  if (mode !== 'drop') { mode = 'drop'; LS.set('inboxMode', mode); render(); }   // ของที่แชร์มา = เข้ากล่องฝาก
   try {
     const c = await caches.open('jodkrob-share');
     const meta = await c.match('meta'), fr = await c.match('file');
