@@ -54,7 +54,7 @@
     cam: sv('<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.5-2h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/>'),
     pulse: sv('<path d="M3 12h4.2l2.3-5.5 5 11 2.3-5.5H21"/>'),
   };
-  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault', 'split.html': 'split', 'money.html#owe': 'users' };
+  const TAB = { './': 'tasks', 'inbox.html': 'inbox', 'month.html': 'chart', 'money.html': 'money', 'bills.html': 'bills', 'vault.html': 'vault', 'split.html': 'split', 'money.html#owe': 'users' };
   document.querySelectorAll('.tabbar a').forEach(a => { const k = TAB[a.getAttribute('href')], sp = a.querySelector('span'); if (k && sp) { sp.innerHTML = ICO[k]; sp.classList.add('ico'); } });
   document.querySelectorAll('[data-ico]').forEach(el => { if (ICO[el.dataset.ico]) el.innerHTML = ICO[el.dataset.ico]; });
 
@@ -445,7 +445,7 @@
     box.hidden = !!(si && si.value.trim());   // กำลังค้นหา = ซ่อนแถบวันนี้
     const t = ymd(new Date()), soon = ymd(new Date(Date.now() + 3 * 864e5));
     const tasks = get('tasks', []).filter(x => x.done !== '1');
-    const eff = x => x.date || '';
+    const eff = x => x.date || '', st = x => x.star === '1' ? '⭐ ' : '';
     const dueL = tasks.filter(x => eff(x) === t), lateL = tasks.filter(x => eff(x) && eff(x) < t).sort((a, b) => eff(a) < eff(b) ? -1 : 1);
     const mt = get('meetTasks', null);
     const meet = mt && Array.isArray(mt.tasks) ? mt.tasks.filter(x => x.open && x.scope === 'me' && x.due && x.due !== 'none' && x.due <= soon).sort((a, b) => a.due < b.due ? -1 : 1) : [];
@@ -453,7 +453,7 @@
     const ready = bills ? bills.filter(b => b.status === 'ready') : [], draft = bills ? bills.filter(b => b.status === 'draft') : [];
     const K = {
       tasks: { ico: ICO.tasks, main: `${dueL.length} งาน`, sub: lateL.length ? `เลยกำหนด ${lateL.length}` : 'ไม่มีงานค้าง', warn: lateL.length > 0,
-        rows: [...lateL.map(x => [x.title, short(eff(x)), 'late']), ...dueL.map(x => [x.title, x.time || 'วันนี้', ''])],
+        rows: [...lateL.map(x => [st(x) + x.title, short(eff(x)), 'late']), ...dueL.slice().sort((a, b) => (b.star === '1') - (a.star === '1')).map(x => [st(x) + x.title, x.time || 'วันนี้', ''])],
         empty: 'วันนี้ไม่มีงานที่ต้องส่ง', go: ['ดูในรายการงาน', '#tasks'] },
       meet: { ico: ICO.users, main: `${meet.length} งาน`, sub: 'ประชุมใน 3 วัน', warn: meet.some(x => x.due < t),
         rows: meet.map(x => [x.task, (x.due < t ? 'เลย ' : '') + short(x.due), x.due < t ? 'late' : '']),

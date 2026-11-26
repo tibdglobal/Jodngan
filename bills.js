@@ -128,6 +128,11 @@ function render() {
   $('#vBack').hidden = view === 'home';
   $('#vToApp').hidden = view !== 'home';
   $('#vSub').hidden = view !== 'home';
+  {   // 💰 ยอดที่ยังไม่ได้เงินคืน (ทุกเดือน) ที่หัวหน้า
+    const owe = bills.filter(b => b.status === 'draft' || b.status === 'ready' || b.status === 'submitted');
+    const sub = bills.filter(b => b.status === 'submitted');
+    $('#vSub').textContent = owe.length ? `ยังไม่ได้เงินคืน ${baht(sum(owe))} · ${owe.length} บิล` + (sub.length ? ` (ยื่นแล้ว ${baht(sum(sub))})` : '') : 'จดไว้ก่อน หลักฐานค่อยตามมา';
+  }
   $('#vTitle').textContent = view === 'home' ? 'เบิกเงิน' : view === 'summary' ? 'สรุปและย้อนหลัง' : view === 'files' ? 'คลังหลักฐาน'
     : tab === 'all' ? 'บิลทั้งหมด' : ST[tab].replace(/^\S+\s/, '');
 
@@ -681,7 +686,10 @@ $('#bFile').addEventListener('change', async e => {
   const isSnap = snapNew;
   snapNew = false;
   if (!files.length) return;
-  if (isSnap) { snapBill(files); return; }
+  if (isSnap) {
+    if (files.length > 1) { const how = await askMany(files.length); if (how === 'split') snapMany(files); else if (how === 'one') snapBill(files); return; }
+    snapBill(files); return;
+  }
   if (!attachFor) return;
   let found = null, filled = {}, prev = {};   // สิ่งที่อ่านได้ / ที่ระบบเติมให้ / ค่าเดิม
   const before = { ...attachFor };
@@ -843,6 +851,46 @@ async function snapBill(fileList) {
   box.append(p1, p2);
   box.hidden = false;
   if (!ocr.amount && !p.amount) setTimeout(() => form.elements.amount.focus(), 60);
+}
+
+/* 📷 เลือกหลายรูป: ถามว่ารวมเป็นบิลเดียว หรือแยกบิลละใบ */
+function askMany(n) {
+  let d = $('#manyDlg');
+  if (!d) {
+    document.body.insertAdjacentHTML('beforeend', `<dialog id="manyDlg" class="rem-dlg"><form method="dialog"><h2 tabindex="-1" autofocus></h2>
+      <div class="rem-opts many-opts"><button type="button" data-v="split"><b>🧾🧾 แยกบิลละใบ</b><small>ใบเสร็จคนละร้าน/คนละวัน · อ่านทีละใบให้เอง</small></button>
+      <button type="button" data-v="one"><b>🧾 รวมเป็นบิลเดียว</b><small>ใบเสร็จ + สลิป หรือบิลยาวหลายหน้าของรายการเดียวกัน</small></button></div>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" class="ghost" data-v="">ยกเลิก</button></div></form></dialog>`);
+    d = $('#manyDlg');
+  }
+  d.querySelector('h2').textContent = `เลือกมา ${n} ไฟล์`;
+  return new Promise(ok => {
+    d.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { d.close(); ok(b.dataset.v); } else if (e.target === d) { d.close(); ok(''); } };
+    d.oncancel = () => ok('');
+    d.showModal();
+  });
+}
+/** แยกบิลละใบ: อ่านทีละไฟล์ (สูงสุด 15) แล้วพาไปดูรายการที่ต้องตรวจ */
+async function snapMany(files) {
+  const list = files.slice(0, 15), p = parseQuick($('#bInput').value);
+  let ok = 0, fail = 0, noAmt = 0;
+  for (let i = 0; i < list.length; i++) {
+    let prep;
+    try { prep = await prepare(list[i]); } catch (err) { fail++; continue; }
+    busyStart(prep.thumb, `ใบที่ ${i + 1}/${list.length}`);
+    const t = { id: uid(), project: p.project };
+    try {
+      const res = await api('bill_snap', { bill: t, ...prep });
+      upsert(res.bill); ok++;
+      if (!Number(res.bill.amount)) noAmt++;
+    } catch (err) { fail++; }
+  }
+  busyEnd();
+  $('#bInput').value = '';
+  render();
+  const msg = `🧾 เพิ่ม ${ok} บิล` + (noAmt ? ` · ${noAmt} ใบอ่านยอดไม่ได้ กรอกเอง` : '') + (fail ? ` · ไม่สำเร็จ ${fail} ไฟล์ ลองส่งใหม่` : '') + (files.length > 15 ? ` · ส่งได้ครั้งละ 15 ไฟล์` : '');
+  if (fail) showStatus(msg); else toast(msg + ' · ตรวจยอดอีกครั้งนะ');
+  go('list/all');
 }
 
 /* ย่อรูปก่อนส่ง (ประหยัดเน็ตและพื้นที่) + ทำรูปเล็กไว้แสดงในแอป */

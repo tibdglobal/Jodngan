@@ -180,7 +180,7 @@ async function save(action, task) {
     const cur = tasks[i], d = nextRepeat(cur.date, cur.repeat), id = String(cur.id).split('~')[0] + '~' + d.replace(/-/g, '');
     if (!tasks.some(x => x.id === id)) {
       let ck = ''; try { const a = JSON.parse(cur.checks || '[]'); ck = a.length ? JSON.stringify(a.map(c => ({ t: c.t, d: '' }))) : ''; } catch (e) {}
-      spawned = { ...cur, id, date: d, done: '', notified: '', prenoted: '', checks: ck, created: new Date().toISOString(), updated: new Date().toISOString() };
+      spawned = { ...cur, id, date: d, done: '', notified: '', prenoted: '', earlynoted: '', checks: ck, created: new Date().toISOString(), updated: new Date().toISOString() };
       tasks.push(spawned);
     }
   }
@@ -258,6 +258,24 @@ function renderChips() {
   [...$('#projectList').children].forEach((o, i) => o.value = list[i].name);
 }
 
+/* ---------- ✅ เสร็จสัปดาห์นี้ ---------- */
+/** วันจันทร์ของสัปดาห์นี้ (yyyy-mm-dd) */
+function weekStart() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); }
+/** วันที่ติ๊กเสร็จ (ใช้เวลาแก้ไขล่าสุด · ISO จากเครื่อง = แปลงเป็นเวลาไทยก่อน) */
+function doneDay(x) {
+  const u = String(x.updated || '');
+  if (/T.*Z$/.test(u)) { const d = new Date(u); if (!isNaN(d)) return ymd(d); }
+  return u.slice(0, 10);
+}
+function weekReport(list) {
+  const by = new Map();
+  list.forEach(x => { const k = x.project || 'ทั่วไป'; if (!by.has(k)) by.set(k, []); by.get(k).push(x); });
+  const d0 = new Date(weekStart() + 'T00:00:00');
+  const head = `สรุปงานที่เสร็จ สัปดาห์ ${d0.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} – ${new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} (${list.length} งาน)`;
+  const body = [...by].map(([k, xs]) => (by.size > 1 || k !== 'ทั่วไป' ? `\n${k}\n` : '\n') + xs.map(x => '• ' + x.title.replace(/\s+/g, ' ').trim()).join('\n')).join('\n');
+  return head + '\n' + body;
+}
+
 function render() {
   renderChips();
   if (window.hubToday) hubToday();
@@ -270,8 +288,12 @@ function render() {
   if (query) { renderSearch(view, t); return; }
   if (mode === 'cal') { renderCal(view, t); return; }
 
-  const open = view.filter(x => x.done !== '1').sort((a, b) => whenKey(a) < whenKey(b) ? -1 : 1);
-  const done = view.filter(x => x.done === '1').sort((a, b) => (b.updated || '') < (a.updated || '') ? -1 : 1).slice(0, 15);
+  const star = x => x.star === '1';
+  const open = view.filter(x => x.done !== '1').sort((a, b) => (+star(b) - +star(a)) || (whenKey(a) < whenKey(b) ? -1 : 1));   // ⭐ ขึ้นก่อนในแต่ละกลุ่ม
+  const doneAll = view.filter(x => x.done === '1').sort((a, b) => (b.updated || '') < (a.updated || '') ? -1 : 1);
+  const wk = weekStart();
+  const doneWeek = doneAll.filter(x => doneDay(x) >= wk);
+  const done = doneAll.filter(x => doneDay(x) < wk).slice(0, 10);
 
   const E = x => effDate(x), soft = x => !!SOFT[x.due];
   const waiting = open.filter(x => x.wait);
@@ -284,7 +306,8 @@ function render() {
     ['ถัดไป', '', mine.filter(x => !soft(x) && E(x) > tmr)],
     ['⏳ รอคนอื่น', 'waiting', waiting],
     ['ยังไม่กำหนดวัน', '', mine.filter(x => !E(x))],
-    ['เสร็จแล้ว', '', done],
+    ['✅ เสร็จสัปดาห์นี้', 'doneweek', doneWeek],
+    ['เสร็จก่อนหน้านี้', '', done],
   ];
 
   const list = $('#list');
@@ -304,6 +327,16 @@ function render() {
       const h = sec.querySelector('h3'), b = document.createElement('button');
       b.type = 'button'; b.className = 'resched-all'; b.textContent = 'เลื่อนทั้งหมด → พรุ่งนี้';
       b.onclick = () => { if (confirm(`เลื่อนงานที่เลยกำหนดทั้ง ${items.length} งานไปพรุ่งนี้?`)) reschedule(items, addDays(today(), 1)); };
+      h.append(b);
+    }
+    if (cls === 'doneweek') {   // 📋 ก็อปสรุปงานที่เสร็จสัปดาห์นี้ ไว้รายงานหัวหน้า
+      const h = sec.querySelector('h3'), b = document.createElement('button');
+      b.type = 'button'; b.className = 'resched-all'; b.textContent = '📋 ก็อปสรุป';
+      b.onclick = async () => {
+        const txt = weekReport(items);
+        try { await navigator.clipboard.writeText(txt); b.textContent = '✓ ก็อปแล้ว'; } catch (e) { prompt('ก็อปข้อความนี้', txt); }
+        setTimeout(() => { b.textContent = '📋 ก็อปสรุป'; }, 1800);
+      };
       h.append(b);
     }
     const box = sec.querySelector('.items');
@@ -570,7 +603,7 @@ function row(task, t) {
   if (SOFT[task.due]) meta.push(dueText(task));
   else if (ed && ed !== t) meta.push(`${dayName(ed)} ${short(ed)}`);
   if (task.time && !SOFT[task.due]) meta.push(task.time);
-  if (task.remind === '1' && task.time) meta.push('🔔');
+  if (task.remind === '1' && task.time) meta.push('🔔' + (task.early ? ' +ก่อน ' + earlyTxt(task.early) : ''));
   if (task.pre) meta.push('⏳' + task.pre.split(',').join('/') + ' วัน');
   if (REPEAT_TH[task.repeat]) meta.push('🔁 ' + REPEAT_TH[task.repeat]);
   const cks = checksOf(task);
@@ -580,6 +613,7 @@ function row(task, t) {
   const late = task.done !== '1' && ed && ed < t;
   body.innerHTML = `<span class="title"></span><span class="meta${late ? ' late' : ''}"></span>`;
   body.querySelector('.title').textContent = task.title;
+  if (task.star === '1' && task.done !== '1') { el.classList.add('starred'); body.querySelector('.title').prepend(Object.assign(document.createElement('span'), { className: 'star', textContent: '⭐', title: 'งานสำคัญ' })); }
   if (task.project && !filter) {   // ดูรวมทุกโปรเจ็ค = แสดงป้ายโปรเจ็ค
     const tag = document.createElement('span');
     tag.className = 'tag';
@@ -695,7 +729,10 @@ function updateEditDue() {
   $('#eDepRow').hidden = k !== 'before';
   $('#ePreRow').hidden = !PRE_KINDS[k];
   f.remind.closest('label').hidden = !showTime || !f.time.value;
+  $('#eEarlyRow').hidden = !showTime || !f.time.value || !f.remind.checked;
 }
+function earlyTxt(m) { return +m >= 60 ? (+m / 60) + ' ชม.' : m + ' นาที'; }
+editForm.elements.remind.addEventListener('change', () => updateEditDue());
 const PRE_KINDS = { date: 1, week: 1, month: 1, before: 1 };   // แบบที่ตั้งเตือนล่วงหน้าได้
 const ePre = $('#ePre');
 ePre.querySelectorAll('[data-d]').forEach(b => b.onclick = () => b.classList.toggle('on'));
@@ -733,6 +770,8 @@ function openEdit(task, creating) {
   f.date.value = task.date || '';
   f.time.value = task.time || '';
   f.remind.checked = task.remind === '1' || (isNew && !!task.time);
+  f.early.value = task.early || '';
+  f.star.checked = task.star === '1';
   f.note.value = task.note || '';
   f.project.value = task.project || '';
   setPre(task.pre);
@@ -788,6 +827,8 @@ editForm.addEventListener('submit', () => {
     title: f.title.value.trim() || editing.title,
     date, time, due, dep, pre,
     remind: f.remind.checked && time ? '1' : '',
+    early: f.remind.checked && time ? f.early.value : '',
+    star: f.star.checked ? '1' : '',
     note: f.note.value,
     repeat: eRepV,
     wait: f.wait.value.trim(),

@@ -2298,3 +2298,77 @@ body[data-bg="photo"][data-soft="1"]::before { filter: blur(5px); inset: -16px; 
 .fs-lg .resched { flex-wrap: wrap; }
 .ui-seg button { white-space: normal; line-height: 1.25; }
 .fs-lg .mo-sec .sec-ico { display: none; }
+
+/* ---------- v111 กล่องฝาก: ช่องจดหลายบรรทัด · 📌 ปัก · ☐ เช็กลิสต์ในโน้ต · ชิป #แท็ก ---------- */
+body.inbox .quick { align-items: flex-end; }
+.quick textarea {
+  flex: 1; min-width: 0; display: block; resize: none; overflow-y: auto;
+  font: inherit; font-size: calc(16px * var(--fs, 1)); line-height: 1.45; color: var(--text);
+  min-height: 50px; max-height: 45vh; padding: 12px 16px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--card); outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.quick textarea::placeholder { color: var(--muted); }
+.quick textarea:focus, .quick textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.in-wrap > textarea { flex: 1; min-width: 0; padding-right: 50px !important; }
+.in-wrap:has(> textarea) .mic-btn { top: auto; bottom: 5px; transform: none; }
+body.inbox .quick .in-pic, body.inbox .quick .add-btn { height: 50px; flex: none; }
+
+.chip-sep { flex: none; width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); }
+.chip.tag { color: var(--accent); }
+.chip.tag.on { color: var(--on-accent); }
+.in-tag[data-tag] { cursor: pointer; }
+.in-tag[data-tag]:hover { filter: brightness(.95); text-decoration: underline; }
+
+.in-card.pinned { border-color: var(--accent-line); box-shadow: inset 3px 0 0 var(--accent); }
+.pin-btn { opacity: .45; filter: grayscale(1); }
+.pin-btn.on { opacity: 1; filter: none; border-color: var(--accent-line); background: var(--accent-soft); }
+
+.in-cks { display: grid; gap: 2px; min-width: 0; }
+.in-cks .in-text { margin: 2px 0 4px; }
+.in-cks .ck-n { color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); }
+.in-ck { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 6px 2px; min-height: 36px;
+  border: 0; background: transparent; color: var(--text); font: inherit; font-size: calc(15px * var(--fs, 1)); line-height: 1.4; cursor: pointer; border-radius: 8px; }
+.in-ck:hover { background: var(--sunken); }
+.in-ck .box { flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 6px; border: 1.6px solid var(--line-strong, var(--muted));
+  display: grid; place-items: center; font-size: calc(13px * var(--fs, 1)); font-weight: 700; color: var(--on-accent); }
+.in-ck.done .box { background: var(--accent); border-color: var(--accent); }
+.in-ck.done > span:last-child { color: var(--muted); text-decoration: line-through; }
+.in-ck a { pointer-events: auto; }
+.in-tools { display: flex; gap: 10px; align-items: center; margin: -4px 0 10px; }
+.in-tools small { color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); }
+.in-tools .mini { min-height: 34px; }
+
+/* v111 หน้างาน: ⭐ งานสำคัญ · ⏰ เตือนก่อนเวลา */
+.item .title .star { margin-right: 4px; font-size: .95em; }
+.item.starred { box-shadow: inset 3px 0 0 #e0a100; }
+.early-row select { width: 100%; }
+#editDlg .star-row { margin-top: 2px; }
+/* v111 หน้าเบิก: เลือกหลายรูป */
+.rem-opts.many-opts { grid-template-columns: 1fr; }
+.rem-opts.many-opts button { display: grid; gap: 2px; justify-content: stretch; justify-items: start; text-align: left; padding: 12px 14px; }
+.many-opts button small { color: var(--muted); font-weight: 400; font-size: calc(12.5px * var(--fs, 1)); }
+.in-card footer > small { white-space: nowrap; }
+.quick textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* v111 กล่องฝาก | บันทึก */
+.mode-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 2px 0 10px; border-radius: 14px; background: var(--sunken); }
+.mode-seg button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font: inherit; font-size: calc(15px * var(--fs, 1)); cursor: pointer; }
+.mode-seg button small { font-size: calc(12.5px * var(--fs, 1)); color: inherit; opacity: .8; }
+.mode-seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.mode-seg button.on b { color: var(--accent); }
+body.inbox:not(.mode-book) #btnNew { display: none; }
+body.inbox.mode-book #btnPic { display: none; }
+.in-ttl { margin: 0; font-size: calc(16.5px * var(--fs, 1)); font-weight: 700; line-height: 1.35; }
+.in-old { margin: 0; padding: 4px 10px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 12%, var(--card)); color: var(--warn); font-size: calc(12.5px * var(--fs, 1)); }
+.in-where { margin-left: 6px; color: var(--muted); font-size: calc(11.5px * var(--fs, 1)); white-space: nowrap; }
+
+/* v111 แถบล่าง: งานอยู่ตรงกลาง เป็นปุ่มหลัก */
+.tabbar a[href="month.html"] { --c: var(--ink-month); }
+.tabbar a.tab-main span.ico { width: 52px; height: 52px; margin-top: -18px; border-radius: 18px; background: var(--ink, #1a1d1b); color: var(--on-ink, #fff); box-shadow: 0 6px 16px -6px rgba(0,0,0,.35); display: grid; place-items: center; }
+.tabbar a.tab-main span.ico svg { width: 26px; height: 26px; stroke-width: 2.1; }
+.tabbar a.tab-main[aria-current="page"] span.ico { background: var(--ink, #1a1d1b); color: var(--on-ink, #fff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink-tasks) 35%, transparent), 0 6px 16px -6px rgba(0,0,0,.35); }
+.tabbar a.tab-main { font-weight: 600; }
+
+.in-card footer { flex-wrap: wrap; row-gap: 6px; }
+.in-card { min-width: 0; overflow-wrap: anywhere; }
