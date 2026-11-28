@@ -13,13 +13,13 @@ const MTYPE = { meet: ['🤝', 'ประชุม'], visit: ['🏭', 'ดูง
 /* ข้อความในหน้าจดที่เปลี่ยนตามแบบบันทึก (ข้อมูลเก็บช่องเดิม: people / sections / todos / asks / decs) */
 const MCFG = {
   meet:  { title: 'ชื่อเรื่อง เช่น ประชุมทีมขาย ประจำสัปดาห์', people: '👥 ผู้เข้าร่วม', sec: 'เช่น วาระ 1 · ฝ่ายขาย · งบประมาณ', quick: 'จดเร็ว: ประเด็นที่คุย',
-           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ส่งสรุปให้ทีม ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true },
+           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ส่งสรุปให้ทีม ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true, agenda: true, slides: true },
   visit: { title: 'ชื่อเรื่อง เช่น ดูงานโรงบด บ.เอบีซี', people: '👥 ผู้เข้าร่วม', sec: 'เช่น ชั้น 1 · เครื่องบด A · โกดัง', quick: 'จดเร็ว: บด 2 ตัน/วัน',
-           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ขอใบเสนอราคา ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true },
+           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ขอใบเสนอราคา ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true, plate: true },
   talk:  { title: 'ชื่อลูกค้า / เรื่อง เช่น คุณสมชาย บ.เอบีซี สนใจเครื่องบด', people: '👥 ลูกค้า / ผู้ร่วมคุย', sec: 'เช่น ความต้องการ · งบ · สินค้าที่สนใจ', quick: 'จดเร็ว: ลูกค้าต้องการ…',
-           todos: '☐ ติดตามลูกค้า', asks: '❓ ลูกค้าถาม / ต้องหาคำตอบ', decs: '✅ สิ่งที่รับปาก / ตกลงกัน', todoPh: '＋ เช่น ส่งใบเสนอราคา พรุ่งนี้', decPh: '＋ เช่น ให้ทดลองใช้ 7 วัน', arc: true },
+           todos: '☐ ติดตามลูกค้า', asks: '❓ ลูกค้าถาม / ต้องหาคำตอบ', decs: '✅ สิ่งที่รับปาก / ตกลงกัน', todoPh: '＋ เช่น ส่งใบเสนอราคา พรุ่งนี้', decPh: '＋ เช่น ให้ทดลองใช้ 7 วัน', arc: true, slides: true },
   train: { title: 'ชื่อหลักสูตร เช่น อบรม ISO 22000 รุ่น 3', people: '🎓 วิทยากร / ผู้เข้าอบรม', sec: 'เช่น บทที่ 1 · Workshop · กรณีศึกษา', quick: 'จดเร็ว: ประเด็นที่ได้เรียนรู้',
-           todos: '🛠 นำไปใช้กับงาน', asks: '❓ ข้อสงสัย / ไว้ถามต่อ', decs: '💡 สิ่งที่ได้เรียนรู้', todoPh: '＋ เช่น ปรับแบบฟอร์มตรวจรับของ', decPh: '＋ สรุปเป็นข้อสั้นๆ', arc: false },
+           todos: '🛠 นำไปใช้กับงาน', asks: '❓ ข้อสงสัย / ไว้ถามต่อ', decs: '💡 สิ่งที่ได้เรียนรู้', todoPh: '＋ เช่น ปรับแบบฟอร์มตรวจรับของ', decPh: '＋ สรุปเป็นข้อสั้นๆ', arc: false, agenda: true, slides: true },
 };
 const mcfg = t => MCFG[t] || MCFG.meet;
 const UNIT_RE = /^(?:$|.*\/|ตัน|กก|กิโล|kg|g\b|กรัม|ลิตร|l\b|ml|มล|ซีซี|cc|ชม|ชั่วโมง|นาที|วิ|วัน|สัปดาห์|เดือน|ปี|คน|เครื่อง|ตัว|ชิ้น|ชุด|ไร่|งาน|ตร|ม\.|m\b|m2|m3|เมตร|ซม|cm|mm|มม|นิ้ว|kw|kva|w\b|วัตต์|hp|แรง|v\b|โวลต์|a\b|แอมป์|rpm|รอบ|บาท|฿|%|°|องศา|c\b|bar|psi|ถุง|กล่อง|ลัง|พาเลท|ไลน์|line|ห้อง|ชั้น|คัน|ลูก|กระสอบ|ตู้|เท่า|ล้าน|พัน|หมื่น|แสน|k\b|mb|gb|tb|ไมครอน|micron|mesh|เมช)/i;
@@ -141,11 +141,12 @@ function meetText(d) {
   if ((d.people || []).length) out.push('👥 ' + d.people.join(', '));
   (d.sections || []).forEach(s => {
     const rows = (s.rows || []).filter(r => r.k || r.v);
-    if (!rows.length && !s.notes && !(s.photos || []).length) return;
-    out.push('', '▸ ' + (s.name || 'ทั่วไป'));
+    if (!rows.length && !s.notes && !(s.photos || []).length && !(s.files || []).length && !s.at) return;
+    out.push('', '▸ ' + [s.at ? s.at + (s.end ? '–' + s.end : '') : '', s.name || 'ทั่วไป'].filter(Boolean).join(' ') + (s.who ? ' (' + s.who + ')' : ''));
     rows.forEach(r => out.push('• ' + [r.k, [r.v, r.u].filter(Boolean).join(' ')].filter(Boolean).join(': ')));
     if (s.notes) out.push(s.notes.trim());
     if ((s.photos || []).length) out.push('📷 รูป ' + s.photos.length + ' รูป');
+    (s.files || []).forEach(f => out.push('📎 ' + f.name + (f.url ? ' ' + f.url : '')));
   });
   if ((d.audio || []).length) { const t = d.audio.reduce((s, a) => s + (a.dur || 0), 0); out.push('', '🎙 เสียงบันทึก ' + d.audio.length + ' ไฟล์' + (t ? ' รวม ' + Math.round(t / 60) + ' นาที' : '')); }
   const list = (title, arr, f) => { arr = (arr || []).filter(x => (x.t || x).toString().trim()); if (arr.length) out.push('', title, ...arr.map(f)); };
@@ -241,6 +242,19 @@ document.body.insertAdjacentHTML('beforeend', `
         <div id="mPeople" class="m-chips"></div>
         <input id="mPerson" placeholder="พิมพ์ชื่อ แล้วกด Enter (คั่นหลายคนด้วย ,)" enterkeyhint="done">
         <div id="mSug" class="m-sug"></div>
+      </section>
+      <section class="m-box m-agenda" id="mAgBox">
+        <h3>📅 กำหนดการ</h3>
+        <p class="hint" id="mAgHint">อัปรูป/PDF กำหนดการ หรือวางข้อความ ให้ AI แยกเป็นช่วงเวลา แต่ละช่วงจะเป็นส่วนให้จด และตอนจดเร็วจะลงช่วงที่กำลังเป็นอยู่ให้เอง</p>
+        <div class="c-btns">
+          <button type="button" class="mini" id="mAgPic">📷 รูป / PDF กำหนดการ</button>
+          <button type="button" class="mini" id="mAgTxt">📝 วางข้อความ</button>
+          <a class="mini" id="mAgOpen" target="_blank" rel="noopener" hidden>🖼 ดูกำหนดการ ↗</a>
+        </div>
+        <div id="mAgPasteBox" hidden>
+          <textarea id="mAgPaste" rows="6" placeholder="เช่น&#10;09:00–10:30 หลักการ HACCP (อ.สมชาย)&#10;10:30–10:45 พักเบรก&#10;10:45–12:00 Workshop ระบุอันตราย"></textarea>
+          <div class="c-btns"><button type="button" class="mini" id="mAgGo">✨ แยกเป็นช่วง</button></div>
+        </div>
       </section>
       <div id="mSecs"></div>
       <button type="button" id="mAddSec" class="m-add">＋ เพิ่มส่วน <small id="mSecHint">เช่น ชั้น 1 · เครื่องบด A · โกดัง</small></button>
@@ -437,6 +451,107 @@ $('#cDel').addEventListener('click', async () => {
 
 /* ===================== 📋 บันทึกประชุม / ดูงาน ===================== */
 let m = null, mId = '', mCur = 0, mTimer = 0, mSaving = null;
+let mPicked = 0, mLiveT = 0, mLiveTick = 0, mLiveLast = -2;   // 📅 ช่วงที่กำลังเป็นอยู่
+
+/* ---------- 📅 กำหนดการ → ช่วงเวลา · ช่วงที่กำลังเป็นอยู่ ---------- */
+const ymdLocal = d => d.toLocaleDateString('sv-SE');
+/** ส่วนที่เวลาตอนนี้อยู่ในช่วง (เริ่ม ≤ ตอนนี้ < จบ หรือก่อนช่วงถัดไป) · ไม่มี = -1 */
+function liveIdx() {
+  if (!m || !m.sections) return -1;
+  const now = Date.now(), base = (m.when || '').slice(0, 10) || ymdLocal(new Date());
+  const ts = m.sections.map(s => s.at ? new Date((s.day || base) + 'T' + s.at).getTime() : NaN);
+  for (let i = 0; i < m.sections.length; i++) {
+    if (isNaN(ts[i]) || ts[i] > now) continue;
+    const s = m.sections[i];
+    let end = s.end ? new Date((s.day || base) + 'T' + s.end).getTime() : NaN;
+    if (isNaN(end)) { const nx = ts.slice(i + 1).find(t => !isNaN(t) && t > ts[i]); end = nx || ts[i] + 90 * 60000; }
+    if (now < end) return i;
+  }
+  return -1;
+}
+function followLive() {
+  const L = liveIdx();
+  if (L > -1 && L !== mCur && Date.now() - mPicked > 10 * 60000) { mCur = L; mRenderTo(); }
+}
+function agendaApply(r) {
+  const items = (r.items || []).filter(x => x.title);
+  if (!items.length) throw new Error('ไม่เจอรายการในกำหนดการ');
+  const empty = m.sections.every(s => !s.notes && !(s.rows || []).some(x => x.k || x.v) && !(s.photos || []).length && !(s.files || []).length);
+  if (empty) m.sections = [];
+  items.forEach(x => m.sections.push({ name: x.title, at: x.at, end: x.end, day: x.day, who: x.who, brk: x.brk, rows: [], notes: '', photos: [], files: [] }));
+  const base = (m.when || '').slice(0, 10) || ymdLocal(new Date());
+  m.sections.sort((a, b) => ((a.day || base) + (a.at || '99')).localeCompare((b.day || base) + (b.at || '99')));
+  if (!m.title && r.title) { m.title = r.title; $('#mTitle').value = m.title; }
+  if (!m.place && r.place) { m.place = r.place; $('#mPlace').value = m.place; }
+  const first = items.find(x => x.day);
+  if (first && (!m.when || m.when.slice(0, 10) !== first.day)) { m.when = first.day + 'T' + (items[0].at || '09:00'); $('#mWhen').value = m.when; }
+  if (r.photo) m.agenda = r.photo;
+  mCur = Math.max(0, liveIdx()); mPicked = 0;
+  mRenderAll(); mDirty(true);
+  toast(`📅 ได้ ${items.length} ช่วง` + (items.some(x => !x.at) ? ' · บางช่วงไม่มีเวลา ใส่เองได้' : ''));
+}
+async function agendaFromFile() {
+  const [file] = await pickFiles(false, 'image/*,application/pdf');
+  if (!file) return;
+  mState('📅 AI กำลังอ่านกำหนดการ…');
+  try {
+    const p = await prepare(file);
+    const thumb = p.mime === 'application/pdf' ? '' : await thumbOf(file, 200);
+    agendaApply(await api('ai_agenda', { ...p, keep: p.mime !== 'application/pdf', thumb }));
+  } catch (err) { mState(''); showStatus('อ่านกำหนดการไม่สำเร็จ: ' + err.message); }
+}
+async function agendaFromText() {
+  const t = $('#mAgPaste').value.trim();
+  if (!t) return $('#mAgPaste').focus();
+  mState('📅 AI กำลังแยกช่วง…');
+  try { agendaApply(await api('ai_agenda', { text: t })); $('#mAgPaste').value = ''; $('#mAgPasteBox').hidden = true; }
+  catch (err) { mState(''); showStatus('แยกกำหนดการไม่สำเร็จ: ' + err.message); }
+}
+
+/* ---------- 📎 ไฟล์สไลด์ (PDF / PowerPoint ฯลฯ) → Drive แบบ resumable ทีละ 4 MB ---------- */
+const EXT_MIME = { pdf: 'application/pdf', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', key: 'application/vnd.apple.keynote' };
+async function uploadDoc(file, onPct) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const mime = EXT_MIME[ext] || file.type || 'application/octet-stream';
+  const { session } = await api('audio_start', { kind: 'slide', name: file.name, mime, size: file.size });
+  const CH = 4 * 1024 * 1024;
+  const b64 = blob => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => bad(new Error('อ่านไฟล์ไม่ได้')); r.readAsDataURL(blob); });
+  let off = 0;
+  for (let tries = 0; off < file.size;) {
+    try {
+      const r = await api('audio_chunk', { session, offset: off, total: file.size, mime, data: await b64(file.slice(off, off + CH)) });
+      if (r.done) return r.file;
+      off = r.next || off + CH; tries = 0;
+      if (onPct) onPct(Math.round(off / file.size * 100));
+    } catch (e) {
+      if (++tries > 3) throw e;
+      await new Promise(ok => setTimeout(ok, 1500 * tries));
+      try { const q = await api('audio_chunk', { session, total: file.size, probe: 1 }); if (q.done) return q.file; off = q.next; } catch (e2) {}
+    }
+  }
+  const q = await api('audio_chunk', { session, total: file.size, probe: 1 });
+  if (q.done) return q.file;
+  throw new Error('อัปไม่ครบ');
+}
+async function uploadSlides(i) {
+  const files = await pickFiles(true, '.pdf,.ppt,.pptx,.key,.doc,.docx,.xls,.xlsx,application/pdf');
+  if (!files.length) return;
+  const sec = m.sections[i];
+  if (!Array.isArray(sec.files)) sec.files = [];
+  let ok = 0;
+  for (const [n, f] of files.entries()) {
+    try {
+      if (f.size > 300 * 1024 * 1024) throw new Error('ใหญ่เกิน 300 MB');
+      mState(`📎 อัป ${n + 1}/${files.length}: ${f.name.slice(0, 24)}…`);
+      const up = await uploadDoc(f, pct => mState(`📎 อัป ${n + 1}/${files.length} · ${pct}%`));
+      sec.files.push({ id: up.id, name: up.name || f.name, size: up.size || f.size, url: up.url });
+      ok++; mRenderSec(i); mDirty(true);
+    } catch (err) { showStatus(`อัป ${f.name} ไม่สำเร็จ: ${err.message}`); }
+  }
+  mState(ok ? `📎 แนบไฟล์แล้ว ${ok} ไฟล์` : '');
+}
 const drafts = () => LS.get('meetDrafts', {});
 function putDraft() { const d = drafts(); d[mId] = { data: m, at: Date.now() }; LS.set('meetDrafts', d); }
 function dropDraft(id) { const d = drafts(); delete d[id]; LS.set('meetDrafts', d); }
@@ -447,6 +562,8 @@ function openMeet(o, type) {
   m = dr ? dr.data : o ? JSON.parse(JSON.stringify(o.data || {})) : { type: type || 'meet', title: '', when: nowLocal(), place: '', people: [], sections: [], todos: [], asks: [], decs: [] };
   ['people', 'sections', 'todos', 'asks', 'decs'].forEach(k => { if (!Array.isArray(m[k])) m[k] = []; });
   mCur = Math.max(0, m.sections.length - 1);
+  mPicked = 0; { const L = liveIdx(); if (L > -1) mCur = L; }
+  clearInterval(mLiveTick); mLiveTick = setInterval(() => { if ($('#mDlg').open) { const L = liveIdx(); if (L !== mLiveLast) { mLiveLast = L; mRenderSecs(); } } else clearInterval(mLiveTick); }, 60000);
   $('#mTitle').value = m.title || '';
   $('#mWhen').value = m.when || '';
   $('#mPlace').value = m.place || '';
@@ -475,6 +592,8 @@ function mApplyType() {
   const decs = $('#mBody .m-box[data-list="decs"]'), todos = $('#mBody .m-box[data-list="todos"]');
   if (m.type === 'train') todos.before(decs); else $('#mBody .m-box[data-list="asks"]').after(decs);
   $('#mArcBox').hidden = !c.arc;
+  $('#mAgBox').hidden = !c.agenda;
+  $('#mAgOpen').hidden = !(m.agenda && m.agenda.url); if (m.agenda && m.agenda.url) $('#mAgOpen').href = m.agenda.url;
   // คำอธิบายจดเร็ว (# ส่วน · ☐ · ? · ! · @) ให้ตรงกับหัวข้อของแบบนี้
   $('#mHelpT').textContent = c.todos.replace(/^\S+\s/, '');
   $('#mHelpD').textContent = c.decs.replace(/^\S+\s/, '');
@@ -487,7 +606,7 @@ function mRenderAll() {
 }
 function mRenderTo() {
   const s = m.sections[mCur];
-  $('#mTo').textContent = s ? 'จดลง: ' + (s.name || 'ทั่วไป') : 'จดลง: ทั่วไป';
+  $('#mTo').textContent = (s ? 'จดลง: ' + (s.name || 'ทั่วไป') : 'จดลง: ทั่วไป') + (s && mCur === liveIdx() ? ' ▶' : '');
   $('#mSecs').querySelectorAll('.m-sec').forEach(el => el.classList.toggle('on', +el.dataset.i === mCur));
 }
 /* ดึงหัวเรื่อง/เวลาจากงานวันนี้ */
@@ -533,21 +652,26 @@ $('#mPeople').addEventListener('click', e => { const b = e.target.closest('[data
 $('#mSug').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (b) { addPeople(b.dataset.add); $('#mPerson').value = ''; mRenderPeople(); } });
 
 /* ส่วนย่อย */
-function newSec(name) { m.sections.push({ name: name || '', rows: [], notes: '', photos: [] }); mCur = m.sections.length - 1; }
+function newSec(name) { m.sections.push({ name: name || '', rows: [], notes: '', photos: [], files: [] }); mCur = m.sections.length - 1; }
 function secHtml(s, i) {
-  return `<section class="m-sec${i === mCur ? ' on' : ''}" data-i="${i}">
+  const c = mcfg(m.type), live = i === liveIdx(), timed = s.at || s.end || s.who || c.agenda;
+  return `<section class="m-sec${i === mCur ? ' on' : ''}${live ? ' live' : ''}${s.brk ? ' brk' : ''}" data-i="${i}">
     <div class="m-sec-h"><span class="m-dot" aria-hidden="true"></span>
-      <input class="m-sec-name" data-f="name" value="${esc(s.name)}" placeholder="ชื่อส่วน ${esc(mcfg(m.type).sec.split(' · ')[0])}">
+      <input class="m-sec-name" data-f="name" value="${esc(s.name)}" placeholder="ชื่อส่วน ${esc(c.sec.split(' · ')[0])}">
       <button type="button" class="mini ghost" data-sact="del" aria-label="ลบส่วนนี้">✕</button></div>
+    ${timed ? `<div class="m-sec-t">🕘 <input type="time" data-f="at" value="${esc(s.at || '')}" aria-label="เวลาเริ่ม"> – <input type="time" data-f="end" value="${esc(s.end || '')}" aria-label="เวลาจบ">
+      <input data-f="who" value="${esc(s.who || '')}" placeholder="${m.type === 'train' ? 'วิทยากร' : 'ผู้นำเสนอ'}" aria-label="วิทยากร">${s.day ? `<small>${esc(new Date(s.day + 'T00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }))}</small>` : ''}${live ? '<b class="m-live">▶ ตอนนี้</b>' : ''}</div>` : ''}
     <div class="m-rows">${(s.rows || []).map((r, j) => `<div class="m-row" data-r="${j}">
         <input data-f="k" value="${esc(r.k)}" placeholder="หัวข้อ"><input data-f="v" value="${esc(r.v)}" placeholder="ค่า" inputmode="text"><input data-f="u" value="${esc(r.u)}" placeholder="หน่วย">
         <button type="button" class="c-x" data-sact="rmrow" aria-label="ลบแถว">✕</button></div>`).join('')}</div>
     <div class="m-sec-btns">
       <button type="button" class="mini" data-sact="row">＋ แถวข้อมูล</button>
-      <button type="button" class="mini" data-sact="plate">📷 ป้ายเครื่อง (AI)</button>
-      <button type="button" class="mini" data-sact="photo">🖼 รูป</button>
+      ${c.plate ? '<button type="button" class="mini" data-sact="plate">📷 ป้ายเครื่อง (AI)</button>' : ''}
+      <button type="button" class="mini" data-sact="photo">${c.slides ? '📷 รูปสไลด์' : '🖼 รูป'}</button>
+      ${c.slides ? '<button type="button" class="mini" data-sact="slide">📎 ไฟล์สไลด์</button>' : ''}
     </div>
-    <textarea data-f="notes" rows="${Math.min(8, Math.max(2, String(s.notes || '').split('\n').length))}" placeholder="โน้ต เช่น ชั้นนี้ทำอะไร">${esc(s.notes)}</textarea>
+    ${(s.files || []).length ? `<div class="m-files">${s.files.map((f, k) => `<span class="m-file"><a href="${esc(f.url)}" target="_blank" rel="noopener">📎 ${esc(f.name)}${f.size ? ` <small>${(f.size / 1048576).toFixed(1)} MB</small>` : ''}</a><button type="button" data-sact="rmfile" data-k="${k}" aria-label="เอาไฟล์ออก">✕</button></span>`).join('')}</div>` : ''}
+    <textarea data-f="notes" rows="${Math.min(8, Math.max(2, String(s.notes || '').split('\n').length))}" placeholder="${m.type === 'train' ? 'โน้ต เช่น ประเด็นที่ได้จากช่วงนี้' : m.type === 'talk' ? 'โน้ต เช่น ลูกค้าเล่าว่า…' : m.type === 'meet' ? 'โน้ต เช่น สรุปวาระนี้' : 'โน้ต เช่น ชั้นนี้ทำอะไร'}">${esc(s.notes)}</textarea>
     ${(s.photos || []).length ? `<div class="m-photos">${s.photos.map((p, k) => `<span class="m-ph"><a href="${esc(p.url)}" target="_blank" rel="noopener">${p.thumb ? `<img src="${p.thumb}" alt="">` : '🖼'}</a><button type="button" data-sact="rmph" data-k="${k}" aria-label="เอารูปออก">✕</button></span>`).join('')}</div>` : ''}
   </section>`;
 }
@@ -560,12 +684,12 @@ $('#mAddSec').addEventListener('click', () => {
   newSec(''); mRenderSecs(); mDirty();
   const el = $('#mSecs').lastElementChild; el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.querySelector('.m-sec-name').focus();
 });
-$('#mSecs').addEventListener('focusin', e => { const s = e.target.closest('.m-sec'); if (s && +s.dataset.i !== mCur) { mCur = +s.dataset.i; mRenderTo(); } });
+$('#mSecs').addEventListener('focusin', e => { const s = e.target.closest('.m-sec'); if (s && +s.dataset.i !== mCur) { mCur = +s.dataset.i; mPicked = Date.now(); mRenderTo(); } });
 $('#mSecs').addEventListener('click', async e => {
   const s = e.target.closest('.m-sec');
   if (!s) return;
   const i = +s.dataset.i, sec = m.sections[i];
-  if (mCur !== i) { mCur = i; mRenderTo(); }
+  if (mCur !== i) { mCur = i; mPicked = Date.now(); mRenderTo(); }
   const b = e.target.closest('[data-sact]');
   if (!b) return;
   const a = b.dataset.sact;
@@ -575,6 +699,8 @@ $('#mSecs').addEventListener('click', async e => {
   }
   if (a === 'row') { sec.rows.push({ k: '', v: '', u: '' }); mRenderSec(i); mDirty(); $('#mSecs').querySelector(`.m-sec[data-i="${i}"] .m-row:last-child input`).focus(); }
   if (a === 'rmrow') { sec.rows.splice(+b.closest('.m-row').dataset.r, 1); mRenderSec(i); mDirty(); }
+  if (a === 'slide') uploadSlides(i);
+  if (a === 'rmfile') { if (confirm('เอาไฟล์นี้ออกจากบันทึก? (ไฟล์ยังอยู่ใน Drive)')) { sec.files.splice(+b.dataset.k, 1); mRenderSec(i); mDirty(); } }
   if (a === 'rmph') { if (confirm('เอารูปนี้ออกจากบันทึก?')) { sec.photos.splice(+b.dataset.k, 1); mRenderSec(i); mDirty(); } }
   if (a === 'photo') addPhotos(i);
   if (a === 'plate') readPlate(i);
@@ -585,6 +711,7 @@ $('#mSecs').addEventListener('input', e => {
   const sec = m.sections[+s.dataset.i];
   if (f === 'name') { sec.name = e.target.value; mRenderTo(); }
   else if (f === 'notes') sec.notes = e.target.value;
+  else if (f === 'at' || f === 'end' || f === 'who') { sec[f] = e.target.value; if (f !== 'who') { clearTimeout(mLiveT); mLiveT = setTimeout(() => mRenderSec(+s.dataset.i), 800); } }
   else sec.rows[+e.target.closest('.m-row').dataset.r][f] = e.target.value;
   mDirty();
 });
@@ -777,6 +904,7 @@ $('#mQuick').addEventListener('submit', e => {
   const s = $('#mIn').value.trim();
   if (!s) return;
   const q = quickParse(s);
+  followLive();   // มีกำหนดการ: จดลงช่วงที่กำลังเป็นอยู่ (ถ้าไม่ได้เลือกส่วนเองใน 10 นาทีที่ผ่านมา)
   const ensure = () => { if (!m.sections.length) { newSec(''); mRenderSecs(); } return m.sections[mCur]; };
   let msg = '';
   if (q.t === 'sec') { newSec(q.name); mRenderSecs(); msg = '＋ ส่วน: ' + (q.name || 'ใหม่'); setTimeout(() => $('#mSecs').lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30); }
@@ -791,6 +919,9 @@ $('#mQuick').addEventListener('submit', e => {
 });
 
 /* หัวบันทึก */
+$('#mAgPic').addEventListener('click', agendaFromFile);
+$('#mAgTxt').addEventListener('click', () => { $('#mAgPasteBox').hidden = !$('#mAgPasteBox').hidden; if (!$('#mAgPasteBox').hidden) $('#mAgPaste').focus(); });
+$('#mAgGo').addEventListener('click', agendaFromText);
 $('#mType').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { m.type = b.dataset.t; mRenderAll(); mDirty(); } });
 $('#mTitle').addEventListener('input', e => { m.title = e.target.value; if (!m.title || $('#mFromCal').innerHTML) mRenderCal(); mDirty(); });
 $('#mWhen').addEventListener('input', e => { m.when = e.target.value; mDirty(); });

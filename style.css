@@ -2376,3 +2376,16 @@ body.inbox.mode-book #btnPic { display: none; }
 
 /* v114 บันทึก 4 แบบ: ประชุม ดูงาน คุยลูกค้า อบรม */
 .n-grid.n-grid4 { grid-template-columns: repeat(4, 1fr); }
+/* v115 📅 กำหนดการ · ช่วงเวลา · ▶ ตอนนี้ · 📎 ไฟล์สไลด์ */
+.m-agenda textarea { width: 100%; margin-top: 8px; }
+.m-sec-t { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 8px; color: var(--muted); font-size: calc(13px * var(--fs, 1)); }
+.m-sec-t input[type=time] { width: 116px; padding: 4px 6px; min-height: 32px; }
+.m-sec-t input[data-f=who] { flex: 1; min-width: 110px; padding: 4px 8px; min-height: 32px; }
+.m-live { padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: calc(12px * var(--fs, 1)); }
+.m-sec.live { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.m-sec.brk { opacity: .72; }
+.m-files { display: grid; gap: 6px; margin: 8px 0; }
+.m-file { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.m-file a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
+.m-file small { color: var(--muted); }
+.m-file button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px; }
