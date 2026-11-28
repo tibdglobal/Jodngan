@@ -6,7 +6,7 @@
  * - ส่งสรุปงานตอนเช้า + เตือนตามเวลา ผ่าน LINE (รวมหลายงานเป็นข้อความเดียวเพื่อประหยัดโควตา)
  */
 
-const BACKEND_VER = 72;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
+const BACKEND_VER = 73;   // เพิ่มทุกครั้งที่ deploy (โชว์ในหน้าสถานะระบบ)
 const SHEET_NAME = 'Tasks';
 // 'project' อยู่ท้ายสุด เพื่อให้ Sheet เดิมใช้ต่อได้โดยข้อมูลไม่เลื่อนคอลัมน์
 // 'source' = คีย์นัดหมายจาก Google Calendar (กันดึงซ้ำ)
@@ -179,6 +179,7 @@ function doPost(e) {
       case 'ai_fields':  return json_({ ok: true, ...aiFields_(body) });
       case 'ai_meet_sum': return json_({ ok: true, ...aiMeetSummary_(body) });
       case 'ai_agenda':  return json_({ ok: true, ...aiAgenda_(body) });   // 📅 อ่านกำหนดการ → ช่วงเวลา
+      case 'photo_thumbs': return json_({ ok: true, ...photoThumbs_(body) });   // 🖼 รูปย่อ/รูปใหญ่ (อ่านอย่างเดียว)
       case 'ai_voice':   return json_({ ok: true, ...aiVoice_(body) });   // 🎙 ปุ่มไมค์ในแอป
       case 'meet_tasks': return json_({ ok: true, ...meetTasks_(!!body.all) });
       case 'meet_draft': return json_({ ok: true, minute: meetDraft_(body) });

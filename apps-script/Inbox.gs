@@ -128,12 +128,12 @@ function inboxFolder_() {
   return f;
 }
 
-function inboxThumb_(fid, max) {
+function inboxThumb_(fid, max, sizes) {
   try {
     const meta = Drive.Files.get(fid, { fields: 'thumbnailLink' });
     if (!meta || !meta.thumbnailLink) return '';
     const token = ScriptApp.getOAuthToken();
-    for (const n of [320, 220, 160]) {
+    for (const n of sizes || [320, 220, 160]) {
       const r = UrlFetchApp.fetch(meta.thumbnailLink.replace(/=s\d+[^/]*$/, '=s' + n), { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
       if (r.getResponseCode() !== 200) return '';
       const b = r.getBlob();
@@ -181,7 +181,17 @@ function inboxPhoto_(p) {
   if (!/^image\//.test(mime)) throw new Error('รองรับเฉพาะรูป');
   const name = (String(p.name || 'บันทึก').replace(/[\\/:*?"<>|#]/g, ' ').slice(0, 60) || 'บันทึก') + '_' + stamp_().replace(/[:T]/g, '-') + '.jpg';
   const file = inboxFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(String(p.data || '')), mime, name));
-  return { id: file.getId(), url: file.getUrl(), thumb: String(p.thumb || '').slice(0, 6000) || inboxThumb_(file.getId(), 6000) };
+  // รูปย่อไม่เก็บในชีตแล้ว (เคยตัดที่ 6000 ตัวอักษรจนรูปเสีย) · แอปจำรูปย่อในเครื่อง และขอใหม่ผ่าน photo_thumbs
+  const t = String(p.thumb || '');
+  return { id: file.getId(), url: file.getUrl(), thumb: t.length <= 6000 ? t : '' };
+}
+
+/** 🖼 รูปย่อ/รูปใหญ่จาก Drive (ไม่ต้องแชร์ไฟล์) · ids สูงสุด 20 · big = รูปใหญ่สำหรับดูเต็มจอ (ทีละ 1 รูป) */
+function photoThumbs_(p) {
+  const big = !!p.big, ids = (p.ids || []).map(String).filter(x => /^[\w-]{20,}$/.test(x)).slice(0, big ? 1 : 20);
+  const out = {};
+  ids.forEach(id => { out[id] = big ? inboxThumb_(id, 3e6, [1600, 1200]) : inboxThumb_(id, 40000, [320, 220]); });
+  return { thumbs: out };
 }
 
 /** ☐ งานต่อจากบันทึก → งานจริง (อ่านวัน/เวลาจากข้อความ เช่น "ขอใบเสนอราคา ศุกร์นี้") */
