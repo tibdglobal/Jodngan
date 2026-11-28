@@ -6,6 +6,49 @@ const LS = {
 };
 const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbwaM09cNIMYY1_HMRTEL0Sm-3qg5rSvxd93k6jLU2EgoaHNZvMUvhgoQ_jRnELgY0FAbA/exec';
 const cfg = LS.get('cfg', { url: '', key: '' });
+
+/* ---------- 🖼 รูปย่อ: จำในเครื่อง + ขอจาก Drive ผ่านหลังบ้าน (ไม่เก็บในชีตแล้ว) ---------- */
+let thumbs = LS.get('thumbCache', {});
+const thumbOk = t => !!t && t.length !== 6000 && /^data:image\//.test(t);   // ยาว 6000 พอดี = ของเก่าที่ถูกตัดจนเสีย
+function thumbPut(id, d) {
+  if (!id || !d) return;
+  delete thumbs[id]; thumbs[id] = d;
+  const ks = Object.keys(thumbs);
+  if (ks.length > 300) ks.slice(0, ks.length - 300).forEach(k => delete thumbs[k]);
+  try { localStorage.setItem('thumbCache', JSON.stringify(thumbs)); }
+  catch (e) { ks.slice(0, Math.ceil(ks.length / 2)).forEach(k => delete thumbs[k]); try { localStorage.setItem('thumbCache', JSON.stringify(thumbs)); } catch (e2) {} }
+}
+/** <img> ของรูปใน Drive · ไม่มีรูปย่อในเครื่อง = ช่องเทาไว้ก่อน แล้ว fillThumbs ไปขอมาใส่ */
+function thumbImg(p, cls) {
+  const src = (p.id && thumbs[p.id]) || (thumbOk(p.thumb) ? p.thumb : '');
+  return `<img${cls ? ` class="${cls}"` : ''} data-thid="${esc(p.id || '')}"${src ? ` src="${src}"` : ''} alt="" loading="lazy">`;
+}
+const thQ = new Set(), thTried = {};
+let thT = 0;
+function fillThumbs(root) {
+  (root || document).querySelectorAll('img[data-thid]:not([src])').forEach(i => {
+    const id = i.dataset.thid;
+    if (!id) return;
+    if (thumbs[id]) i.src = thumbs[id];
+    else if ((thTried[id] || 0) < Date.now() - 60000) thQ.add(id);   // Drive ยังไม่มีรูปย่อ → ลองใหม่ทุก 1 นาที
+  });
+  if (thQ.size) { clearTimeout(thT); thT = setTimeout(loadThumbs, 250); }
+}
+async function loadThumbs() {
+  const ids = [...thQ].slice(0, 20);
+  ids.forEach(id => { thQ.delete(id); thTried[id] = Date.now(); });
+  if (!ids.length || !cfg.key) return;
+  try {
+    const r = await api('photo_thumbs', { ids });
+    Object.entries(r.thumbs || {}).forEach(([id, d]) => {
+      if (!d) return;
+      thumbPut(id, d);
+      document.querySelectorAll(`img[data-thid="${CSS.escape(id)}"]`).forEach(i => { i.src = d; });
+    });
+  } catch (e) {}
+  if (thQ.size) thT = setTimeout(loadThumbs, 250);
+}
+
 if (!cfg.url) cfg.url = DEFAULT_URL;
 
 let items = LS.get('inbox', []);
@@ -246,7 +289,8 @@ function render() {
     // บันทึก: บรรทัดแรกของโน้ต = หัวเรื่อง
     let head = '';
     if (book && o.kind === 'note' && rest.includes('\n') && !CK_RE.test(rest.split('\n')[0])) { head = `<h3 class="in-ttl">${textHtml(rest.split('\n')[0])}</h3>`; rest = rest.split('\n').slice(1).join('\n').trim(); }
-    const pic = o.file && o.file.thumb ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener"><img src="${o.file.thumb}" alt="" loading="lazy"></a>`
+    const pic = o.file && o.file.id ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener" data-view="${esc(o.file.id)}">${thumbImg({ id: o.file.id, thumb: o.file.thumb })}</a>`
+      : o.file && o.file.thumb ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener"><img src="${o.file.thumb}" alt="" loading="lazy"></a>`
       : o.file ? `<a class="in-pic-big none" href="${esc(o.file.url)}" target="_blank" rel="noopener">🖼 เปิดรูป</a>` : '';
     const link = o.url ? `<a class="in-link" href="${esc(o.url)}" target="_blank" rel="noopener"><b>${esc(o.title || host(o.url) || o.url)}</b><small>🔗 ${esc(host(o.url))}</small></a>` : '';
     const ck = ckCount(o.text);
@@ -272,6 +316,7 @@ function render() {
       </footer>
     </article>`;
   }).join('');
+  fillThumbs($('#iList'));
 }
 
 /* ---------- เพิ่ม ---------- */
@@ -414,7 +459,8 @@ function openEdit(o) {
   f.elements.title.value = o.title || '';
   f.elements.title.closest('label').hidden = !o.url;
   $('#btnMove').textContent = isBook(o) ? '📥 ย้ายกลับไปฝาก' : '📒 ย้ายไปบันทึก';
-  $('#iPrev').innerHTML = o.file && o.file.thumb ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener"><img src="${o.file.thumb}" alt=""></a>` : '';
+  $('#iPrev').innerHTML = o.file && (o.file.thumb || o.file.id) ? `<a class="in-pic-big" href="${esc(o.file.url)}" target="_blank" rel="noopener" data-view="${esc(o.file.id || '')}">${thumbImg({ id: o.file.id, thumb: o.file.thumb })}</a>` : '';
+  fillThumbs($('#iPrev'));
   $('#iDlg').showModal();
 }
 $('#iForm').addEventListener('submit', async e => {
@@ -468,3 +514,57 @@ async function takeShared() {
 $('#btnSync').addEventListener('click', sync);
 // เริ่มหลังโหลดสคริปต์ครบ (inote.js ต่อจากไฟล์นี้)
 document.addEventListener('DOMContentLoaded', () => { mergePending(); render(); sync(); });
+
+
+/* ---------- 🔍 ดูรูปเต็มจอในแอป (แตะรูป) · ‹ › เลื่อนรูปในส่วนเดียวกัน · ปัดซ้าย/ขวาได้ ---------- */
+const bigs = new Map();
+let pv = { list: [], i: 0 };
+function viewerEl() {
+  let d = document.getElementById('phView');
+  if (d) return d;
+  document.body.insertAdjacentHTML('beforeend', `<dialog id="phView" class="ph-view" aria-label="ดูรูป">
+    <img id="phImg" alt="">
+    <div class="ph-bar"><button type="button" id="phPrev" aria-label="รูปก่อนหน้า">‹</button><span id="phN"></span>
+      <a id="phDrive" target="_blank" rel="noopener">เปิดใน Drive ↗</a><button type="button" id="phNext" aria-label="รูปถัดไป">›</button>
+      <button type="button" id="phX" aria-label="ปิด">✕</button></div>
+  </dialog>`);
+  d = document.getElementById('phView');
+  const go = k => { if (pv.list.length) { pv.i = (pv.i + k + pv.list.length) % pv.list.length; showPh(); } };
+  d.querySelector('#phPrev').onclick = () => go(-1);
+  d.querySelector('#phNext').onclick = () => go(1);
+  d.querySelector('#phX').onclick = () => d.close();
+  d.addEventListener('click', e => { if (e.target === d) d.close(); });
+  d.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') go(-1); if (e.key === 'ArrowRight') go(1); });
+  let x0 = null;
+  d.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  d.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); });
+  return d;
+}
+async function showPh() {
+  const p = pv.list[pv.i], img = document.getElementById('phImg');
+  document.getElementById('phN').textContent = pv.list.length > 1 ? `${pv.i + 1} / ${pv.list.length}` : '';
+  document.getElementById('phPrev').hidden = document.getElementById('phNext').hidden = pv.list.length < 2;
+  document.getElementById('phDrive').href = p.url || '#';
+  img.src = bigs.get(p.id) || thumbs[p.id] || (thumbOk(p.thumb) ? p.thumb : '');
+  img.classList.toggle('blur', !bigs.has(p.id));
+  if (bigs.has(p.id) || !p.id) return;
+  try {
+    const r = await api('photo_thumbs', { ids: [p.id], big: 1 });
+    const d = (r.thumbs || {})[p.id];
+    if (d) { bigs.set(p.id, d); if (pv.list[pv.i] === p) { img.src = d; img.classList.remove('blur'); } }
+  } catch (e) {}
+}
+function openViewer(list, i) {
+  if (!list.length) return;
+  pv = { list, i: Math.max(0, i) };
+  const d = viewerEl();
+  if (!d.open) d.showModal();
+  showPh();
+}
+// แตะรูปในกล่องฝาก/หน้าแก้ไข → ดูในแอป (กดค้าง/คลิกกลาง ยังเปิดลิงก์ Drive ได้ตามปกติ)
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-view]');
+  if (!a || !a.dataset.view || e.ctrlKey || e.metaKey) return;
+  e.preventDefault();
+  openViewer([{ id: a.dataset.view, url: a.href }], 0);
+});

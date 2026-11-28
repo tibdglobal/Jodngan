@@ -2389,3 +2389,18 @@ body.inbox.mode-book #btnPic { display: none; }
 .m-file a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
 .m-file small { color: var(--muted); }
 .m-file button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px; }
+/* v116 🖼 รูปย่อจาก Drive + ดูรูปเต็มจอ */
+img[data-thid]:not([src]) { background: var(--sunken); min-height: 60px; }
+.m-ph img[data-thid]:not([src]) { width: 72px; height: 72px; }
+.ph-view { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgba(0,0,0,.92); display: none; }
+.ph-view[open] { display: flex; flex-direction: column; }
+.ph-view::backdrop { background: rgba(0,0,0,.92); }
+.ph-view img { flex: 1; min-height: 0; width: 100%; object-fit: contain; transition: filter .2s; }
+.ph-view img.blur { filter: blur(6px); }
+.ph-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); color: #fff; }
+.ph-bar button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font-size: 22px; cursor: pointer; }
+.ph-bar #phN { flex: 1; text-align: center; font-size: 14px; opacity: .8; }
+.ph-bar a { color: #fff; font-size: 14px; opacity: .85; white-space: nowrap; }
+.ph-view, .ph-view[open] { border-radius: 0 !important; box-shadow: none; }
+.ph-view::before, .ph-view::after { display: none !important; }
+.ph-view img { touch-action: pinch-zoom; }

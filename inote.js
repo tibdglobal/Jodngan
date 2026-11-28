@@ -672,13 +672,13 @@ function secHtml(s, i) {
     </div>
     ${(s.files || []).length ? `<div class="m-files">${s.files.map((f, k) => `<span class="m-file"><a href="${esc(f.url)}" target="_blank" rel="noopener">📎 ${esc(f.name)}${f.size ? ` <small>${(f.size / 1048576).toFixed(1)} MB</small>` : ''}</a><button type="button" data-sact="rmfile" data-k="${k}" aria-label="เอาไฟล์ออก">✕</button></span>`).join('')}</div>` : ''}
     <textarea data-f="notes" rows="${Math.min(8, Math.max(2, String(s.notes || '').split('\n').length))}" placeholder="${m.type === 'train' ? 'โน้ต เช่น ประเด็นที่ได้จากช่วงนี้' : m.type === 'talk' ? 'โน้ต เช่น ลูกค้าเล่าว่า…' : m.type === 'meet' ? 'โน้ต เช่น สรุปวาระนี้' : 'โน้ต เช่น ชั้นนี้ทำอะไร'}">${esc(s.notes)}</textarea>
-    ${(s.photos || []).length ? `<div class="m-photos">${s.photos.map((p, k) => `<span class="m-ph"><a href="${esc(p.url)}" target="_blank" rel="noopener">${p.thumb ? `<img src="${p.thumb}" alt="">` : '🖼'}</a><button type="button" data-sact="rmph" data-k="${k}" aria-label="เอารูปออก">✕</button></span>`).join('')}</div>` : ''}
+    ${(s.photos || []).length ? `<div class="m-photos">${s.photos.map((p, k) => `<span class="m-ph"><a href="${esc(p.url)}" target="_blank" rel="noopener" data-ph="${k}">${p.id ? thumbImg(p) : thumbOk(p.thumb) ? `<img src="${p.thumb}" alt="">` : '🖼'}</a><button type="button" data-sact="rmph" data-k="${k}" aria-label="เอารูปออก">✕</button></span>`).join('')}</div>` : ''}
   </section>`;
 }
-function mRenderSecs() { $('#mSecs').innerHTML = m.sections.map(secHtml).join(''); mRenderTo(); }
+function mRenderSecs() { $('#mSecs').innerHTML = m.sections.map(secHtml).join(''); mRenderTo(); fillThumbs($('#mSecs')); }
 function mRenderSec(i) {
   const el = $('#mSecs').querySelector(`.m-sec[data-i="${i}"]`);
-  if (el) el.outerHTML = secHtml(m.sections[i], i); else mRenderSecs();
+  if (el) { el.outerHTML = secHtml(m.sections[i], i); fillThumbs($('#mSecs')); } else mRenderSecs();
 }
 $('#mAddSec').addEventListener('click', () => {
   newSec(''); mRenderSecs(); mDirty();
@@ -686,6 +686,13 @@ $('#mAddSec').addEventListener('click', () => {
 });
 $('#mSecs').addEventListener('focusin', e => { const s = e.target.closest('.m-sec'); if (s && +s.dataset.i !== mCur) { mCur = +s.dataset.i; mPicked = Date.now(); mRenderTo(); } });
 $('#mSecs').addEventListener('click', async e => {
+  const ph = e.target.closest('a[data-ph]');
+  if (ph && !e.ctrlKey && !e.metaKey) {   // 🔍 แตะรูป = ดูเต็มจอในแอป เลื่อนดูรูปอื่นในส่วนเดียวกันได้
+    e.preventDefault();
+    const sec = m.sections[+ph.closest('.m-sec').dataset.i];
+    openViewer((sec.photos || []).filter(p => p.id), (sec.photos || []).filter(p => p.id).indexOf(sec.photos[+ph.dataset.ph]));
+    return;
+  }
   const s = e.target.closest('.m-sec');
   if (!s) return;
   const i = +s.dataset.i, sec = m.sections[i];
@@ -718,8 +725,9 @@ $('#mSecs').addEventListener('input', e => {
 
 /* รูป */
 async function uploadPhoto(file) {
-  const [p, thumb] = await Promise.all([prepare(file), thumbOf(file, 200)]);
-  const r = await api('inbox_photo', { ...p, thumb, name: m.title || 'บันทึก' });
+  const [p, thumb] = await Promise.all([prepare(file), thumbOf(file, 320)]);
+  const r = await api('inbox_photo', { ...p, name: m.title || 'บันทึก' });   // รูปย่อจำไว้ในเครื่อง ไม่ส่งไปเก็บในชีต
+  if (r.photo && thumb) thumbPut(r.photo.id, thumb);
   return { p, photo: r.photo };
 }
 async function addPhotos(i) {
@@ -952,8 +960,8 @@ function localItem() {
 function compact(d) {
   // เกินที่ชีตเก็บได้ → ทิ้งรูปย่อของรูปเก่าก่อน (รูปจริงยังอยู่ใน Drive)
   const c = JSON.parse(JSON.stringify(d));
-  const phs = c.sections.flatMap(s => s.photos || []);
-  for (const p of phs) { if (JSON.stringify(c).length < 40000) break; p.thumb = ''; }
+  // รูปย่อของรูปในส่วนไม่เก็บในชีตแล้ว (แอปขอจาก Drive + จำในเครื่อง) ช่องในชีตจะได้พอสำหรับรูปเยอะๆ
+  c.sections.forEach(s => (s.photos || []).forEach(p => { if (p.id) delete p.thumb; }));
   return c;
 }
 async function mSave() {
