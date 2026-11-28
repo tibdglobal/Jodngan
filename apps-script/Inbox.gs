@@ -339,14 +339,25 @@ function audioFolder_() {
   return f;
 }
 function audioName_(s) { return String(s || 'เสียงประชุม').replace(/[\\/:*?"<>|#]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || 'เสียงประชุม'; }
+/** 📎 โฟลเดอร์ไฟล์สไลด์/เอกสารในบันทึก (อบรม ประชุม) */
+function slideFolder_() {
+  let id = props.getProperty('SLIDE_FOLDER_ID'), f = null;
+  if (id) { try { f = DriveApp.getFolderById(id); } catch (e) { f = null; } }
+  if (!f) { f = inboxFolder_().createFolder('สไลด์และเอกสาร'); props.setProperty('SLIDE_FOLDER_ID', f.getId()); }
+  return f;
+}
+const SLIDE_MIME = /^(application\/(pdf|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.(presentationml|wordprocessingml|spreadsheetml)\.[\w.]+|msword|vnd\.ms-excel|vnd\.apple\.keynote|x-iwork-keynote-sffkey|octet-stream)|image\/[\w.+-]+)$/;
+/** อัปไฟล์ใหญ่แบบ resumable ของ Drive · kind 'slide' = สไลด์/เอกสาร (สูงสุด 300 MB) · อื่นๆ = เสียง/วิดีโอ (สูงสุด 1 GB) */
 function audioStart_(p) {
-  const mime = String(p.mime || 'audio/webm').split(';')[0];
-  if (!AUDIO_MIME.test(mime)) throw new Error('รองรับเฉพาะไฟล์เสียง/วิดีโอ');
+  const slide = p.kind === 'slide';
+  const mime = String(p.mime || (slide ? 'application/octet-stream' : 'audio/webm')).split(';')[0];
+  if (slide ? !SLIDE_MIME.test(mime) : !AUDIO_MIME.test(mime)) throw new Error(slide ? 'รองรับ PDF, PowerPoint, Word, Excel, Keynote และรูป' : 'รองรับเฉพาะไฟล์เสียง/วิดีโอ');
   const size = Number(p.size) || 0;
-  if (size <= 0 || size > 1024 * 1024 * 1024) throw new Error('ขนาดไฟล์ไม่ถูกต้อง (สูงสุด 1 GB)');
+  const max = slide ? 300 : 1024;
+  if (size <= 0 || size > max * 1024 * 1024) throw new Error('ขนาดไฟล์ไม่ถูกต้อง (สูงสุด ' + (slide ? '300 MB' : '1 GB') + ')');
   const r = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,webViewLink', {
     method: 'post', contentType: 'application/json; charset=UTF-8', muteHttpExceptions: true,
-    payload: JSON.stringify({ name: audioName_(p.name), mimeType: mime, parents: [audioFolder_().getId()] }),
+    payload: JSON.stringify({ name: slide ? String(p.name || 'สไลด์').replace(/[\\/:*?"<>|#]/g, ' ').trim().slice(0, 120) : audioName_(p.name), mimeType: mime, parents: [(slide ? slideFolder_() : audioFolder_()).getId()] }),
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(size) }
   });
   const h = r.getHeaders(), loc = h.Location || h.location;

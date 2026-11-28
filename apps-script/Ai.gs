@@ -476,6 +476,36 @@ function aiFields_(p) {
   return { tpl: j.tpl || 'custom', title: String(j.title || ''), fields: (j.fields || []).filter(f => f && f.k && f.v).slice(0, 30), photo: photo };
 }
 
+/** 📅 อ่านกำหนดการ (รูป/PDF หรือข้อความ) → ช่วงเวลา หัวข้อ วิทยากร · ใช้ทำส่วนในบันทึกอบรม/ประชุม (อ่านอย่างเดียว ไม่บันทึกอะไร) */
+function aiAgenda_(p) {
+  const S = (type, extra) => Object.assign({ type: type }, extra || {});
+  let bytes = null, mime = '';
+  const text = String(p.text || '').trim().slice(0, 15000);
+  if (p.data) {
+    mime = String(p.mime || 'image/jpeg');
+    if (!/^(image\/|application\/pdf)/.test(mime)) throw new Error('รองรับเฉพาะรูปและ PDF');
+    bytes = Utilities.base64Decode(String(p.data));
+    if (bytes.length > 15 * 1024 * 1024) throw new Error('ไฟล์ใหญ่เกิน 15MB');
+  } else if (!text) throw new Error('ยังไม่มีกำหนดการ');
+  const j = aiJson_(bytes, mime, [
+    bytes ? 'รูป/เอกสารนี้คือกำหนดการ (agenda) ของการอบรม/สัมมนา/ประชุม' : 'ข้อความนี้คือกำหนดการ (agenda) ของการอบรม/สัมมนา/ประชุม:\n"""\n' + text + '\n"""',
+    'แยกเป็นรายการตามลำดับเวลา แต่ละรายการ:',
+    '- start / end = เวลาเริ่ม/จบแบบ 24 ชม. "HH:MM" (เช่น 9.00 น. → "09:00", 1 PM → "13:00") ถ้าไม่มีเวลาให้ ""',
+    '- day = วันที่แบบ YYYY-MM-DD ถ้ากำหนดการระบุวัน (หลายวัน) ถ้าไม่ระบุให้ "" · ปี พ.ศ. ให้ลบ 543',
+    '- title = หัวข้อช่วงนั้น สั้น กระชับ คงภาษาเดิม · who = วิทยากร/ผู้บรรยาย ถ้ามี ไม่มีให้ ""',
+    '- รวมช่วงพัก/อาหาร/ลงทะเบียนไว้ด้วย ใส่ brk = true',
+    'title_all = ชื่อการอบรม/งาน ถ้ามี · place = สถานที่ ถ้ามี · ห้ามเดาข้อมูลที่ไม่มี ตอบเป็น JSON',
+  ].join('\n'), S('OBJECT', { properties: { title_all: S('STRING'), place: S('STRING'),
+    items: S('ARRAY', { items: S('OBJECT', { properties: { day: S('STRING'), start: S('STRING'), end: S('STRING'), title: S('STRING'), who: S('STRING'), brk: S('BOOLEAN') }, required: ['title'] }) }) }, required: ['items'] }));
+  const hm = t => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : ''; };
+  const items = (j.items || []).filter(x => x && x.title).slice(0, 40).map(x => ({
+    day: /^\d{4}-\d{2}-\d{2}$/.test(x.day || '') ? x.day : '', at: hm(x.start), end: hm(x.end),
+    title: String(x.title).trim().slice(0, 120), who: String(x.who || '').trim().slice(0, 80), brk: !!x.brk }));
+  let photo = null;
+  if (p.keep && bytes) { try { photo = inboxPhoto_({ data: p.data, mime: mime, thumb: p.thumb, name: 'กำหนดการ ' + (j.title_all || '') }); } catch (e) {} }
+  return { title: String(j.title_all || '').trim(), place: String(j.place || '').trim(), items: items, photo: photo };
+}
+
 /* ===================== 📇 การ์ดจากข้อความ/รูปใน LINE · ✨ สรุปบันทึกประชุม ===================== */
 
 const CARD_TPL_FIELDS = {
