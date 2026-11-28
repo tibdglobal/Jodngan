@@ -19,7 +19,8 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/i;
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 const KINDS_DROP = [['', 'ทั้งหมด'], ['due', '⏰ ถึงวันดู'], ['stale', '🕸 ค้างนาน'], ['link', '🔗 ลิงก์'], ['note', '📝 โน้ต'], ['image', '🖼 รูป']];
-const KINDS_BOOK = [['', 'ทั้งหมด'], ['pin', '📌 ปักไว้'], ['due', '⏰ ถึงวันดู'], ['note', '📝 โน้ต'], ['meet', '📋 ประชุม/ดูงาน'], ['card', '📇 ข้อมูล'], ['image', '🖼 รูป'], ['link', '🔗 ลิงก์']];
+const KINDS_BOOK = [['', 'ทั้งหมด'], ['pin', '📌 ปักไว้'], ['due', '⏰ ถึงวันดู'], ['note', '📝 โน้ต'], ['m:meet', '🤝 ประชุม'], ['m:visit', '🏭 ดูงาน'], ['m:talk', '🎤 คุยลูกค้า'], ['m:train', '🎓 อบรม'], ['card', '📇 ข้อมูล'], ['image', '🖼 รูป'], ['link', '🔗 ลิงก์']];
+const mKey = o => 'm:' + ((o.data && o.data.type) || 'meet');   // แยกบันทึกตามแบบ
 const mode = document.body.classList.contains('notes') ? 'book' : 'drop';   // inbox.html = 📥 ฝาก · notes.html = 📒 บันทึก (ใช้ข้อมูลชุดเดียวกัน)
 const isBook = o => o.kind === 'meet' || o.kind === 'card' || o.book === '1';
 const STALE_DAYS = 14;
@@ -199,7 +200,7 @@ function render() {
   const nDrop = items.filter(o => !isBook(o)).length, nBook = items.length - nDrop;
   document.body.classList.toggle('mode-book', mode === 'book');
   const stale = inMode.filter(o => ageDays(o) >= STALE_DAYS).length;
-  $('#iSub').textContent = mode === 'book' ? (nBook ? `${nBook} รายการ · 📋 กดเพื่อบันทึกประชุม/การ์ด` : 'โน้ตที่เก็บไว้ · บันทึกประชุม · การ์ดข้อมูล')
+  $('#iSub').textContent = mode === 'book' ? (nBook ? `${nBook} รายการ · 📋 ประชุม · ดูงาน · คุยลูกค้า · อบรม · การ์ด` : 'โน้ต · บันทึกประชุม/ดูงาน/คุยลูกค้า/อบรม · การ์ดข้อมูล')
     : nDrop ? `รอจัดการ ${nDrop} รายการ` + (stale ? ` · ค้างเกิน ${STALE_DAYS} วัน ${stale}` : '') : 'ว่างแล้ว 🎉 ของใหม่จาก LINE จะเข้ามาที่นี่';
   iIn.placeholder = mode === 'book' ? 'จดบันทึก…' : 'จดโน้ต / ลิงก์';
 
@@ -207,7 +208,7 @@ function render() {
   const pool = qq ? items : inMode;   // ค้นหา = หาทั้งฝากและบันทึก
   const KS = mode === 'book' && !qq ? KINDS_BOOK : KINDS_DROP;
   const counts = { '': pool.length, due: pool.filter(isDue).length, pin: pool.filter(isPin).length, stale: pool.filter(o => ageDays(o) >= STALE_DAYS).length };
-  pool.forEach(o => { counts[o.kind] = (counts[o.kind] || 0) + 1; });
+  pool.forEach(o => { counts[o.kind] = (counts[o.kind] || 0) + 1; if (o.kind === 'meet') counts[mKey(o)] = (counts[mKey(o)] || 0) + 1; });
   if (filter && (!KS.some(([k]) => k === filter) || !counts[filter])) filter = '';
   // #แท็กที่ใช้บ่อย (สูงสุด 10) เป็นชิปกรองต่อท้ายประเภท
   const tc = {};
@@ -221,7 +222,7 @@ function render() {
     + (tops.length ? (kindChips.length > 1 ? '<span class="chip-sep" aria-hidden="true"></span>' : '') + tops.map(t =>
       `<button class="chip tag${tagF === t ? ' on' : ''}" data-tag="${esc(t)}">#${esc(t)}<span class="n">${tc[t]}</span></button>`).join('') : '');
   $('#iFilters').hidden = !$('#iFilters').innerHTML;
-  const kindOk = o => !filter || (filter === 'due' ? isDue(o) : filter === 'pin' ? isPin(o) : filter === 'stale' ? ageDays(o) >= STALE_DAYS : o.kind === filter);
+  const kindOk = o => !filter || (filter === 'due' ? isDue(o) : filter === 'pin' ? isPin(o) : filter === 'stale' ? ageDays(o) >= STALE_DAYS : filter.startsWith('m:') ? o.kind === 'meet' && mKey(o) === filter : o.kind === filter);
   const recent = o => String(mode === 'book' ? (o.updated || o.created) : o.created);
   const list = pool.filter(o => kindOk(o) && (!tagF || tagsOf(o).includes(tagF)) && (!qq || [o.text, o.title, o.url, o.tags, o.ocr].join(' ').toLowerCase().includes(qq)))
     .sort((a, b) => (mode === 'book' ? (+isPin(b) - +isPin(a)) : 0) || (+!!isDue(b) - +!!isDue(a)) || recent(b).localeCompare(recent(a)));   // บันทึก: ปัก → ถึงวันดู → แก้ล่าสุด · ฝาก: ถึงวันดู → ใหม่สุด

@@ -2373,3 +2373,6 @@ body.inbox.mode-book #btnPic { display: none; }
 .in-card footer { flex-wrap: wrap; row-gap: 6px; }
 .in-card { min-width: 0; overflow-wrap: anywhere; }
 .tabbar a[href="notes.html"] { --c: var(--ink-inbox); }
+
+/* v114 บันทึก 4 แบบ: ประชุม ดูงาน คุยลูกค้า อบรม */
+.n-grid.n-grid4 { grid-template-columns: repeat(4, 1fr); }

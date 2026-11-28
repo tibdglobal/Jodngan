@@ -9,7 +9,19 @@ const TPL = {
   asset:   { ic: '🚗', name: 'ทรัพย์สิน/อุปกรณ์', ph: 'ชื่อ เช่น รถ / โน้ตบุ๊ก', fields: ['รุ่น', 'เลขเครื่อง/ทะเบียน', 'วันซื้อ', 'ประกันหมด'] },
   custom:  { ic: '✏️', name: 'กำหนดเอง', ph: 'ชื่อการ์ด', fields: [] },
 };
-const MTYPE = { meet: ['🤝', 'ประชุม'], visit: ['🏭', 'ดูงาน'], talk: ['🎤', 'คุยลูกค้า'] };
+const MTYPE = { meet: ['🤝', 'ประชุม'], visit: ['🏭', 'ดูงาน'], talk: ['🎤', 'คุยลูกค้า'], train: ['🎓', 'อบรม'] };
+/* ข้อความในหน้าจดที่เปลี่ยนตามแบบบันทึก (ข้อมูลเก็บช่องเดิม: people / sections / todos / asks / decs) */
+const MCFG = {
+  meet:  { title: 'ชื่อเรื่อง เช่น ประชุมทีมขาย ประจำสัปดาห์', people: '👥 ผู้เข้าร่วม', sec: 'เช่น วาระ 1 · ฝ่ายขาย · งบประมาณ', quick: 'จดเร็ว: ประเด็นที่คุย',
+           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ส่งสรุปให้ทีม ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true },
+  visit: { title: 'ชื่อเรื่อง เช่น ดูงานโรงบด บ.เอบีซี', people: '👥 ผู้เข้าร่วม', sec: 'เช่น ชั้น 1 · เครื่องบด A · โกดัง', quick: 'จดเร็ว: บด 2 ตัน/วัน',
+           todos: '☐ งานต่อ', asks: '❓ คำถามที่ยังค้าง', decs: '✅ สิ่งที่ตกลงกัน', todoPh: '＋ งาน เช่น ขอใบเสนอราคา ศุกร์นี้', decPh: '＋ ข้อตกลง', arc: true },
+  talk:  { title: 'ชื่อลูกค้า / เรื่อง เช่น คุณสมชาย บ.เอบีซี สนใจเครื่องบด', people: '👥 ลูกค้า / ผู้ร่วมคุย', sec: 'เช่น ความต้องการ · งบ · สินค้าที่สนใจ', quick: 'จดเร็ว: ลูกค้าต้องการ…',
+           todos: '☐ ติดตามลูกค้า', asks: '❓ ลูกค้าถาม / ต้องหาคำตอบ', decs: '✅ สิ่งที่รับปาก / ตกลงกัน', todoPh: '＋ เช่น ส่งใบเสนอราคา พรุ่งนี้', decPh: '＋ เช่น ให้ทดลองใช้ 7 วัน', arc: true },
+  train: { title: 'ชื่อหลักสูตร เช่น อบรม ISO 22000 รุ่น 3', people: '🎓 วิทยากร / ผู้เข้าอบรม', sec: 'เช่น บทที่ 1 · Workshop · กรณีศึกษา', quick: 'จดเร็ว: ประเด็นที่ได้เรียนรู้',
+           todos: '🛠 นำไปใช้กับงาน', asks: '❓ ข้อสงสัย / ไว้ถามต่อ', decs: '💡 สิ่งที่ได้เรียนรู้', todoPh: '＋ เช่น ปรับแบบฟอร์มตรวจรับของ', decPh: '＋ สรุปเป็นข้อสั้นๆ', arc: false },
+};
+const mcfg = t => MCFG[t] || MCFG.meet;
 const UNIT_RE = /^(?:$|.*\/|ตัน|กก|กิโล|kg|g\b|กรัม|ลิตร|l\b|ml|มล|ซีซี|cc|ชม|ชั่วโมง|นาที|วิ|วัน|สัปดาห์|เดือน|ปี|คน|เครื่อง|ตัว|ชิ้น|ชุด|ไร่|งาน|ตร|ม\.|m\b|m2|m3|เมตร|ซม|cm|mm|มม|นิ้ว|kw|kva|w\b|วัตต์|hp|แรง|v\b|โวลต์|a\b|แอมป์|rpm|รอบ|บาท|฿|%|°|องศา|c\b|bar|psi|ถุง|กล่อง|ลัง|พาเลท|ไลน์|line|ห้อง|ชั้น|คัน|ลูก|กระสอบ|ตู้|เท่า|ล้าน|พัน|หมื่น|แสน|k\b|mb|gb|tb|ไมครอน|micron|mesh|เมช)/i;
 
 const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -135,11 +147,13 @@ function meetText(d) {
     if (s.notes) out.push(s.notes.trim());
     if ((s.photos || []).length) out.push('📷 รูป ' + s.photos.length + ' รูป');
   });
-  if ((d.audio || []).length) { const t = d.audio.reduce((s, a) => s + (a.dur || 0), 0); out.push('', '🎙 เสียงประชุม ' + d.audio.length + ' ไฟล์' + (t ? ' รวม ' + Math.round(t / 60) + ' นาที' : '')); }
+  if ((d.audio || []).length) { const t = d.audio.reduce((s, a) => s + (a.dur || 0), 0); out.push('', '🎙 เสียงบันทึก ' + d.audio.length + ' ไฟล์' + (t ? ' รวม ' + Math.round(t / 60) + ' นาที' : '')); }
   const list = (title, arr, f) => { arr = (arr || []).filter(x => (x.t || x).toString().trim()); if (arr.length) out.push('', title, ...arr.map(f)); };
-  list('☐ งานต่อ', d.todos, x => (x.done ? '✓ ' : '- ') + x.t);
-  list('❓ คำถามที่ยังค้าง', d.asks, x => '- ' + x.t);
-  list('✅ สิ่งที่ตกลงกัน', d.decs, x => '- ' + x.t);
+  const c = mcfg(d.type);
+  if (d.type === 'train') list(c.decs, d.decs, x => '- ' + x.t);   // อบรม: สิ่งที่ได้เรียนรู้ขึ้นก่อน
+  list(c.todos, d.todos, x => (x.done ? '✓ ' : '- ') + x.t);
+  list(c.asks, d.asks, x => '- ' + x.t);
+  if (d.type !== 'train') list(c.decs, d.decs, x => '- ' + x.t);
   return out.join('\n');
 }
 
@@ -172,8 +186,8 @@ document.body.insertAdjacentHTML('beforeend', `
 <dialog id="nDlg" class="sheet">
   <div class="n-wrap">
     <h2>สร้างใหม่</h2>
-    <p class="n-h">📋 บันทึกประชุม / ดูงาน</p>
-    <div class="n-grid">${Object.entries(MTYPE).map(([k, v]) => `<button data-new="meet" data-v="${k}"><span>${v[0]}</span>${v[1]}</button>`).join('')}</div>
+    <p class="n-h">📋 บันทึก ประชุม · ดูงาน · คุยลูกค้า · อบรม</p>
+    <div class="n-grid n-grid4">${Object.entries(MTYPE).map(([k, v]) => `<button data-new="meet" data-v="${k}"><span>${v[0]}</span>${v[1]}</button>`).join('')}</div>
     <p class="n-h">📇 การ์ดข้อมูล</p>
     <div class="n-grid">${Object.entries(TPL).map(([k, v]) => `<button data-new="card" data-v="${k}"><span>${v.ic}</span>${v.name}</button>`).join('')}</div>
     <button class="n-ai" data-new="ai">📷 ถ่ายนามบัตร / ป้ายร้าน ให้ AI กรอกให้</button>
@@ -223,13 +237,13 @@ document.body.insertAdjacentHTML('beforeend', `
         <div class="m-place"><input id="mPlace" placeholder="สถานที่"><button type="button" id="mGeo" class="mini" title="ใช้ตำแหน่งตอนนี้">📍</button></div>
       </div>
       <section class="m-box">
-        <h3>👥 ผู้เข้าร่วม</h3>
+        <h3 id="mPplH">👥 ผู้เข้าร่วม</h3>
         <div id="mPeople" class="m-chips"></div>
         <input id="mPerson" placeholder="พิมพ์ชื่อ แล้วกด Enter (คั่นหลายคนด้วย ,)" enterkeyhint="done">
         <div id="mSug" class="m-sug"></div>
       </section>
       <div id="mSecs"></div>
-      <button type="button" id="mAddSec" class="m-add">＋ เพิ่มส่วน <small>เช่น ชั้น 1 · เครื่องบด A · โกดัง</small></button>
+      <button type="button" id="mAddSec" class="m-add">＋ เพิ่มส่วน <small id="mSecHint">เช่น ชั้น 1 · เครื่องบด A · โกดัง</small></button>
       <section class="m-box" data-list="todos"><h3>☐ งานต่อ</h3><div class="m-list"></div><input class="m-new" data-list="todos" placeholder="＋ งาน เช่น ขอใบเสนอราคา ศุกร์นี้" enterkeyhint="done"></section>
       <section class="m-box" data-list="asks"><h3>❓ คำถามที่ยังค้าง</h3><div class="m-list"></div><input class="m-new" data-list="asks" placeholder="＋ คำถาม" enterkeyhint="done"></section>
       <section class="m-box" data-list="decs"><h3>✅ สิ่งที่ตกลงกัน</h3><div class="m-list"></div><input class="m-new" data-list="decs" placeholder="＋ ข้อตกลง" enterkeyhint="done"></section>
@@ -242,7 +256,7 @@ document.body.insertAdjacentHTML('beforeend', `
           <button type="button" class="mini" id="mSumCopy" hidden>📋 คัดลอกสรุป</button>
         </div>
       </section>
-      <section class="m-box m-arc">
+      <section class="m-box m-arc" id="mArcBox">
         <h3>🏢 ส่งเข้าคลังรายงาน TIBD</h3>
         <p class="hint" id="mArcHint">AI เรียบเรียงบันทึกเป็นรายงานตามแบบฟอร์มบริษัท (วาระ · ประเด็น · มติ · สิ่งที่ต้องทำ) แล้ววางไว้ที่ "1 รอยืนยัน" ของคลัง ให้ตรวจจุดสีเหลืองและกดยืนยันในเมนู ยืนยันรายงาน</p>
         <div id="mArcPrev" class="arc-prev"></div>
@@ -261,7 +275,7 @@ document.body.insertAdjacentHTML('beforeend', `
       <input id="mIn" placeholder="จดเร็ว: บด 2 ตัน/วัน" enterkeyhint="send" aria-label="จดเร็ว">
       <button type="submit" class="add-btn" aria-label="จด">↵</button>
     </form>
-    <p class="m-help" id="mHelp"><b id="mTo"></b> · <code># ชื่อ</code> ส่วนใหม่ · <code>☐</code> งาน · <code>?</code> คำถาม · <code>!</code> ตกลง · <code>@ชื่อ</code> คนเข้าประชุม</p>
+    <p class="m-help" id="mHelp"><b id="mTo"></b> · <code># ชื่อ</code> ส่วนใหม่ · <code>☐</code> <span id="mHelpT">งาน</span> · <code>?</code> คำถาม · <code>!</code> <span id="mHelpD">ตกลง</span> · <code>@ชื่อ</code> <span id="mHelpP">คนเข้าประชุม</span></p>
   </div>
 </dialog>`);
 
@@ -447,8 +461,28 @@ function openMeet(o, type) {
   if (!o) setTimeout(() => $('#mTitle').focus(), 60);
 }
 function mState(t) { $('#mState').textContent = t; }
+/** เปลี่ยนหัวข้อ/ตัวอย่างในหน้าจดตามแบบบันทึก (ประชุม ดูงาน คุยลูกค้า อบรม) */
+function mApplyType() {
+  const c = mcfg(m.type);
+  $('#mTitle').placeholder = c.title;
+  $('#mPplH').textContent = c.people;
+  $('#mSecHint').textContent = c.sec;
+  $('#mIn').placeholder = c.quick;
+  ['todos', 'asks', 'decs'].forEach(k => { const box = $(`#mBody .m-box[data-list="${k}"]`); if (box) box.querySelector('h3').textContent = c[k]; });
+  $('#mBody .m-new[data-list="todos"]').placeholder = c.todoPh;
+  $('#mBody .m-new[data-list="decs"]').placeholder = c.decPh;
+  // อบรม: เอา "สิ่งที่ได้เรียนรู้" ขึ้นก่อน "นำไปใช้" · แบบอื่นเรียง งานต่อ → คำถาม → ตกลง
+  const decs = $('#mBody .m-box[data-list="decs"]'), todos = $('#mBody .m-box[data-list="todos"]');
+  if (m.type === 'train') todos.before(decs); else $('#mBody .m-box[data-list="asks"]').after(decs);
+  $('#mArcBox').hidden = !c.arc;
+  // คำอธิบายจดเร็ว (# ส่วน · ☐ · ? · ! · @) ให้ตรงกับหัวข้อของแบบนี้
+  $('#mHelpT').textContent = c.todos.replace(/^\S+\s/, '');
+  $('#mHelpD').textContent = c.decs.replace(/^\S+\s/, '');
+  $('#mHelpP').textContent = m.type === 'train' ? 'วิทยากร/ผู้อบรม' : m.type === 'talk' ? 'ลูกค้า' : 'คนเข้าประชุม';   // อบรมไม่ใช่รายงานการประชุม ไม่ส่งเข้าคลัง TIBD
+}
 function mRenderAll() {
   $('#mType').querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === m.type));
+  mApplyType();
   mRenderCal(); mRenderPeople(); mRenderSecs(); ['todos', 'asks', 'decs'].forEach(mRenderList); mRenderTo();
 }
 function mRenderTo() {
@@ -503,7 +537,7 @@ function newSec(name) { m.sections.push({ name: name || '', rows: [], notes: '',
 function secHtml(s, i) {
   return `<section class="m-sec${i === mCur ? ' on' : ''}" data-i="${i}">
     <div class="m-sec-h"><span class="m-dot" aria-hidden="true"></span>
-      <input class="m-sec-name" data-f="name" value="${esc(s.name)}" placeholder="ชื่อส่วน เช่น ชั้น 1">
+      <input class="m-sec-name" data-f="name" value="${esc(s.name)}" placeholder="ชื่อส่วน ${esc(mcfg(m.type).sec.split(' · ')[0])}">
       <button type="button" class="mini ghost" data-sact="del" aria-label="ลบส่วนนี้">✕</button></div>
     <div class="m-rows">${(s.rows || []).map((r, j) => `<div class="m-row" data-r="${j}">
         <input data-f="k" value="${esc(r.k)}" placeholder="หัวข้อ"><input data-f="v" value="${esc(r.v)}" placeholder="ค่า" inputmode="text"><input data-f="u" value="${esc(r.u)}" placeholder="หน่วย">
